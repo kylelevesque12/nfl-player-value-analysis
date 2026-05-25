@@ -18,7 +18,11 @@ data/processed/
 
 # Outputs that can be regenerated
 outputs/figures/
-outputs/tables/
+outputs/tables/*
+!outputs/tables/.gitkeep
+!outputs/tables/2026_player_value_predictions.xlsx
+!outputs/tables/2026_player_value_predictions.csv
+!outputs/tables/2026_availability_validation_metrics.csv
 
 # System files
 .DS_Store
