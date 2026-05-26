@@ -6,6 +6,7 @@ This report turns the modeling pipeline into a recruiter-facing analytics artifa
 
 - [2026 Player Value Predictions Excel report](../outputs/tables/2026_player_value_predictions.xlsx)
 - [2026 Player Value Predictions CSV](../outputs/tables/2026_player_value_predictions.csv)
+- [Value-model validation by position CSV](../outputs/tables/2026_value_validation_by_position.csv)
 - [Availability validation metrics CSV](../outputs/tables/2026_availability_validation_metrics.csv)
 
 ## What The Report Includes
@@ -16,20 +17,21 @@ This report turns the modeling pipeline into a recruiter-facing analytics artifa
 - `availability_risk_level`: Low, Medium, or High availability risk
 - `confidence_level`: practical confidence label based on uncertainty and sample size
 - `prediction_driver`: short explanation of the main signals behind the projection
+- value-model validation by position: rolling-validation error for QBs, RBs, WRs, and TEs
 
 ## Model Design
 
 The report uses two modeling layers:
 
-1. A Random Forest regression model predicts next-season value score.
+1. An enhanced-history Random Forest regression model predicts next-season value score.
 2. A Random Forest classification model estimates next-season qualifying availability.
 
-The feature set includes 2025 production, age, experience, draft information, EPA-based value, and multi-year history features such as prior value, rolling value averages, trend, and recent games played.
+The feature set includes 2025 production, age, experience, draft information, EPA-based value, and multi-year history features such as prior value, rolling value averages, trend, and recent games played. The model is tuned directly on the enhanced-history feature set using rolling, time-aware validation.
 
 ## Validation Snapshot
 
 - 501 player projections
-- value model rolling-validation RMSE: about 0.93
+- value model rolling-validation RMSE: about 0.92
 - availability model rolling-validation mean ROC AUC: about 0.78
 
 ## How To Interpret It

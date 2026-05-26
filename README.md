@@ -14,6 +14,7 @@ The project includes a recruiter-facing Excel report built from the predictive m
 
 - [Download the 2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx)
 - [View the player prediction CSV](outputs/tables/2026_player_value_predictions.csv)
+- [View value-model validation by position](outputs/tables/2026_value_validation_by_position.csv)
 - [Read the report summary](report/2026_prediction_report_summary.md)
 
 The report includes:
@@ -24,6 +25,7 @@ The report includes:
 - confidence level
 - availability risk level
 - plain-English prediction drivers
+- value-model validation by position
 - team and position summaries
 
 ## Method Summary
@@ -39,8 +41,10 @@ The report includes:
 
 The 2026 report uses two modeling layers:
 
-- a value model that predicts next-season position-adjusted value score
+- an enhanced-history value model that predicts next-season position-adjusted value score
 - an availability model that estimates whether a player will have a qualifying next-season row
+
+The value model uses current-season production plus multi-year history features such as prior value, rolling value averages, trend, and recent games played. The report also includes rolling-validation error by position so pooled-model performance can be checked for QBs, RBs, WRs, and TEs.
 
 This helps avoid hiding survivorship risk inside the value prediction. The report should be interpreted as a screening tool for deeper football analysis, not as a guarantee of future player performance.
 

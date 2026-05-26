@@ -1,9 +1,9 @@
 """Utilities for creating 2026 NFL player value predictions.
 
-The report uses the tuned raw-production Random Forest approach from
-Notebook 05. It trains on historical player-season rows where the next-season
-value score is known, then applies the model to 2025 player seasons to create
-2026 projections and confidence labels.
+The report uses the enhanced-history Random Forest approach from Notebook 05.
+It trains on historical player-season rows where the next-season value score
+is known, then applies the model to 2025 player seasons to create 2026
+projections and confidence labels.
 """
 
 from __future__ import annotations
@@ -59,9 +59,9 @@ ENHANCED_FEATURES = RAW_PRODUCTION_FEATURES + HISTORY_FEATURES
 
 TUNED_RANDOM_FOREST_PARAMS = {
     "n_estimators": 300,
-    "max_depth": 5,
-    "max_features": 0.75,
-    "min_samples_leaf": 10,
+    "max_depth": None,
+    "max_features": 0.5,
+    "min_samples_leaf": 20,
     "random_state": 42,
     "n_jobs": -1,
 }
@@ -372,6 +372,26 @@ def evaluate_predictions(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, flo
     }
 
 
+def summarize_residuals_by_position(residuals_df: pd.DataFrame) -> pd.DataFrame:
+    """Summarize rolling-validation value-model error by position."""
+    if residuals_df.empty:
+        return pd.DataFrame()
+
+    return (
+        residuals_df
+        .groupby("position", as_index=False)
+        .agg(
+            validation_rows=("player_id", "count"),
+            mean_actual_next_value=("next_value_score", "mean"),
+            mean_predicted_next_value=("prediction", "mean"),
+            bias=("residual", "mean"),
+            mae=("abs_residual", "mean"),
+            rmse=("residual", lambda s: float(np.sqrt(np.mean(np.square(s))))),
+        )
+        .sort_values("position")
+    )
+
+
 def rolling_validation_residuals(
     modeling_df: pd.DataFrame,
     feature_cols: list[str],
@@ -616,9 +636,11 @@ def build_2026_prediction_tables(
     if residuals_df.empty:
         residual_rmse = training_metrics["rmse"]
         residual_mae = training_metrics["mae"]
+        value_validation_by_position = pd.DataFrame()
     else:
         residual_rmse = float(np.sqrt(np.mean(np.square(residuals_df["residual"]))))
         residual_mae = float(residuals_df["abs_residual"].mean())
+        value_validation_by_position = summarize_residuals_by_position(residuals_df)
 
     predicted = prediction_input.copy()
     predicted["predicted_2026_value_score"] = final_model.predict(predicted[feature_cols])
@@ -805,7 +827,7 @@ def build_2026_prediction_tables(
         "prediction_rows_2025": int(len(report_df)),
         "training_seasons": "2016-2024 current-season rows with known next-season outcomes",
         "prediction_input_season": 2025,
-        "value_model": "Tuned RandomForestRegressor",
+        "value_model": "Enhanced-history tuned RandomForestRegressor",
         "availability_model": "RandomForestClassifier",
         "feature_set": "raw_production_plus_multi_year_history",
         "features": feature_cols,
@@ -816,6 +838,7 @@ def build_2026_prediction_tables(
         "training_r2": float(training_metrics["r2"]),
         "rolling_validation_residual_rmse": residual_rmse,
         "rolling_validation_abs_residual_mae": residual_mae,
+        "value_rolling_validation_by_position": _json_records(value_validation_by_position),
         "availability_training_accuracy": float(availability_training_metrics["accuracy"]),
         "availability_training_roc_auc": float(availability_training_metrics["roc_auc"]),
         "availability_training_brier_score": float(availability_training_metrics["brier_score"]),
@@ -871,6 +894,7 @@ def build_2026_prediction_tables(
         "residuals": residuals_df,
         "availability_validation": availability_validation_df,
         "availability_validation_metrics": availability_validation_metrics,
+        "value_validation_by_position": value_validation_by_position,
         "output_dir": output_dir,
     }
 
@@ -882,6 +906,7 @@ def build_2026_prediction_tables(
         low_confidence.to_csv(output_dir / "2026_low_confidence_predictions.csv", index=False)
         data_dictionary.to_csv(output_dir / "2026_prediction_data_dictionary.csv", index=False)
         residuals_df.to_csv(output_dir / "2026_prediction_validation_residuals.csv", index=False)
+        value_validation_by_position.to_csv(output_dir / "2026_value_validation_by_position.csv", index=False)
         availability_validation_df.to_csv(output_dir / "2026_availability_validation_predictions.csv", index=False)
         availability_validation_metrics.to_csv(output_dir / "2026_availability_validation_metrics.csv", index=False)
         with (output_dir / "2026_prediction_model_notes.json").open("w") as f:
@@ -894,6 +919,7 @@ def build_2026_prediction_tables(
             "top_players": _json_records(top_players),
             "low_confidence": _json_records(low_confidence),
             "data_dictionary": _json_records(data_dictionary),
+            "value_validation_by_position": _json_records(value_validation_by_position),
             "availability_validation_metrics": _json_records(availability_validation_metrics),
             "model_notes": model_notes,
         }
