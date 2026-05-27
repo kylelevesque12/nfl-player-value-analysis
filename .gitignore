@@ -24,6 +24,7 @@ outputs/tables/*
 !outputs/tables/2026_player_value_predictions.csv
 !outputs/tables/2026_availability_validation_metrics.csv
 !outputs/tables/2026_value_validation_by_position.csv
+!outputs/tables/2026_prediction_interval_validation.csv
 
 # System files
 .DS_Store

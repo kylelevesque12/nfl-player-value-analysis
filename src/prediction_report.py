@@ -56,6 +56,9 @@ HISTORY_FEATURES = [
 ]
 
 ENHANCED_FEATURES = RAW_PRODUCTION_FEATURES + HISTORY_FEATURES
+MIN_VALUE_GAMES = 4
+PREDICTION_INTERVAL_MULTIPLIER = 1.28
+PREDICTION_INTERVAL_TARGET_COVERAGE = 0.80
 
 TUNED_RANDOM_FOREST_PARAMS = {
     "n_estimators": 300,
@@ -242,6 +245,35 @@ def collapse_to_player_season(value_scored: pd.DataFrame) -> pd.DataFrame:
     return player_season
 
 
+def create_player_season_value_scores(
+    player_rows: pd.DataFrame,
+    min_games: int = MIN_VALUE_GAMES,
+) -> pd.DataFrame:
+    """Create filtered player-season value scores after collapsing team stints."""
+    player_season = collapse_to_player_season(player_rows)
+    player_season = player_season[player_season["games_played"].ge(min_games)].copy()
+
+    player_season = add_group_zscore(player_season, "value_epa_total", "value_score")
+    player_season = add_group_zscore(player_season, "value_epa_per_game", "value_score_per_game")
+    player_season["value_score_total_epa"] = player_season["value_score"]
+    player_season["value_score_gap"] = player_season["value_score_per_game"] - player_season["value_score"]
+    player_season["value_metric"] = "position_adjusted_total_epa"
+    player_season["team"] = player_season["primary_team"]
+
+    player_season["position_season_rank"] = (
+        player_season
+        .groupby(["season", "position"])["value_score"]
+        .rank(ascending=False, method="min")
+    )
+    player_season["position_season_percentile"] = (
+        player_season
+        .groupby(["season", "position"])["value_score"]
+        .rank(pct=True)
+    )
+
+    return player_season
+
+
 def add_player_history_features(player_season: pd.DataFrame) -> pd.DataFrame:
     """Add lagged and rolling player-history features without future leakage."""
     player_season = player_season.sort_values(["player_id", "season"]).copy()
@@ -392,6 +424,37 @@ def summarize_residuals_by_position(residuals_df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def summarize_interval_validation(residuals_df: pd.DataFrame) -> pd.DataFrame:
+    """Summarize rolling-validation prediction interval coverage."""
+    if residuals_df.empty or "interval_contains_actual" not in residuals_df.columns:
+        return pd.DataFrame()
+
+    def summarize(grouped: pd.core.groupby.DataFrameGroupBy, segment: str) -> pd.DataFrame:
+        summary = grouped.agg(
+            validation_rows=("player_id", "count"),
+            coverage_rate=("interval_contains_actual", "mean"),
+            mean_interval_width=("prediction_interval_width", "mean"),
+            mean_uncertainty=("prediction_uncertainty", "mean"),
+            mae=("abs_residual", "mean"),
+            rmse=("residual", lambda s: float(np.sqrt(np.mean(np.square(s))))),
+        ).reset_index()
+        summary.insert(0, "segment", segment)
+        summary = summary.rename(columns={summary.columns[1]: "segment_value"})
+        return summary
+
+    overall = residuals_df.assign(overall="all")
+    summary_df = pd.concat(
+        [
+            summarize(overall.groupby("overall"), "overall"),
+            summarize(residuals_df.groupby("position"), "position"),
+        ],
+        ignore_index=True,
+    )
+    summary_df["target_coverage"] = PREDICTION_INTERVAL_TARGET_COVERAGE
+    summary_df["coverage_gap"] = summary_df["coverage_rate"] - summary_df["target_coverage"]
+    return summary_df
+
+
 def rolling_validation_residuals(
     modeling_df: pd.DataFrame,
     feature_cols: list[str],
@@ -412,7 +475,24 @@ def rolling_validation_residuals(
 
         pipeline = make_prediction_pipeline(feature_cols)
         pipeline.fit(fold_train[feature_cols], fold_train[target])
+        train_pred = pipeline.predict(fold_train[feature_cols])
+        fold_train_rmse = float(np.sqrt(mean_squared_error(fold_train[target], train_pred)))
         pred = pipeline.predict(fold_valid[feature_cols])
+
+        model = pipeline.named_steps["model"]
+        if hasattr(model, "estimators_"):
+            transformed_valid = pipeline.named_steps["preprocessor"].transform(fold_valid[feature_cols])
+            tree_predictions = np.column_stack([
+                estimator.predict(transformed_valid) for estimator in model.estimators_
+            ])
+            tree_prediction_std = tree_predictions.std(axis=1)
+        else:
+            tree_prediction_std = np.zeros(len(fold_valid))
+        prediction_uncertainty = np.sqrt(
+            np.square(fold_train_rmse) + np.square(tree_prediction_std)
+        )
+        interval_low = pred - PREDICTION_INTERVAL_MULTIPLIER * prediction_uncertainty
+        interval_high = pred + PREDICTION_INTERVAL_MULTIPLIER * prediction_uncertainty
 
         fold_records = fold_valid[[
             "season",
@@ -424,6 +504,15 @@ def rolling_validation_residuals(
         fold_records["prediction"] = pred
         fold_records["residual"] = fold_records[target] - fold_records["prediction"]
         fold_records["abs_residual"] = fold_records["residual"].abs()
+        fold_records["tree_prediction_std"] = tree_prediction_std
+        fold_records["fold_train_rmse"] = fold_train_rmse
+        fold_records["prediction_uncertainty"] = prediction_uncertainty
+        fold_records["prediction_interval_low"] = interval_low
+        fold_records["prediction_interval_high"] = interval_high
+        fold_records["prediction_interval_width"] = interval_high - interval_low
+        fold_records["interval_contains_actual"] = (
+            fold_records[target].between(interval_low, interval_high)
+        )
         fold_records["valid_year"] = valid_year
         records.append(fold_records)
 
@@ -592,10 +681,16 @@ def build_2026_prediction_tables(
     output_dir = project_root / "outputs" / "tables"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    skill_seasons_path = processed_dir / "skill_player_seasons_2016_2025.csv"
     value_scores_path = processed_dir / "player_value_scores_2016_2025.csv"
-    value_scored = pd.read_csv(value_scores_path)
+    if skill_seasons_path.exists():
+        player_rows = pd.read_csv(skill_seasons_path)
+        value_source = "skill_player_seasons_collapsed_before_filter"
+    else:
+        player_rows = pd.read_csv(value_scores_path)
+        value_source = "player_value_scores_existing_file"
 
-    player_season = collapse_to_player_season(value_scored)
+    player_season = create_player_season_value_scores(player_rows)
     player_season = add_player_history_features(player_season)
     player_season = create_next_season_targets(player_season)
 
@@ -637,10 +732,12 @@ def build_2026_prediction_tables(
         residual_rmse = training_metrics["rmse"]
         residual_mae = training_metrics["mae"]
         value_validation_by_position = pd.DataFrame()
+        interval_validation = pd.DataFrame()
     else:
         residual_rmse = float(np.sqrt(np.mean(np.square(residuals_df["residual"]))))
         residual_mae = float(residuals_df["abs_residual"].mean())
         value_validation_by_position = summarize_residuals_by_position(residuals_df)
+        interval_validation = summarize_interval_validation(residuals_df)
 
     predicted = prediction_input.copy()
     predicted["predicted_2026_value_score"] = final_model.predict(predicted[feature_cols])
@@ -662,10 +759,12 @@ def build_2026_prediction_tables(
         np.square(residual_rmse) + np.square(predicted["tree_prediction_std"])
     )
     predicted["prediction_interval_low"] = (
-        predicted["predicted_2026_value_score"] - 1.28 * predicted["prediction_uncertainty"]
+        predicted["predicted_2026_value_score"]
+        - PREDICTION_INTERVAL_MULTIPLIER * predicted["prediction_uncertainty"]
     )
     predicted["prediction_interval_high"] = (
-        predicted["predicted_2026_value_score"] + 1.28 * predicted["prediction_uncertainty"]
+        predicted["predicted_2026_value_score"]
+        + PREDICTION_INTERVAL_MULTIPLIER * predicted["prediction_uncertainty"]
     )
     predicted["availability_adjusted_2026_value"] = (
         predicted["predicted_2026_value_score"]
@@ -830,6 +929,8 @@ def build_2026_prediction_tables(
         "value_model": "Enhanced-history tuned RandomForestRegressor",
         "availability_model": "RandomForestClassifier",
         "feature_set": "raw_production_plus_multi_year_history",
+        "value_source": value_source,
+        "minimum_games_for_value_score": MIN_VALUE_GAMES,
         "features": feature_cols,
         "value_model_params": TUNED_RANDOM_FOREST_PARAMS,
         "availability_model_params": AVAILABILITY_RANDOM_FOREST_PARAMS,
@@ -839,6 +940,9 @@ def build_2026_prediction_tables(
         "rolling_validation_residual_rmse": residual_rmse,
         "rolling_validation_abs_residual_mae": residual_mae,
         "value_rolling_validation_by_position": _json_records(value_validation_by_position),
+        "prediction_interval_multiplier": PREDICTION_INTERVAL_MULTIPLIER,
+        "prediction_interval_target_coverage": PREDICTION_INTERVAL_TARGET_COVERAGE,
+        "prediction_interval_validation": _json_records(interval_validation),
         "availability_training_accuracy": float(availability_training_metrics["accuracy"]),
         "availability_training_roc_auc": float(availability_training_metrics["roc_auc"]),
         "availability_training_brier_score": float(availability_training_metrics["brier_score"]),
@@ -870,7 +974,7 @@ def build_2026_prediction_tables(
         {"column": "predicted_2026_qualifying_probability", "definition": "Estimated probability that the player has a qualifying next-season row."},
         {"column": "availability_risk_level", "definition": "Low, Medium, or High availability risk derived from qualifying probability."},
         {"column": "predicted_2026_position_percentile", "definition": "Projected percentile within the player's listed position."},
-        {"column": "prediction_interval_low/high", "definition": "Approximate interval around the prediction using model disagreement and rolling-validation error."},
+        {"column": "prediction_interval_low/high", "definition": "Approximate central 80% interval around the prediction using model disagreement and rolling-validation error; coverage is checked on rolling-validation folds."},
         {"column": "confidence_score", "definition": "0-100 practical confidence score based on model uncertainty and 2025 sample size."},
         {"column": "confidence_level", "definition": "High, Medium, or Low label derived from confidence_score."},
         {"column": "prediction_driver", "definition": "Short plain-English summary of the main signals and risks behind the projection."},
@@ -895,6 +999,7 @@ def build_2026_prediction_tables(
         "availability_validation": availability_validation_df,
         "availability_validation_metrics": availability_validation_metrics,
         "value_validation_by_position": value_validation_by_position,
+        "interval_validation": interval_validation,
         "output_dir": output_dir,
     }
 
@@ -907,6 +1012,7 @@ def build_2026_prediction_tables(
         data_dictionary.to_csv(output_dir / "2026_prediction_data_dictionary.csv", index=False)
         residuals_df.to_csv(output_dir / "2026_prediction_validation_residuals.csv", index=False)
         value_validation_by_position.to_csv(output_dir / "2026_value_validation_by_position.csv", index=False)
+        interval_validation.to_csv(output_dir / "2026_prediction_interval_validation.csv", index=False)
         availability_validation_df.to_csv(output_dir / "2026_availability_validation_predictions.csv", index=False)
         availability_validation_metrics.to_csv(output_dir / "2026_availability_validation_metrics.csv", index=False)
         with (output_dir / "2026_prediction_model_notes.json").open("w") as f:
@@ -920,6 +1026,7 @@ def build_2026_prediction_tables(
             "low_confidence": _json_records(low_confidence),
             "data_dictionary": _json_records(data_dictionary),
             "value_validation_by_position": _json_records(value_validation_by_position),
+            "interval_validation": _json_records(interval_validation),
             "availability_validation_metrics": _json_records(availability_validation_metrics),
             "model_notes": model_notes,
         }

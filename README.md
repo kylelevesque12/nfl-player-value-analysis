@@ -15,18 +15,21 @@ The project includes a recruiter-facing Excel report built from the predictive m
 - [Download the 2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx)
 - [View the player prediction CSV](outputs/tables/2026_player_value_predictions.csv)
 - [View value-model validation by position](outputs/tables/2026_value_validation_by_position.csv)
+- [View prediction interval calibration](outputs/tables/2026_prediction_interval_validation.csv)
 - [Read the report summary](report/2026_prediction_report_summary.md)
 
 The report includes:
 
 - predicted 2026 value score
 - probability of a qualifying 2026 season
-- availability-adjusted value
 - confidence level
 - availability risk level
+- approximate prediction interval
 - plain-English prediction drivers
 - value-model validation by position
 - team and position summaries
+
+The Excel workbook is organized with a clean front-facing layer first: `Dashboard`, `Player Predictions`, `Team Summary`, `Position Summary`, and `Validation Summary`. More technical columns are preserved in `Full Model Data`, `Data Dictionary`, and `Model Notes` for auditability.
 
 ## Method Summary
 
@@ -45,6 +48,10 @@ The 2026 report uses two modeling layers:
 - an availability model that estimates whether a player will have a qualifying next-season row
 
 The value model uses current-season production plus multi-year history features such as prior value, rolling value averages, trend, and recent games played. The report also includes rolling-validation error by position so pooled-model performance can be checked for QBs, RBs, WRs, and TEs.
+
+Player value scores are rebuilt from the cleaned player-season-team data by collapsing multi-team stints before applying the minimum-games filter. This keeps traded-player seasons from being split into misleading partial samples.
+
+The 2026 report includes approximate central 80% prediction intervals and checks their rolling-validation coverage. These intervals are meant to make uncertainty visible; the model is better suited for tiering and screening than exact player ranking.
 
 This helps avoid hiding survivorship risk inside the value prediction. The report should be interpreted as a screening tool for deeper football analysis, not as a guarantee of future player performance.
 
