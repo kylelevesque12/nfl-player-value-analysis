@@ -30,8 +30,8 @@ The value model uses current-season production, age, experience, draft informati
 
 - 505 player projections in the 2026 report.
 - Rolling-validation RMSE is about 0.92.
-- Rolling-validation MAE is about 0.67.
-- Approximate central 80% prediction intervals covered about 83.7% of historical rolling-validation outcomes.
+- Rolling-validation MAE is about 0.68.
+- Approximate central 80% prediction intervals covered about 83.9% of historical rolling-validation outcomes.
 - The availability model has mean rolling-validation ROC AUC of about 0.79.
 
 ## Interpretation

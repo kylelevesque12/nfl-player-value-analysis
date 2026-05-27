@@ -62,7 +62,7 @@ PREDICTION_INTERVAL_TARGET_COVERAGE = 0.80
 
 TUNED_RANDOM_FOREST_PARAMS = {
     "n_estimators": 300,
-    "max_depth": None,
+    "max_depth": 7,
     "max_features": 0.5,
     "min_samples_leaf": 20,
     "random_state": 42,

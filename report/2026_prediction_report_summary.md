@@ -44,7 +44,7 @@ The report uses two modeling layers:
 1. An enhanced-history Random Forest regression model predicts next-season value score.
 2. A Random Forest classification model estimates next-season qualifying availability.
 
-The feature set includes 2025 production, age, experience, draft information, EPA-based value, and multi-year history features such as prior value, rolling value averages, trend, and recent games played. The model is tuned directly on the enhanced-history feature set using rolling, time-aware validation.
+The feature set includes 2025 production, age, experience, draft information, EPA-based value, and multi-year history features such as prior value, rolling value averages, trend, and recent games played. The model is tuned directly on the enhanced-history feature set using rolling, time-aware validation. The final value model uses a depth-limited Random Forest because the unconstrained-depth and depth-limited versions were effectively tied, and the simpler model is easier to defend.
 
 Player value scores are rebuilt from the cleaned player-season-team data by collapsing multi-team stints before the minimum-games filter. That prevents traded players from being scored as separate partial-season samples.
 
@@ -52,8 +52,8 @@ Player value scores are rebuilt from the cleaned player-season-team data by coll
 
 - 505 player projections
 - value model rolling-validation RMSE: about 0.92
-- central 80% prediction interval rolling-validation coverage: about 84%
-- availability model rolling-validation mean ROC AUC: about 0.78
+- central 80% prediction interval rolling-validation coverage: about 83.9%
+- availability model rolling-validation mean ROC AUC: about 0.79
 
 ## How To Interpret It
 

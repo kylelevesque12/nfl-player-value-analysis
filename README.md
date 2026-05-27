@@ -44,8 +44,8 @@ The Excel workbook is organized with a clean front-facing layer first: `Dashboar
 
 - The 2026 report contains 505 player projections.
 - Rolling-validation RMSE for next-season value score is about 0.92.
-- Rolling-validation MAE is about 0.67.
-- Approximate central 80% prediction intervals covered about 83.7% of historical rolling-validation outcomes.
+- Rolling-validation MAE is about 0.68.
+- Approximate central 80% prediction intervals covered about 83.9% of historical rolling-validation outcomes.
 - Position-level validation shows similar error for QBs, WRs, and TEs, with RBs slightly harder to predict.
 - The availability model has mean rolling-validation ROC AUC of about 0.79.
 
@@ -53,11 +53,11 @@ Top projected 2026 player values in the current report:
 
 | Player | Pos | 2025 Team | Predicted 2026 Value | Approx. 80% Interval | Qualifying Probability |
 | --- | --- | --- | ---: | ---: | ---: |
-| Amon-Ra St. Brown | WR | DET | 2.35 | 1.01 to 3.69 | 94.9% |
-| George Kittle | TE | SF | 2.33 | 0.98 to 3.69 | 67.9% |
-| Josh Allen | QB | BUF | 2.10 | 0.67 to 3.52 | 92.4% |
-| Ja'Marr Chase | WR | CIN | 1.97 | 0.52 to 3.41 | 93.6% |
-| Puka Nacua | WR | LA | 1.65 | 0.25 to 3.06 | 95.7% |
+| Amon-Ra St. Brown | WR | DET | 2.35 | 1.02 to 3.67 | 94.9% |
+| George Kittle | TE | SF | 2.30 | 0.95 to 3.65 | 67.9% |
+| Josh Allen | QB | BUF | 2.07 | 0.67 to 3.48 | 92.4% |
+| Ja'Marr Chase | WR | CIN | 1.92 | 0.47 to 3.38 | 93.6% |
+| Puka Nacua | WR | LA | 1.63 | 0.20 to 3.06 | 95.7% |
 
 ## Method Summary
 
@@ -75,7 +75,7 @@ The 2026 report uses two modeling layers:
 - an enhanced-history value model that predicts next-season position-adjusted value score
 - an availability model that estimates whether a player will have a qualifying next-season row
 
-The value model uses current-season production plus multi-year history features such as prior value, rolling value averages, trend, and recent games played. The report also includes rolling-validation error by position so pooled-model performance can be checked for QBs, RBs, WRs, and TEs.
+The value model uses current-season production plus multi-year history features such as prior value, rolling value averages, trend, and recent games played. The final model uses a depth-limited Random Forest selected with a simplicity-adjusted rolling-validation rule: when models were effectively tied, the simpler depth-limited version was preferred. The report also includes rolling-validation error by position so pooled-model performance can be checked for QBs, RBs, WRs, and TEs.
 
 Player value scores are rebuilt from the cleaned player-season-team data by collapsing multi-team stints before applying the minimum-games filter. This keeps traded-player seasons from being split into misleading partial samples.
 
