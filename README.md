@@ -1,10 +1,10 @@
 # NFL Player Value Analysis
 
-End-to-end NFL analytics project measuring offensive player value with nflverse data, feature engineering, exploratory analysis, predictive modeling, and 2026 projection reporting.
+End-to-end NFL analytics project measuring offensive player value, next-season projections, and salary efficiency with nflverse data, feature engineering, exploratory analysis, predictive modeling, and contract analysis.
 
 ## Project Question
 
-How can we measure and predict NFL offensive player value in a way that is transparent, position-aware, and useful for salary-efficiency analysis later?
+How can we measure, predict, and compare NFL offensive player value in a way that is transparent, position-aware, and useful for salary-efficiency analysis?
 
 The project currently focuses on QBs, RBs, WRs, and TEs. The main value metric is EPA-based production standardized within season-position groups, so players are compared against peers at the same position in the same season.
 
@@ -16,6 +16,7 @@ For a quick review, start here:
 2. Read the `Dashboard` and `Player Predictions` tabs for the main results.
 3. Use `Validation Summary` to judge model reliability.
 4. Check [notebook 05](notebooks/05_predictive_modeling.ipynb) for model development and [notebook 06](notebooks/06_2026_prediction_report.ipynb) for report generation.
+5. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis.
 
 ## Current Deliverable: 2026 Prediction Report
 
@@ -40,6 +41,19 @@ The report includes:
 
 The Excel workbook is organized with a clean front-facing layer first: `Dashboard`, `Player Predictions`, `Team Summary`, `Position Summary`, and `Validation Summary`. More technical columns are preserved in `Full Model Data`, `Data Dictionary`, and `Model Notes` for auditability.
 
+## Salary-Efficiency Deliverable
+
+The project now includes a first-pass salary-efficiency analysis using nflverse historical contract data from OverTheCap:
+
+- [View salary-efficiency results](outputs/tables/salary_efficiency_2016_2025.csv)
+- [View salary-efficiency merge diagnostics](outputs/tables/salary_efficiency_merge_diagnostics.csv)
+- [View salary efficiency by position](outputs/tables/salary_efficiency_by_position.csv)
+- [View top salary-efficient player-seasons](outputs/tables/salary_efficiency_top_players.csv)
+- [View lowest salary-efficiency player-seasons](outputs/tables/salary_efficiency_lowest_players.csv)
+- [Read the salary-efficiency summary](report/salary_efficiency_summary.md)
+
+This stage uses `inflated_apy` as an approximate annual contract-cost metric. It is not the same as exact season-level cap hit or cash paid, so the analysis is framed as contract efficiency rather than precise cap accounting.
+
 ## Key Results
 
 - The 2026 report contains 505 player projections.
@@ -48,6 +62,8 @@ The Excel workbook is organized with a clean front-facing layer first: `Dashboar
 - Approximate central 80% prediction intervals covered about 83.9% of historical rolling-validation outcomes.
 - Position-level validation shows similar error for QBs, WRs, and TEs, with RBs slightly harder to predict.
 - The availability model has mean rolling-validation ROC AUC of about 0.79.
+- The salary-efficiency merge matched 4,569 of 4,753 value-score rows, a 96.1% match rate.
+- The first salary-efficiency model identifies value above expected salary after accounting for salary, position, age, experience, draft slot, and games played.
 
 Top projected 2026 player values in the current report:
 
@@ -67,6 +83,7 @@ Top projected 2026 player values in the current report:
 4. Explore value by position, age, experience, and production profile.
 5. Train models to predict next-season value.
 6. Generate a 2026 Excel prediction report using 2025 player-season inputs.
+7. Merge historical contract data and estimate salary efficiency.
 
 ## Modeling Notes
 
@@ -87,8 +104,8 @@ This helps avoid hiding survivorship risk inside the value prediction. The repor
 
 EPA-based value captures production, not pure individual talent. It does not fully isolate scheme, offensive line quality, teammate effects, injuries, depth-chart changes, coaching changes, or future roster movement. Tight ends are especially affected because blocking value is not fully represented in the current data.
 
-Raw and processed data files are intentionally excluded from GitHub.
+Raw and processed data files are intentionally excluded from GitHub. The salary-efficiency outputs are committed, but the raw contract file is local and can be regenerated from the nflverse historical contracts release.
 
 ## Next Phase
 
-The next major phase is salary-efficiency analysis. The planned approach is to merge salary or cap-hit data onto the value-score dataset, then compare actual player value to salary-adjusted expected value. A strong version will estimate value above expected salary using a model such as `value_score ~ salary + position + age + experience`.
+The next improvement is to replace approximate contract APY with true season-level cap hit or cash paid. That would make the salary-efficiency results more precise and would allow a stronger team-level cap allocation analysis.
