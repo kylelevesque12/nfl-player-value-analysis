@@ -18,6 +18,30 @@ For a quick review, start here:
 4. Check [notebook 05](notebooks/05_predictive_modeling.ipynb) for model development and [notebook 06](notebooks/06_2026_prediction_report.ipynb) for report generation.
 5. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis.
 
+## Reproducing The Pipeline
+
+The notebooks are still the narrative version of the project, but the main outputs can now be rebuilt from one command after the local raw data files exist:
+
+```bash
+pip install -r requirements.txt
+python scripts/run_pipeline.py
+```
+
+This runs the core project steps in order:
+
+1. clean raw weekly player data into player-season data
+2. rebuild player value scores
+3. rebuild 2026 prediction tables and the Excel workbook
+4. rebuild salary-efficiency tables
+
+You can also run selected steps:
+
+```bash
+python scripts/run_pipeline.py --steps value,predictions
+```
+
+Raw files under `data/raw/` and processed files under `data/processed/` are still ignored by Git. The command assumes those local raw files have already been created by Notebook 01 or downloaded separately.
+
 ## Current Deliverable: 2026 Prediction Report
 
 The project includes a recruiter-facing Excel report built from the predictive modeling pipeline:

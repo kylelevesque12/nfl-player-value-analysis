@@ -1,0 +1,63 @@
+"""Command-line runner for the NFL player value pipeline."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+
+def _find_project_root() -> Path:
+    script_path = Path(__file__).resolve()
+    return script_path.parents[1]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Rebuild reproducible project outputs from local data files.",
+    )
+    parser.add_argument(
+        "--steps",
+        default="clean,value,predictions,salary",
+        help=(
+            "Comma-separated pipeline steps to run. "
+            "Options: clean,value,predictions,salary"
+        ),
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    project_root = _find_project_root()
+    sys.path.insert(0, str(project_root))
+
+    from src.pipeline import PIPELINE_STEPS, run_pipeline
+
+    args = parse_args()
+    steps = [step.strip() for step in args.steps.split(",") if step.strip()]
+    unknown_steps = sorted(set(steps) - set(PIPELINE_STEPS))
+    if unknown_steps:
+        print("Unknown pipeline steps: " + ", ".join(unknown_steps), file=sys.stderr)
+        return 2
+
+    print("Project root:", project_root)
+    print("Running steps:", ", ".join(steps))
+    results = run_pipeline(steps=steps, project_root=project_root)
+
+    if "clean" in results:
+        print("Cleaned player seasons:", results["clean"].shape)
+    if "value" in results:
+        print("Value scores:", results["value"].shape)
+    if "predictions" in results:
+        player_predictions = results["predictions"]["player_predictions"]
+        print("2026 predictions:", player_predictions.shape)
+    if "salary" in results:
+        salary_efficiency = results["salary"]["salary_efficiency"]
+        print("Salary-efficiency rows:", salary_efficiency.shape)
+
+    print("Pipeline complete.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

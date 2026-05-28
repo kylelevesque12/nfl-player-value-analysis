@@ -20,6 +20,14 @@ The primary deliverables are the 2026 Player Value Prediction Report and the fir
 
 The workbook has a simplified front-facing layer for decision makers and separate audit tabs for technical review.
 
+## Reproducibility
+
+The main project outputs can be rebuilt with:
+
+`python scripts/run_pipeline.py`
+
+This command rebuilds the cleaned player-season data, value scores, 2026 prediction outputs, Excel workbook, and salary-efficiency tables from the local raw data files.
+
 ## Modeling Approach
 
 The prediction report uses two models:

@@ -59,6 +59,7 @@ ENHANCED_FEATURES = RAW_PRODUCTION_FEATURES + HISTORY_FEATURES
 MIN_VALUE_GAMES = 4
 PREDICTION_INTERVAL_MULTIPLIER = 1.28
 PREDICTION_INTERVAL_TARGET_COVERAGE = 0.80
+CSV_FLOAT_FORMAT = "%.12g"
 
 TUNED_RANDOM_FOREST_PARAMS = {
     "n_estimators": 300,
@@ -669,6 +670,217 @@ def _json_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     return json.loads(df.to_json(orient="records"))
 
 
+def _clean_sheet_name(name: str) -> str:
+    """Keep worksheet names inside Excel's 31-character limit."""
+    return name[:31]
+
+
+def _write_dataframe(
+    writer: pd.ExcelWriter,
+    df: pd.DataFrame,
+    sheet_name: str,
+    startrow: int = 0,
+    index: bool = False,
+) -> None:
+    """Write a DataFrame with a safe empty-frame fallback."""
+    output_df = df.copy()
+    if output_df.empty:
+        output_df = pd.DataFrame({"note": ["No rows available."]})
+    output_df.to_excel(
+        writer,
+        sheet_name=_clean_sheet_name(sheet_name),
+        startrow=startrow,
+        index=index,
+    )
+
+
+def write_prediction_excel_report(
+    outputs: dict[str, Any],
+    output_path: str | Path,
+) -> Path:
+    """Write the recruiter-facing 2026 prediction Excel workbook.
+
+    The workbook is intentionally generated from the same tables used for CSV
+    outputs so it can be rebuilt from the command-line pipeline.
+    """
+    try:
+        from openpyxl import load_workbook
+        from openpyxl.chart import BarChart, Reference
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.worksheet.table import Table, TableStyleInfo
+    except ImportError as exc:
+        raise ImportError(
+            "openpyxl is required to build the Excel report. "
+            "Install dependencies with pip install -r requirements.txt."
+        ) from exc
+
+    output_path = Path(output_path)
+    report_df = outputs["player_predictions"]
+    team_summary = outputs["team_summary"]
+    position_summary = outputs["position_summary"]
+    value_validation = outputs["value_validation_by_position"]
+    interval_validation = outputs["interval_validation"]
+    availability_metrics = outputs["availability_validation_metrics"]
+    data_dictionary = outputs["data_dictionary"]
+    model_notes = outputs["model_notes"]
+
+    model_notes_df = pd.DataFrame(
+        [
+            {
+                "setting": key,
+                "value": json.dumps(value) if isinstance(value, (dict, list)) else value,
+            }
+            for key, value in model_notes.items()
+        ]
+    )
+
+    validation_sections = []
+    if not value_validation.empty:
+        section = value_validation.copy()
+        section.insert(0, "validation_section", "value_model_by_position")
+        validation_sections.append(section)
+    if not interval_validation.empty:
+        section = interval_validation.copy()
+        section.insert(0, "validation_section", "prediction_interval_coverage")
+        validation_sections.append(section)
+    if not availability_metrics.empty:
+        section = availability_metrics.copy()
+        section.insert(0, "validation_section", "availability_model_by_fold")
+        validation_sections.append(section)
+    validation_summary = (
+        pd.concat(validation_sections, ignore_index=True, sort=False)
+        if validation_sections
+        else pd.DataFrame({"validation_section": ["No validation rows available."]})
+    )
+
+    with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+        pd.DataFrame().to_excel(writer, sheet_name="Dashboard", index=False)
+        _write_dataframe(writer, report_df, "Player Predictions")
+        _write_dataframe(writer, report_df, "Full Model Data")
+        _write_dataframe(writer, team_summary, "Team Summary")
+        _write_dataframe(writer, position_summary, "Position Summary")
+        _write_dataframe(writer, validation_summary, "Validation Summary")
+        _write_dataframe(writer, data_dictionary, "Data Dictionary")
+        _write_dataframe(writer, model_notes_df, "Model Notes")
+
+    workbook = load_workbook(output_path)
+    header_fill = PatternFill("solid", fgColor="1F4E78")
+    header_font = Font(color="FFFFFF", bold=True)
+    title_font = Font(size=16, bold=True, color="1F4E78")
+    subtitle_font = Font(size=11, italic=True, color="666666")
+
+    dashboard = workbook["Dashboard"]
+    dashboard.delete_rows(1, dashboard.max_row)
+    dashboard["A1"] = "2026 NFL Player Value Prediction Report"
+    dashboard["A1"].font = title_font
+    dashboard["A2"] = "Rebuilt from the reproducible Python pipeline."
+    dashboard["A2"].font = subtitle_font
+
+    metric_rows = [
+        ("Player projections", len(report_df)),
+        ("Average predicted value", round(report_df["predicted_2026_value_score"].mean(), 3)),
+        ("Median predicted value", round(report_df["predicted_2026_value_score"].median(), 3)),
+        ("High-confidence players", int(report_df["confidence_level"].eq("High").sum())),
+        ("Low availability-risk players", int(report_df["availability_risk_level"].eq("Low").sum())),
+    ]
+    for row_idx, (label, value) in enumerate(metric_rows, start=4):
+        dashboard.cell(row_idx, 1, label)
+        dashboard.cell(row_idx, 2, value)
+        dashboard.cell(row_idx, 1).font = Font(bold=True)
+
+    dashboard["D4"] = "Top 10 Projected Players"
+    dashboard["D4"].font = Font(bold=True, color="1F4E78")
+    top_cols = [
+        "player_display_name",
+        "position",
+        "primary_team_2025",
+        "predicted_2026_value_score",
+        "confidence_level",
+        "availability_risk_level",
+    ]
+    top_rows = report_df[top_cols].head(10)
+    for col_idx, col in enumerate(top_cols, start=4):
+        cell = dashboard.cell(5, col_idx, col)
+        cell.fill = header_fill
+        cell.font = header_font
+    for row_offset, (_, row) in enumerate(top_rows.iterrows(), start=6):
+        for col_idx, col in enumerate(top_cols, start=4):
+            dashboard.cell(row_offset, col_idx, row[col])
+
+    if not position_summary.empty:
+        dashboard["A11"] = "Average Projected Value by Position"
+        dashboard["A11"].font = Font(bold=True, color="1F4E78")
+        chart_data = position_summary[[
+            "position",
+            "avg_predicted_2026_value_score",
+        ]].copy()
+        for col_idx, col in enumerate(chart_data.columns, start=1):
+            cell = dashboard.cell(12, col_idx, col)
+            cell.fill = header_fill
+            cell.font = header_font
+        for row_offset, (_, row) in enumerate(chart_data.iterrows(), start=13):
+            dashboard.cell(row_offset, 1, row["position"])
+            dashboard.cell(row_offset, 2, row["avg_predicted_2026_value_score"])
+
+        chart = BarChart()
+        chart.title = "Avg Projected Value by Position"
+        chart.y_axis.title = "Predicted Value Score"
+        chart.x_axis.title = "Position"
+        data_ref = Reference(dashboard, min_col=2, min_row=12, max_row=12 + len(chart_data))
+        cats_ref = Reference(dashboard, min_col=1, min_row=13, max_row=12 + len(chart_data))
+        chart.add_data(data_ref, titles_from_data=True)
+        chart.set_categories(cats_ref)
+        chart.height = 7
+        chart.width = 12
+        dashboard.add_chart(chart, "A19")
+
+    for sheet in workbook.worksheets:
+        sheet.freeze_panes = "A2"
+        for row in sheet.iter_rows(min_row=1, max_row=1):
+            for cell in row:
+                if cell.value is not None:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center")
+
+        if sheet.title != "Dashboard" and sheet.max_row > 1 and sheet.max_column > 1:
+            table_ref = f"A1:{sheet.cell(sheet.max_row, sheet.max_column).coordinate}"
+            table_name = "".join(ch for ch in sheet.title if ch.isalnum())[:20] + "Table"
+            table = Table(displayName=table_name, ref=table_ref)
+            style = TableStyleInfo(
+                name="TableStyleMedium2",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=True,
+                showColumnStripes=False,
+            )
+            table.tableStyleInfo = style
+            sheet.add_table(table)
+            sheet.auto_filter.ref = table_ref
+
+        for column_cells in sheet.columns:
+            header = column_cells[0].value
+            if header is None:
+                continue
+            max_len = max(
+                len(str(cell.value)) if cell.value is not None else 0
+                for cell in column_cells[:100]
+            )
+            sheet.column_dimensions[column_cells[0].column_letter].width = min(
+                max(max_len + 2, 12),
+                34,
+            )
+
+        for row in sheet.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, float):
+                    cell.number_format = "0.000"
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+
+    workbook.save(output_path)
+    return output_path
+
+
 def build_2026_prediction_tables(
     project_root: Path | None = None,
     save_outputs: bool = True,
@@ -1004,17 +1216,61 @@ def build_2026_prediction_tables(
     }
 
     if save_outputs:
-        report_df.to_csv(output_dir / "2026_player_value_predictions.csv", index=False)
-        team_summary.to_csv(output_dir / "2026_team_summary.csv", index=False)
-        position_summary.to_csv(output_dir / "2026_position_summary.csv", index=False)
-        top_players.to_csv(output_dir / "2026_top_predicted_players.csv", index=False)
-        low_confidence.to_csv(output_dir / "2026_low_confidence_predictions.csv", index=False)
-        data_dictionary.to_csv(output_dir / "2026_prediction_data_dictionary.csv", index=False)
-        residuals_df.to_csv(output_dir / "2026_prediction_validation_residuals.csv", index=False)
-        value_validation_by_position.to_csv(output_dir / "2026_value_validation_by_position.csv", index=False)
-        interval_validation.to_csv(output_dir / "2026_prediction_interval_validation.csv", index=False)
-        availability_validation_df.to_csv(output_dir / "2026_availability_validation_predictions.csv", index=False)
-        availability_validation_metrics.to_csv(output_dir / "2026_availability_validation_metrics.csv", index=False)
+        report_df.to_csv(
+            output_dir / "2026_player_value_predictions.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        team_summary.to_csv(
+            output_dir / "2026_team_summary.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        position_summary.to_csv(
+            output_dir / "2026_position_summary.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        top_players.to_csv(
+            output_dir / "2026_top_predicted_players.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        low_confidence.to_csv(
+            output_dir / "2026_low_confidence_predictions.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        data_dictionary.to_csv(
+            output_dir / "2026_prediction_data_dictionary.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        residuals_df.to_csv(
+            output_dir / "2026_prediction_validation_residuals.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        value_validation_by_position.to_csv(
+            output_dir / "2026_value_validation_by_position.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        interval_validation.to_csv(
+            output_dir / "2026_prediction_interval_validation.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        availability_validation_df.to_csv(
+            output_dir / "2026_availability_validation_predictions.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        availability_validation_metrics.to_csv(
+            output_dir / "2026_availability_validation_metrics.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
         with (output_dir / "2026_prediction_model_notes.json").open("w") as f:
             json.dump(model_notes, f, indent=2)
 
@@ -1032,5 +1288,10 @@ def build_2026_prediction_tables(
         }
         with (output_dir / "2026_prediction_report_tables.json").open("w") as f:
             json.dump(report_payload, f, indent=2)
+
+        write_prediction_excel_report(
+            outputs,
+            output_dir / "2026_player_value_predictions.xlsx",
+        )
 
     return outputs

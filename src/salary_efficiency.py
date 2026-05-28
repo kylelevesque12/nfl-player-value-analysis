@@ -26,6 +26,7 @@ CONTRACTS_URL = (
     "https://github.com/nflverse/nflverse-data/releases/download/contracts/"
     "historical_contracts.rds"
 )
+CSV_FLOAT_FORMAT = "%.12g"
 
 
 def find_project_root(expected_file: str = "data/processed/player_value_scores_2016_2025.csv") -> Path:
@@ -440,26 +441,32 @@ def build_salary_efficiency_tables(
         salary_efficiency_export.to_csv(
             output_dir / "salary_efficiency_2016_2025.csv",
             index=False,
+            float_format=CSV_FLOAT_FORMAT,
         )
         diagnostics["overall"].to_csv(
             output_dir / "salary_efficiency_merge_diagnostics.csv",
             index=False,
+            float_format=CSV_FLOAT_FORMAT,
         )
         diagnostics["by_position"].to_csv(
             output_dir / "salary_efficiency_by_position.csv",
             index=False,
+            float_format=CSV_FLOAT_FORMAT,
         )
         diagnostics["by_season"].to_csv(
             output_dir / "salary_efficiency_by_season.csv",
             index=False,
+            float_format=CSV_FLOAT_FORMAT,
         )
         top_efficient[summary_cols].to_csv(
             output_dir / "salary_efficiency_top_players.csv",
             index=False,
+            float_format=CSV_FLOAT_FORMAT,
         )
         lowest_efficiency[summary_cols].to_csv(
             output_dir / "salary_efficiency_lowest_players.csv",
             index=False,
+            float_format=CSV_FLOAT_FORMAT,
         )
 
     return {
