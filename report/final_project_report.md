@@ -160,6 +160,14 @@ Position-level RMSE:
 
 The model is not precise enough to treat individual rankings as guarantees. That is normal for sports forecasting. The strongest use case is tiering and screening: identifying players who project well, players with wide uncertainty, and players whose future value is harder to trust.
 
+## Context Feature Impact
+
+The project now tests whether additional football context actually improves the model instead of simply adding more variables. The context-feature workflow creates usage, team-environment, and schedule-context features, then compares each group with rolling validation.
+
+The best context feature set in the current test is `baseline_plus_team_context`. It slightly improves average rolling-validation RMSE from 0.925 to 0.922 and improves Spearman rank correlation from 0.417 to 0.429. This is directionally useful, but small enough to treat as roughly neutral rather than a major breakthrough.
+
+This finding is still valuable. It shows that team context and role-share variables may add signal, while also keeping the project honest about the fact that more features do not automatically create a better model. The current production prediction report remains conservative, and the context results are documented separately in `report/context_feature_impact.md`.
+
 ## 2026 Prediction Report
 
 The project generates a recruiter-facing Excel workbook:
@@ -289,8 +297,8 @@ The strongest next improvements would be:
 
 1. Add exact season-level cap hit or cash-paid data.
 2. Compare raw EPA and standardized value score as parallel modeling targets.
-3. Add richer contextual variables such as team offensive strength, offensive line metrics, and quarterback situation.
-4. Add more formal model explainability, such as permutation importance summaries in the final report.
+3. Decide whether to promote team-context features into the production prediction model after reviewing stability by position.
+4. Add richer external context such as offensive line metrics, quarterback situation, injuries, depth-chart changes, and coaching changes.
 5. Build a Streamlit dashboard for filtering player predictions and salary-efficiency findings.
 6. Extend the salary analysis to team-level cap allocation once better salary data is available.
 

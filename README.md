@@ -36,6 +36,13 @@ This runs the core project steps in order:
 4. rebuild salary-efficiency tables
 5. rebuild salary-efficiency finding tables and report
 
+Context feature tests can also be rebuilt when you want to evaluate whether
+extra football context is actually improving the model:
+
+```bash
+python scripts/run_pipeline.py --steps context,feature_impact
+```
+
 You can also run selected steps:
 
 ```bash
@@ -66,6 +73,22 @@ The report includes:
 - team and position summaries
 
 The Excel workbook is organized with a clean front-facing layer first: `Dashboard`, `Player Predictions`, `Team Summary`, `Position Summary`, and `Validation Summary`. More technical columns are preserved in `Full Model Data`, `Data Dictionary`, and `Model Notes` for auditability.
+
+## Context Feature Impact Review
+
+The project now includes a reproducible feature-impact check for contextual
+football variables:
+
+- [Read the context feature impact report](report/context_feature_impact.md)
+- [View rolling feature-set comparison](outputs/tables/context_feature_group_summary.csv)
+- [View 2024 permutation importance](outputs/tables/context_feature_permutation_importance_2024.csv)
+- [View context feature dictionary](outputs/tables/context_feature_dictionary.csv)
+
+This stage compares the current baseline model against versions that add
+usage context, team environment context, schedule context, and all context
+features together. The point is to avoid blindly adding features: a context
+group should either improve rolling validation or make the model meaningfully
+more explainable.
 
 ## Salary-Efficiency Deliverable
 
@@ -114,7 +137,8 @@ Top projected 2026 player values in the current report:
 4. Explore value by position, age, experience, and production profile.
 5. Train models to predict next-season value.
 6. Generate a 2026 Excel prediction report using 2025 player-season inputs.
-7. Merge historical contract data and estimate salary efficiency.
+7. Test contextual football features with rolling validation and permutation importance.
+8. Merge historical contract data and estimate salary efficiency.
 
 ## Modeling Notes
 

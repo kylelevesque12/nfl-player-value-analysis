@@ -1,0 +1,34 @@
+feature_group,feature,definition
+usage_context,avg_target_share,Average weekly share of team targets for the player.
+usage_context,avg_air_yards_share,Average weekly share of team air yards for the player.
+usage_context,avg_wopr,Average weekly weighted opportunity rating for receivers.
+usage_context,avg_pacr,Average passer air conversion ratio context from player stats.
+usage_context,avg_racr,Average receiver air conversion ratio context from player stats.
+usage_context,avg_passing_cpoe,Attempts-weighted average completion percentage over expected for QBs.
+team_context,team_pass_attempts,Team regular-season pass attempts in the player's team context.
+team_context,team_carries,Team regular-season carries in the player's team context.
+team_context,team_targets,Team regular-season targets in the player's team context.
+team_context,team_offensive_plays,"Team pass attempts plus carries, used as a volume proxy."
+team_context,team_pass_rate_proxy,Team pass attempts divided by pass attempts plus carries.
+team_context,team_passing_epa_per_attempt,Team passing EPA divided by pass attempts.
+team_context,team_rushing_epa_per_carry,Team rushing EPA divided by carries.
+team_context,team_receiving_epa_per_target,Team receiving EPA divided by targets.
+team_context,team_total_offense_epa_proxy,Team passing EPA plus rushing EPA; avoids adding receiving EPA to reduce double counting.
+team_context,player_target_share_team,Player targets divided by team targets.
+team_context,player_carry_share_team,Player carries divided by team carries.
+team_context,player_scrimmage_touch_share_team,Player carries plus receptions divided by team carries plus receptions.
+team_context,player_receiving_air_yards_share_team,Player receiving air yards divided by team receiving air yards.
+team_context,player_qb_play_share_team,Player pass attempts plus carries divided by team pass attempts plus carries.
+schedule_context,avg_team_rest,Average rest days in the player's games.
+schedule_context,avg_rest_advantage,Average rest days minus opponent rest days.
+schedule_context,avg_spread_for_team,Average closing spread from the player's team perspective; negative generally means favored.
+schedule_context,avg_total_line,Average game total betting line.
+schedule_context,home_game_rate,Share of the player's games played at home.
+schedule_context,favorite_game_rate,Share of games where the player's team was favored by the spread.
+schedule_context,division_game_rate,Share of games against division opponents.
+schedule_context,dome_or_closed_game_rate,Share of games in domed or closed-roof conditions.
+schedule_context,outdoor_game_rate,Share of games listed as outdoors.
+schedule_context,grass_game_rate,Share of games on grass surfaces.
+schedule_context,turf_game_rate,Share of games on turf or artificial surfaces.
+schedule_context,avg_temp,Average listed game temperature where available.
+schedule_context,avg_wind,Average listed game wind speed where available.

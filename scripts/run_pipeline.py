@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
         default="clean,value,predictions,salary,findings",
         help=(
             "Comma-separated pipeline steps to run. "
-            "Options: clean,value,predictions,salary,findings"
+            "Options: clean,value,predictions,salary,findings,context,feature_impact"
         ),
     )
     return parser.parse_args()
@@ -57,6 +57,11 @@ def main() -> int:
     if "findings" in results:
         finding_tables = results["findings"]["tables"]
         print("Salary finding sample:", finding_tables["finding_base"].shape)
+    if "context" in results:
+        print("Context feature rows:", results["context"].shape)
+    if "feature_impact" in results:
+        summary = results["feature_impact"]["summary"]
+        print("Context feature-impact summary:", summary.shape)
 
     print("Pipeline complete.")
     return 0

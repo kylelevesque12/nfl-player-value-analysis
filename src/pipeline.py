@@ -16,9 +16,20 @@ from src.prediction_report import (
 )
 from src.salary_efficiency import build_salary_efficiency_tables
 from src.salary_findings import build_salary_finding_tables
+from src.context_features import build_contextual_player_features
+from src.feature_impact import build_context_feature_impact_outputs
 
 
-PIPELINE_STEPS = ["clean", "value", "predictions", "salary", "findings"]
+PIPELINE_STEPS = [
+    "clean",
+    "value",
+    "predictions",
+    "salary",
+    "findings",
+    "context",
+    "feature_impact",
+]
+DEFAULT_PIPELINE_STEPS = ["clean", "value", "predictions", "salary", "findings"]
 
 
 def _resolve_project_root(project_root: str | Path | None = None) -> Path:
@@ -75,6 +86,25 @@ def build_salary_findings(project_root: str | Path | None = None) -> dict[str, A
     return build_salary_finding_tables(project_root=root, save_outputs=True)
 
 
+def build_context_features(project_root: str | Path | None = None) -> pd.DataFrame:
+    """Rebuild player-season contextual football features from raw local data."""
+    root = _resolve_project_root(project_root)
+    dirs = ensure_project_dirs(root)
+
+    player_stats = load_csv("data/raw/player_stats_2016_2025.csv", root, low_memory=False)
+    schedules = load_csv("data/raw/schedules_2016_2025.csv", root, low_memory=False)
+    context_features = build_contextual_player_features(player_stats, schedules)
+    output_path = dirs["processed"] / "player_context_features_2016_2025.csv"
+    context_features.to_csv(output_path, index=False)
+    return context_features
+
+
+def build_feature_impact_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild contextual feature-impact comparison tables and report."""
+    root = _resolve_project_root(project_root)
+    return build_context_feature_impact_outputs(project_root=root, save_outputs=True)
+
+
 def run_pipeline(
     steps: list[str] | None = None,
     project_root: str | Path | None = None,
@@ -82,7 +112,7 @@ def run_pipeline(
     """Run selected reproducible pipeline steps in dependency order."""
     root = _resolve_project_root(project_root)
     if steps is None:
-        steps = PIPELINE_STEPS.copy()
+        steps = DEFAULT_PIPELINE_STEPS.copy()
 
     unknown_steps = sorted(set(steps) - set(PIPELINE_STEPS))
     if unknown_steps:
@@ -103,5 +133,9 @@ def run_pipeline(
             results[step] = build_salary_outputs(root)
         elif step == "findings":
             results[step] = build_salary_findings(root)
+        elif step == "context":
+            results[step] = build_context_features(root)
+        elif step == "feature_impact":
+            results[step] = build_feature_impact_outputs(root)
 
     return results
