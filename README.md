@@ -16,7 +16,7 @@ For a quick review, start here:
 2. Read the `Dashboard` and `Player Predictions` tabs for the main results.
 3. Use `Validation Summary` to judge model reliability.
 4. Check [notebook 05](notebooks/05_predictive_modeling.ipynb) for model development and [notebook 06](notebooks/06_2026_prediction_report.ipynb) for report generation.
-5. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis.
+5. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis and [notebook 08](notebooks/08_salary_efficiency_findings.ipynb) for salary-efficiency findings.
 
 ## Reproducing The Pipeline
 
@@ -33,6 +33,7 @@ This runs the core project steps in order:
 2. rebuild player value scores
 3. rebuild 2026 prediction tables and the Excel workbook
 4. rebuild salary-efficiency tables
+5. rebuild salary-efficiency finding tables and report
 
 You can also run selected steps:
 
@@ -75,6 +76,9 @@ The project now includes a first-pass salary-efficiency analysis using nflverse 
 - [View top salary-efficient player-seasons](outputs/tables/salary_efficiency_top_players.csv)
 - [View lowest salary-efficiency player-seasons](outputs/tables/salary_efficiency_lowest_players.csv)
 - [Read the salary-efficiency summary](report/salary_efficiency_summary.md)
+- [Read the salary-efficiency findings](report/salary_efficiency_findings.md)
+- [View top salary surplus player-seasons](outputs/tables/salary_findings_top_surplus_players.csv)
+- [View team-season salary findings](outputs/tables/salary_findings_team_season.csv)
 
 This stage uses `inflated_apy` as an approximate annual contract-cost metric. It is not the same as exact season-level cap hit or cash paid, so the analysis is framed as contract efficiency rather than precise cap accounting.
 
@@ -88,6 +92,8 @@ This stage uses `inflated_apy` as an approximate annual contract-cost metric. It
 - The availability model has mean rolling-validation ROC AUC of about 0.79.
 - The salary-efficiency merge matched 4,569 of 4,753 value-score rows, a 96.1% match rate.
 - The first salary-efficiency model identifies value above expected salary after accounting for salary, position, age, experience, draft slot, and games played.
+- The salary findings sample includes 3,531 matched player-seasons with at least 8 games played.
+- The top team-season by total salary-efficiency surplus is 2018 Kansas City.
 
 Top projected 2026 player values in the current report:
 

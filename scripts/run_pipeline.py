@@ -18,10 +18,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--steps",
-        default="clean,value,predictions,salary",
+        default="clean,value,predictions,salary,findings",
         help=(
             "Comma-separated pipeline steps to run. "
-            "Options: clean,value,predictions,salary"
+            "Options: clean,value,predictions,salary,findings"
         ),
     )
     return parser.parse_args()
@@ -54,6 +54,9 @@ def main() -> int:
     if "salary" in results:
         salary_efficiency = results["salary"]["salary_efficiency"]
         print("Salary-efficiency rows:", salary_efficiency.shape)
+    if "findings" in results:
+        finding_tables = results["findings"]["tables"]
+        print("Salary finding sample:", finding_tables["finding_base"].shape)
 
     print("Pipeline complete.")
     return 0

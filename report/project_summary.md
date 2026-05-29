@@ -17,6 +17,7 @@ The primary deliverables are the 2026 Player Value Prediction Report and the fir
 - Salary-efficiency results: `outputs/tables/salary_efficiency_2016_2025.csv`
 - Salary-efficiency diagnostics: `outputs/tables/salary_efficiency_merge_diagnostics.csv`
 - Salary-efficiency summary: `report/salary_efficiency_summary.md`
+- Salary-efficiency findings: `report/salary_efficiency_findings.md`
 
 The workbook has a simplified front-facing layer for decision makers and separate audit tabs for technical review.
 
@@ -26,7 +27,7 @@ The main project outputs can be rebuilt with:
 
 `python scripts/run_pipeline.py`
 
-This command rebuilds the cleaned player-season data, value scores, 2026 prediction outputs, Excel workbook, and salary-efficiency tables from the local raw data files.
+This command rebuilds the cleaned player-season data, value scores, 2026 prediction outputs, Excel workbook, salary-efficiency tables, and salary-efficiency findings from the local raw data files.
 
 ## Modeling Approach
 
@@ -47,6 +48,7 @@ The salary-efficiency analysis merges value scores with nflverse historical cont
 - Approximate central 80% prediction intervals covered about 83.9% of historical rolling-validation outcomes.
 - The availability model has mean rolling-validation ROC AUC of about 0.79.
 - Salary-efficiency merge match rate is about 96.1%.
+- Salary-efficiency findings use a filtered sample of 3,531 matched player-seasons with at least 8 games played.
 
 ## Interpretation
 

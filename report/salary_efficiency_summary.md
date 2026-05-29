@@ -30,12 +30,16 @@ Expected value is estimated with salary, position, age, experience, draft slot, 
 - `outputs/tables/salary_efficiency_by_season.csv`
 - `outputs/tables/salary_efficiency_top_players.csv`
 - `outputs/tables/salary_efficiency_lowest_players.csv`
+- `report/salary_efficiency_findings.md`
+- `outputs/tables/salary_findings_team_season.csv`
+- `outputs/tables/salary_findings_top_surplus_players.csv`
 
 ## Validation Snapshot
 
 - 4,753 value-score rows analyzed.
 - 4,569 rows matched to inferred contract data.
 - Overall contract match rate: 96.1%.
+- 3,531 matched player-seasons remain after applying the findings filter of at least 8 games played.
 
 ## Interpretation
 

@@ -15,9 +15,10 @@ from src.prediction_report import (
     create_player_season_value_scores,
 )
 from src.salary_efficiency import build_salary_efficiency_tables
+from src.salary_findings import build_salary_finding_tables
 
 
-PIPELINE_STEPS = ["clean", "value", "predictions", "salary"]
+PIPELINE_STEPS = ["clean", "value", "predictions", "salary", "findings"]
 
 
 def _resolve_project_root(project_root: str | Path | None = None) -> Path:
@@ -68,6 +69,12 @@ def build_salary_outputs(project_root: str | Path | None = None) -> dict[str, An
     return build_salary_efficiency_tables(project_root=root, save_outputs=True)
 
 
+def build_salary_findings(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild salary-efficiency finding tables and narrative report."""
+    root = _resolve_project_root(project_root)
+    return build_salary_finding_tables(project_root=root, save_outputs=True)
+
+
 def run_pipeline(
     steps: list[str] | None = None,
     project_root: str | Path | None = None,
@@ -94,5 +101,7 @@ def run_pipeline(
             results[step] = build_prediction_outputs(root)
         elif step == "salary":
             results[step] = build_salary_outputs(root)
+        elif step == "findings":
+            results[step] = build_salary_findings(root)
 
     return results

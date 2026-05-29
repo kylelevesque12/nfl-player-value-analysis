@@ -31,6 +31,15 @@ outputs/tables/*
 !outputs/tables/salary_efficiency_by_season.csv
 !outputs/tables/salary_efficiency_top_players.csv
 !outputs/tables/salary_efficiency_lowest_players.csv
+!outputs/tables/salary_findings_summary_metrics.csv
+!outputs/tables/salary_findings_top_surplus_players.csv
+!outputs/tables/salary_findings_high_cost_underperformers.csv
+!outputs/tables/salary_findings_rookie_contract_surplus.csv
+!outputs/tables/salary_findings_veteran_values.csv
+!outputs/tables/salary_findings_team_season.csv
+!outputs/tables/salary_findings_team_summary.csv
+!outputs/tables/salary_findings_position_salary_tiers.csv
+!outputs/tables/salary_findings_season_trends.csv
 
 # System files
 .DS_Store

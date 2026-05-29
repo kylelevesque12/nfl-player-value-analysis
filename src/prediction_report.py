@@ -705,9 +705,7 @@ def write_prediction_excel_report(
     """
     try:
         from openpyxl import load_workbook
-        from openpyxl.chart import BarChart, Reference
         from openpyxl.styles import Alignment, Font, PatternFill
-        from openpyxl.worksheet.table import Table, TableStyleInfo
     except ImportError as exc:
         raise ImportError(
             "openpyxl is required to build the Excel report. "
@@ -813,6 +811,8 @@ def write_prediction_excel_report(
         chart_data = position_summary[[
             "position",
             "avg_predicted_2026_value_score",
+            "players",
+            "avg_qualifying_probability",
         ]].copy()
         for col_idx, col in enumerate(chart_data.columns, start=1):
             cell = dashboard.cell(12, col_idx, col)
@@ -821,18 +821,8 @@ def write_prediction_excel_report(
         for row_offset, (_, row) in enumerate(chart_data.iterrows(), start=13):
             dashboard.cell(row_offset, 1, row["position"])
             dashboard.cell(row_offset, 2, row["avg_predicted_2026_value_score"])
-
-        chart = BarChart()
-        chart.title = "Avg Projected Value by Position"
-        chart.y_axis.title = "Predicted Value Score"
-        chart.x_axis.title = "Position"
-        data_ref = Reference(dashboard, min_col=2, min_row=12, max_row=12 + len(chart_data))
-        cats_ref = Reference(dashboard, min_col=1, min_row=13, max_row=12 + len(chart_data))
-        chart.add_data(data_ref, titles_from_data=True)
-        chart.set_categories(cats_ref)
-        chart.height = 7
-        chart.width = 12
-        dashboard.add_chart(chart, "A19")
+            dashboard.cell(row_offset, 3, row["players"])
+            dashboard.cell(row_offset, 4, row["avg_qualifying_probability"])
 
     for sheet in workbook.worksheets:
         sheet.freeze_panes = "A2"
@@ -843,20 +833,8 @@ def write_prediction_excel_report(
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal="center")
 
-        if sheet.title != "Dashboard" and sheet.max_row > 1 and sheet.max_column > 1:
-            table_ref = f"A1:{sheet.cell(sheet.max_row, sheet.max_column).coordinate}"
-            table_name = "".join(ch for ch in sheet.title if ch.isalnum())[:20] + "Table"
-            table = Table(displayName=table_name, ref=table_ref)
-            style = TableStyleInfo(
-                name="TableStyleMedium2",
-                showFirstColumn=False,
-                showLastColumn=False,
-                showRowStripes=True,
-                showColumnStripes=False,
-            )
-            table.tableStyleInfo = style
-            sheet.add_table(table)
-            sheet.auto_filter.ref = table_ref
+        if sheet.max_row > 1 and sheet.max_column > 1:
+            sheet.auto_filter.ref = f"A1:{sheet.cell(sheet.max_row, sheet.max_column).coordinate}"
 
         for column_cells in sheet.columns:
             header = column_cells[0].value

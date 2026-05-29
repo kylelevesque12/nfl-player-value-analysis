@@ -1,0 +1,7 @@
+metric,value,note
+finding_sample_rows,3531,Matched salary rows with at least 8 games played.
+seasons_covered,10,Number of seasons in the findings sample.
+median_salary_millions,2.442074,Median inflated APY in the findings sample.
+median_value_above_expected_salary,-0.0957997722755,Median residual from the salary-efficiency model.
+top_team_season,2018 KC,Highest total value above expected salary among team-seasons.
+top_team_season_surplus,14.032227405749,Total residual for that team-season.
