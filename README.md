@@ -51,6 +51,13 @@ python scripts/run_pipeline.py --steps value,predictions
 
 Raw files under `data/raw/` and processed files under `data/processed/` are still ignored by Git. The command assumes those local raw files have already been created by Notebook 01 or downloaded separately.
 
+The committed notebooks are kept output-free so GitHub can render them
+reliably. After running notebooks locally, clean them before committing:
+
+```bash
+python scripts/prepare_notebooks_for_github.py
+```
+
 ## Current Deliverable: 2026 Prediction Report
 
 The project includes a recruiter-facing Excel report built from the predictive modeling pipeline:
