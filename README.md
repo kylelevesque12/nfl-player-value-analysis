@@ -6,17 +6,18 @@ End-to-end NFL analytics project measuring offensive player value, next-season p
 
 How can we measure, predict, and compare NFL offensive player value in a way that is transparent, position-aware, and useful for salary-efficiency analysis?
 
-The project currently focuses on QBs, RBs, WRs, and TEs. The main value metric is EPA-based production standardized within season-position groups, so players are compared against peers at the same position in the same season.
+The project currently focuses on QBs, RBs, WRs, and TEs. The main value metric is position-season standardized total EPA, stored in the code as `value_score`, so players are compared against peers at the same position in the same season.
 
 ## How To Review This Project
 
 For a quick review, start here:
 
-1. Open the [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx).
-2. Read the `Dashboard` and `Player Predictions` tabs for the main results.
-3. Use `Validation Summary` to judge model reliability.
-4. Check [notebook 05](notebooks/05_predictive_modeling.ipynb) for model development and [notebook 06](notebooks/06_2026_prediction_report.ipynb) for report generation.
-5. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis and [notebook 08](notebooks/08_salary_efficiency_findings.ipynb) for salary-efficiency findings.
+1. Read the [final project report](report/final_project_report.md).
+2. Open the [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx).
+3. Read the `Dashboard` and `Player Predictions` tabs for the main results.
+4. Use `Validation Summary` to judge model reliability.
+5. Check [notebook 05](notebooks/05_predictive_modeling.ipynb) for model development and [notebook 06](notebooks/06_2026_prediction_report.ipynb) for report generation.
+6. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis and [notebook 08](notebooks/08_salary_efficiency_findings.ipynb) for salary-efficiency findings.
 
 ## Reproducing The Pipeline
 

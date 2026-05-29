@@ -4,7 +4,7 @@
 
 This project builds an end-to-end NFL analytics workflow for measuring offensive player value, forecasting next-season production, and evaluating salary efficiency. It uses nflverse player data, pandas cleaning, feature engineering, exploratory analysis, model validation, contract data, and a recruiter-facing Excel report.
 
-The current project phase focuses on QBs, RBs, WRs, and TEs. The main value metric is position-adjusted total EPA, standardized within season-position groups. Quarterbacks use passing plus rushing EPA; running backs, wide receivers, and tight ends use rushing plus receiving EPA.
+The current project phase focuses on QBs, RBs, WRs, and TEs. The main value metric is position-season standardized total EPA, stored in the code as `value_score`. Quarterbacks use passing plus rushing EPA; running backs, wide receivers, and tight ends use rushing plus receiving EPA.
 
 ## Current Deliverable
 
@@ -18,6 +18,7 @@ The primary deliverables are the 2026 Player Value Prediction Report and the fir
 - Salary-efficiency diagnostics: `outputs/tables/salary_efficiency_merge_diagnostics.csv`
 - Salary-efficiency summary: `report/salary_efficiency_summary.md`
 - Salary-efficiency findings: `report/salary_efficiency_findings.md`
+- Final project report: `report/final_project_report.md`
 
 The workbook has a simplified front-facing layer for decision makers and separate audit tabs for technical review.
 
