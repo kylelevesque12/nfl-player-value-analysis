@@ -18,6 +18,8 @@ from src.salary_efficiency import build_salary_efficiency_tables
 from src.salary_findings import build_salary_finding_tables
 from src.context_features import build_contextual_player_features
 from src.feature_impact import build_context_feature_impact_outputs
+from src.methodology_checks import build_methodology_check_outputs
+from src.model_interpretation import build_model_interpretation_outputs
 
 
 PIPELINE_STEPS = [
@@ -28,8 +30,18 @@ PIPELINE_STEPS = [
     "findings",
     "context",
     "feature_impact",
+    "checks",
+    "interpretation",
 ]
-DEFAULT_PIPELINE_STEPS = ["clean", "value", "predictions", "salary", "findings"]
+DEFAULT_PIPELINE_STEPS = [
+    "clean",
+    "value",
+    "predictions",
+    "salary",
+    "findings",
+    "checks",
+    "interpretation",
+]
 
 
 def _resolve_project_root(project_root: str | Path | None = None) -> Path:
@@ -105,6 +117,18 @@ def build_feature_impact_outputs(project_root: str | Path | None = None) -> dict
     return build_context_feature_impact_outputs(project_root=root, save_outputs=True)
 
 
+def build_check_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild methodology checks and report."""
+    root = _resolve_project_root(project_root)
+    return build_methodology_check_outputs(project_root=root, save_outputs=True)
+
+
+def build_interpretation_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild model interpretation tables and report."""
+    root = _resolve_project_root(project_root)
+    return build_model_interpretation_outputs(project_root=root, save_outputs=True)
+
+
 def run_pipeline(
     steps: list[str] | None = None,
     project_root: str | Path | None = None,
@@ -137,5 +161,9 @@ def run_pipeline(
             results[step] = build_context_features(root)
         elif step == "feature_impact":
             results[step] = build_feature_impact_outputs(root)
+        elif step == "checks":
+            results[step] = build_check_outputs(root)
+        elif step == "interpretation":
+            results[step] = build_interpretation_outputs(root)
 
     return results

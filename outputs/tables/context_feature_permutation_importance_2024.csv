@@ -19,7 +19,7 @@ draft_number,baseline_current_season,0.000626432573262,0.000268146078055
 yards_per_game_prev,baseline_history,0.000528038927509,0.000450966388938
 games_played_last3_avg,baseline_history,0.000451945336849,0.000397650333329
 value_epa_total_prev,baseline_history,0.000414441889455,0.000360946522985
-player_qb_play_share_team,team_context,0.000311974161519,0.000295066398735
+player_qb_play_share_team,team_context,0.000311974161519,0.000295066398736
 yards_per_game,baseline_current_season,0.00031160386225,0.000673965419137
 value_epa_per_game_prev,baseline_history,0.00027660393485,0.000241890831878
 team_offensive_plays,team_context,0.000270311509495,0.000688985180718
@@ -28,14 +28,14 @@ team_pass_attempts,team_context,0.000199824281912,0.00156426264227
 prior_qualifying_seasons,baseline_current_season,0.000178883380335,0.00063449785005
 grass_game_rate,schedule_context,0.000124474225719,0.000170771835979
 outdoor_game_rate,schedule_context,7.89219759337e-05,0.000353006598163
-tds_per_game_prev,baseline_history,4.74402124067e-05,0.00017456335181
+tds_per_game_prev,baseline_history,4.74402124066e-05,0.00017456335181
 games_played_last2_sum,baseline_history,4.74126521569e-05,0.000216993944901
 team_carries,team_context,4.08569190915e-05,0.000103255116676
-avg_pacr,usage_context,3.08730878358e-05,5.08587468601e-05
+avg_pacr,usage_context,3.08730878358e-05,5.08587468602e-05
 avg_passing_cpoe,usage_context,2.00854512436e-05,9.35641459249e-05
 home_game_rate,schedule_context,1.5735401035e-05,9.09677305575e-05
-games_played_prev,baseline_history,8.01482537184e-06,0.000103281056511
-dome_or_closed_game_rate,schedule_context,-2.04248601874e-05,0.000312637577356
+games_played_prev,baseline_history,8.01482537185e-06,0.000103281056511
+dome_or_closed_game_rate,schedule_context,-2.04248601875e-05,0.000312637577356
 avg_team_rest,schedule_context,-6.65654675086e-05,0.000151190265252
 team_pass_rate_proxy,team_context,-6.81172439684e-05,0.000281866971484
 division_game_rate,schedule_context,-0.000134613828818,0.000176684737557

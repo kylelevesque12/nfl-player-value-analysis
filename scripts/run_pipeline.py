@@ -18,10 +18,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--steps",
-        default="clean,value,predictions,salary,findings",
+        default="clean,value,predictions,salary,findings,checks,interpretation",
         help=(
             "Comma-separated pipeline steps to run. "
-            "Options: clean,value,predictions,salary,findings,context,feature_impact"
+            "Options: clean,value,predictions,salary,findings,context,"
+            "feature_impact,checks,interpretation"
         ),
     )
     return parser.parse_args()
@@ -62,6 +63,14 @@ def main() -> int:
     if "feature_impact" in results:
         summary = results["feature_impact"]["summary"]
         print("Context feature-impact summary:", summary.shape)
+    if "checks" in results:
+        checks = results["checks"]["checks"]
+        print("Methodology checks:", checks.shape)
+    if "interpretation" in results:
+        feature_importance = results["interpretation"]["feature_importance"]
+        position_summary = results["interpretation"]["position_model_summary"]
+        print("Model interpretation feature rows:", feature_importance.shape)
+        print("Position model summary:", position_summary.shape)
 
     print("Pipeline complete.")
     return 0

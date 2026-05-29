@@ -1,0 +1,5 @@
+feature_group,total_importance,mean_importance,feature_count
+current_season_production,0.0482505604576,0.00965011209152,5
+player_history,0.0302781510905,0.00252317925754,12
+player_profile,0.00801776119489,0.00267258706496,3
+position_indicator,0.00737569824966,0.00737569824966,1

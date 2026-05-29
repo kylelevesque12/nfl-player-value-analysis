@@ -10,14 +10,26 @@ The project currently focuses on QBs, RBs, WRs, and TEs. The main value metric i
 
 ## How To Review This Project
 
-For a quick review, start here:
+For a quick review, start with the files below. They are meant to be the
+project's front door so a reviewer does not need to guess where the important
+work lives.
+
+| Purpose | Start Here |
+| --- | --- |
+| Full project narrative | [Final project report](report/final_project_report.md) |
+| Main prediction deliverable | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
+| Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
+| Model drivers and position diagnostics | [Model interpretation](report/model_interpretation.md) |
+| Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
+| Notebook narrative if GitHub preview fails | [Markdown notebook mirrors](notebooks_markdown/01_data_collection.md) |
+
+Suggested review order:
 
 1. Read the [final project report](report/final_project_report.md).
 2. Open the [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx).
-3. Read the `Dashboard` and `Player Predictions` tabs for the main results.
-4. Use `Validation Summary` to judge model reliability.
-5. Check [notebook 05](notebooks/05_predictive_modeling.ipynb) for model development and [notebook 06](notebooks/06_2026_prediction_report.ipynb) for report generation.
-6. Check [notebook 07](notebooks/07_salary_efficiency_analysis.ipynb) for the first salary-efficiency analysis and [notebook 08](notebooks/08_salary_efficiency_findings.ipynb) for salary-efficiency findings.
+3. Check [methodology checks](report/methodology_checks.md) to see the project-quality audit.
+4. Check [model interpretation](report/model_interpretation.md) to understand what drives the model.
+5. Read [salary-efficiency findings](report/salary_efficiency_findings.md) for the contract analysis.
 
 ## Reproducing The Pipeline
 
@@ -35,12 +47,20 @@ This runs the core project steps in order:
 3. rebuild 2026 prediction tables and the Excel workbook
 4. rebuild salary-efficiency tables
 5. rebuild salary-efficiency finding tables and report
+6. rebuild methodology checks
+7. rebuild model interpretation diagnostics
 
 Context feature tests can also be rebuilt when you want to evaluate whether
 extra football context is actually improving the model:
 
 ```bash
 python scripts/run_pipeline.py --steps context,feature_impact
+```
+
+Quality-control and interpretation reports can also be rebuilt by themselves:
+
+```bash
+python scripts/run_pipeline.py --steps checks,interpretation
 ```
 
 You can also run selected steps:
@@ -116,6 +136,22 @@ features together. The point is to avoid blindly adding features: a context
 group should either improve rolling validation or make the model meaningfully
 more explainable.
 
+## Methodology And Model Interpretation
+
+The project includes two audit-style reports:
+
+- [Methodology checks](report/methodology_checks.md)
+- [Model interpretation](report/model_interpretation.md)
+
+The methodology checks verify core project assumptions: raw and processed data
+are not tracked, cleaned rows are unique at the intended level, value scores
+standardize correctly within season-position groups, prediction intervals are
+valid, and model features do not include next-season target columns.
+
+The model interpretation report summarizes permutation importance, compares
+pooled and position-specific models, and explains why the final prediction
+model is best used for tiering and screening rather than exact ranking.
+
 ## Salary-Efficiency Deliverable
 
 The project now includes a first-pass salary-efficiency analysis using nflverse historical contract data from OverTheCap:
@@ -144,6 +180,8 @@ This stage uses `inflated_apy` as an approximate annual contract-cost metric. It
 - The first salary-efficiency model identifies value above expected salary after accounting for salary, position, age, experience, draft slot, and games played.
 - The salary findings sample includes 3,531 matched player-seasons with at least 8 games played.
 - The top team-season by total salary-efficiency surplus is 2018 Kansas City.
+- The methodology audit currently has 26 passing checks and no failing checks.
+- Position-specific models were tested; small gains for RB/WR do not clearly justify replacing the pooled model.
 
 Top projected 2026 player values in the current report:
 
@@ -164,7 +202,8 @@ Top projected 2026 player values in the current report:
 5. Train models to predict next-season value.
 6. Generate a 2026 Excel prediction report using 2025 player-season inputs.
 7. Test contextual football features with rolling validation and permutation importance.
-8. Merge historical contract data and estimate salary efficiency.
+8. Audit methodology checks and model interpretation diagnostics.
+9. Merge historical contract data and estimate salary efficiency.
 
 ## Modeling Notes
 

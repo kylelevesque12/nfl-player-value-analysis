@@ -11,7 +11,6 @@ SKILL_POSITIONS = ["QB", "RB", "WR", "TE"]
 DEFAULT_GROUP_COLS = [
     "season",
     "player_id",
-    "player_name",
     "player_display_name",
     "position",
     "team",
@@ -113,6 +112,9 @@ def aggregate_weekly_to_player_season(
 
     sum_cols = _available(skill_weekly, STAT_SUM_COLUMNS)
     agg_spec = {col: "sum" for col in sum_cols}
+    for first_col in _available(skill_weekly, ["player_name"]):
+        if first_col not in group_cols:
+            agg_spec[first_col] = "first"
 
     if "week" in skill_weekly.columns:
         games_played = (

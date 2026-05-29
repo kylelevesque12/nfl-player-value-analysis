@@ -44,6 +44,11 @@ outputs/tables/*
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv
 !outputs/tables/context_feature_dictionary.csv
+!outputs/tables/methodology_checks.csv
+!outputs/tables/model_interpretation_feature_importance.csv
+!outputs/tables/model_interpretation_feature_group_importance.csv
+!outputs/tables/position_model_comparison_by_fold.csv
+!outputs/tables/position_model_comparison_summary.csv
 
 # System files
 .DS_Store

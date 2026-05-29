@@ -127,8 +127,7 @@ The final value model is an enhanced-history Random Forest regression model. It 
 - age
 - years of experience
 - draft information
-- current value score
-- current EPA
+- current EPA production
 - prior value score
 - rolling value averages
 - value trend
@@ -160,6 +159,14 @@ Position-level RMSE:
 
 The model is not precise enough to treat individual rankings as guarantees. That is normal for sports forecasting. The strongest use case is tiering and screening: identifying players who project well, players with wide uncertainty, and players whose future value is harder to trust.
 
+## Model Interpretation
+
+The model interpretation report adds a more direct explanation of what drives the prediction model. In the 2024 validation fold, the strongest permutation signal is `value_epa_total`, followed by recent multi-year value features such as `value_score_last3_avg` and `value_score_last2_avg`.
+
+This is a useful result because it matches the football intuition behind the project: recent production matters, but multi-year history helps stabilize noisy one-season outcomes.
+
+The project also compares pooled and position-specific models. Position-specific models slightly improve RMSE for RBs and WRs, but the differences are small. The pooled model remains the preferred production model because it is simpler, uses more training data, and performs similarly across positions.
+
 ## Context Feature Impact
 
 The project now tests whether additional football context actually improves the model instead of simply adding more variables. The context-feature workflow creates usage, team-environment, and schedule-context features, then compares each group with rolling validation.
@@ -167,6 +174,24 @@ The project now tests whether additional football context actually improves the 
 The best context feature set in the current test is `baseline_plus_team_context`. It slightly improves average rolling-validation RMSE from 0.925 to 0.922 and improves Spearman rank correlation from 0.417 to 0.429. This is directionally useful, but small enough to treat as roughly neutral rather than a major breakthrough.
 
 This finding is still valuable. It shows that team context and role-share variables may add signal, while also keeping the project honest about the fact that more features do not automatically create a better model. The current production prediction report remains conservative, and the context results are documented separately in `report/context_feature_impact.md`.
+
+## Methodology Checks
+
+The project now includes a methodology-check report that audits common project-quality risks. The current local run has 26 passing checks and no failing checks.
+
+The checks verify that:
+
+- raw and processed data are not tracked in Git
+- local raw and processed files exist for reproduction
+- cleaned player-season-team rows are unique after aggregation
+- value scores are standardized correctly within season-position groups
+- the final value-score data has one row per player-season
+- prediction intervals are ordered correctly
+- model features do not include next-season target columns
+- salary merge quality is reported
+- Markdown notebook mirrors exist as a GitHub-friendly fallback
+
+This does not prove the model is perfect, but it makes the pipeline easier to audit and helps catch avoidable methodology mistakes.
 
 ## 2026 Prediction Report
 
@@ -265,6 +290,8 @@ This command rebuilds:
 - the Excel workbook
 - salary-efficiency tables
 - salary-efficiency findings
+- methodology checks
+- model interpretation diagnostics
 
 The notebooks remain the narrative layer, while `src/` contains reusable project logic.
 
