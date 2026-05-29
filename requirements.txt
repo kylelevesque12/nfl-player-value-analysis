@@ -6,6 +6,8 @@ scikit-learn
 jupyter
 ipykernel
 openpyxl
+streamlit
+plotly
 
 # nflreadpy is used for raw data collection, but it requires Python 3.10+.
 nflreadpy; python_version >= "3.10"

@@ -20,6 +20,7 @@ work lives.
 | Main prediction deliverable | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Model drivers and position diagnostics | [Model interpretation](report/model_interpretation.md) |
+| Interactive dashboard | [Streamlit app source](app/streamlit_app.py) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
 | Notebook narrative if GitHub preview fails | [Markdown notebook mirrors](notebooks_markdown/01_data_collection.md) |
 
@@ -68,6 +69,30 @@ You can also run selected steps:
 ```bash
 python scripts/run_pipeline.py --steps value,predictions
 ```
+
+## Interactive Dashboard
+
+The project includes a Streamlit dashboard that reads the committed output
+tables and turns them into an interactive analytics app:
+
+```bash
+pip install -r requirements.txt
+streamlit run app/streamlit_app.py
+```
+
+Dashboard sections include:
+
+- overview metrics
+- 2026 player projections
+- player lookup
+- salary efficiency
+- model validation and feature importance
+- methodology checks
+- report index
+
+The app is presentation-only: it reads outputs from `outputs/tables/` and does
+not train models directly. Rebuild the data first with `python scripts/run_pipeline.py`
+after major project changes.
 
 Raw files under `data/raw/` and processed files under `data/processed/` are still ignored by Git. The command assumes those local raw files have already been created by Notebook 01 or downloaded separately.
 
