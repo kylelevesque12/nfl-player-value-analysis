@@ -58,6 +58,25 @@ reliably. After running notebooks locally, clean them before committing:
 python scripts/prepare_notebooks_for_github.py
 ```
 
+If GitHub's notebook preview is unavailable, use the Markdown mirrors instead:
+
+| Notebook | GitHub-Friendly View |
+| --- | --- |
+| 01 Data Collection | [Markdown](notebooks_markdown/01_data_collection.md) |
+| 02 Data Cleaning | [Markdown](notebooks_markdown/02_data_cleaning.md) |
+| 03 Value Score Engineering | [Markdown](notebooks_markdown/03_value_score_engineering.md) |
+| 04 Exploratory Analysis | [Markdown](notebooks_markdown/04_exploratory_analysis.md) |
+| 05 Predictive Modeling | [Markdown](notebooks_markdown/05_predictive_modeling.md) |
+| 06 2026 Prediction Report | [Markdown](notebooks_markdown/06_2026_prediction_report.md) |
+| 07 Salary Efficiency Analysis | [Markdown](notebooks_markdown/07_salary_efficiency_analysis.md) |
+| 08 Salary Efficiency Findings | [Markdown](notebooks_markdown/08_salary_efficiency_findings.md) |
+
+The Markdown mirrors can be regenerated with:
+
+```bash
+python scripts/export_notebooks_to_markdown.py
+```
+
 ## Current Deliverable: 2026 Prediction Report
 
 The project includes a recruiter-facing Excel report built from the predictive modeling pipeline:
