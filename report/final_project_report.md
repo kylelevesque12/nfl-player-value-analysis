@@ -290,10 +290,19 @@ This command rebuilds:
 - the Excel workbook
 - salary-efficiency tables
 - salary-efficiency findings
+- fantasy-football projection tables
+- weekly win projection backtest tables
 - methodology checks
 - model interpretation diagnostics
 
 The notebooks remain the narrative layer, while `src/` contains reusable project logic.
+
+The Streamlit app adds a presentation layer on top of those outputs. It is now
+organized into three user-facing perspectives:
+
+- Front office: player value projections, player lookup, salary efficiency, and validation.
+- Fantasy football: 2026 season-long PPR projections and fantasy-model validation.
+- Weekly win projection: rolling backtest game probabilities and validation.
 
 ## Limitations
 
@@ -326,12 +335,13 @@ The strongest next improvements would be:
 2. Compare raw EPA and standardized value score as parallel modeling targets.
 3. Decide whether to promote team-context features into the production prediction model after reviewing stability by position.
 4. Add richer external context such as offensive line metrics, quarterback situation, injuries, depth-chart changes, and coaching changes.
-5. Build a Streamlit dashboard for filtering player predictions and salary-efficiency findings.
-6. Extend the salary analysis to team-level cap allocation once better salary data is available.
+5. Add offseason fantasy context such as rookies, depth-chart changes, injuries, and projected team passing/rushing volume.
+6. Add future schedule rows to turn the weekly win projection from a historical backtest into a forward-looking weekly tool.
+7. Extend the salary analysis to team-level cap allocation once better salary data is available.
 
 ## Conclusion
 
-This project creates a full NFL player value workflow: raw data collection, cleaning, feature engineering, value scoring, modeling, prediction reporting, and salary-efficiency analysis.
+This project creates a full NFL player value workflow: raw data collection, cleaning, feature engineering, value scoring, modeling, prediction reporting, salary-efficiency analysis, and dashboard delivery.
 
 The main takeaway is that position-season standardized total EPA is a practical compromise. It preserves EPA as the underlying football production signal, but transforms it into a position-aware comparison metric. That makes it more useful for cross-position ranking, prediction, and salary-efficiency analysis than raw EPA alone.
 

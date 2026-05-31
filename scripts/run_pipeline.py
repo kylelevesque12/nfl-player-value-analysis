@@ -18,11 +18,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--steps",
-        default="clean,value,predictions,salary,findings,checks,interpretation",
+        default="clean,value,predictions,salary,findings,fantasy,weekly_wins,checks,interpretation",
         help=(
             "Comma-separated pipeline steps to run. "
             "Options: clean,value,predictions,salary,findings,context,"
-            "feature_impact,checks,interpretation"
+            "fantasy,weekly_wins,feature_impact,checks,interpretation"
         ),
     )
     return parser.parse_args()
@@ -58,6 +58,12 @@ def main() -> int:
     if "findings" in results:
         finding_tables = results["findings"]["tables"]
         print("Salary finding sample:", finding_tables["finding_base"].shape)
+    if "fantasy" in results:
+        fantasy_predictions = results["fantasy"]["fantasy_predictions"]
+        print("Fantasy projections:", fantasy_predictions.shape)
+    if "weekly_wins" in results:
+        weekly_games = results["weekly_wins"]["weekly_win_games"]
+        print("Weekly win backtest games:", weekly_games.shape)
     if "context" in results:
         print("Context feature rows:", results["context"].shape)
     if "feature_impact" in results:

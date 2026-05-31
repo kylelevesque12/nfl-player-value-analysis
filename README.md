@@ -1,10 +1,10 @@
 # NFL Player Value Analysis
 
-End-to-end NFL analytics project measuring offensive player value, next-season projections, and salary efficiency with nflverse data, feature engineering, exploratory analysis, predictive modeling, and contract analysis.
+End-to-end NFL analytics project measuring offensive player value, next-season projections, fantasy-football production, weekly win probabilities, and salary efficiency with nflverse data, feature engineering, exploratory analysis, predictive modeling, and contract analysis.
 
 ## Project Question
 
-How can we measure, predict, and compare NFL offensive player value in a way that is transparent, position-aware, and useful for salary-efficiency analysis?
+How can we measure, predict, and compare NFL offensive player value in a way that is transparent, position-aware, and useful for salary-efficiency analysis, fantasy-football decisions, and weekly matchup analysis?
 
 The project currently focuses on QBs, RBs, WRs, and TEs. The main value metric is position-season standardized total EPA, stored in the code as `value_score`, so players are compared against peers at the same position in the same season.
 
@@ -48,8 +48,10 @@ This runs the core project steps in order:
 3. rebuild 2026 prediction tables and the Excel workbook
 4. rebuild salary-efficiency tables
 5. rebuild salary-efficiency finding tables and report
-6. rebuild methodology checks
-7. rebuild model interpretation diagnostics
+6. rebuild fantasy-football projection tables
+7. rebuild weekly win projection backtest tables
+8. rebuild methodology checks
+9. rebuild model interpretation diagnostics
 
 Context feature tests can also be rebuilt when you want to evaluate whether
 extra football context is actually improving the model:
@@ -82,17 +84,20 @@ streamlit run app/streamlit_app.py
 
 Dashboard sections include:
 
-- overview metrics
-- 2026 player projections
-- player lookup
-- salary efficiency
-- model validation and feature importance
-- methodology checks
-- report index
+- front office perspective: value projections, player lookup, salary efficiency, and model validation
+- fantasy football perspective: 2026 season-long PPR projections and validation
+- weekly win projection: rolling backtest game probabilities and validation
+- methodology and report index
 
 The app is presentation-only: it reads outputs from `outputs/tables/` and does
 not train models directly. Rebuild the data first with `python scripts/run_pipeline.py`
 after major project changes.
+
+The app is currently a draft product layer. The front-office section is the
+most mature part of the project. The fantasy and weekly-win sections are useful
+starting points, but they should be expanded with offseason context, injuries,
+depth-chart changes, and future schedule rows before being treated as finished
+forecasting tools.
 
 Raw files under `data/raw/` and processed files under `data/processed/` are still ignored by Git. The command assumes those local raw files have already been created by Notebook 01 or downloaded separately.
 
@@ -144,6 +149,23 @@ The report includes:
 - team and position summaries
 
 The Excel workbook is organized with a clean front-facing layer first: `Dashboard`, `Player Predictions`, `Team Summary`, `Position Summary`, and `Validation Summary`. More technical columns are preserved in `Full Model Data`, `Data Dictionary`, and `Model Notes` for auditability.
+
+## Dashboard Expansion: Fantasy And Weekly Wins
+
+The Streamlit app now includes two additional draft perspectives:
+
+- [2026 fantasy football projections](outputs/tables/2026_fantasy_football_projections.csv)
+- [Fantasy projection validation](outputs/tables/fantasy_projection_validation_by_position.csv)
+- [Weekly win projection backtest](outputs/tables/weekly_win_projection_games.csv)
+- [Weekly win projection validation](outputs/tables/weekly_win_projection_validation.csv)
+- [Fantasy projection summary](report/fantasy_football_projection_summary.md)
+- [Weekly win projection summary](report/weekly_win_projection_summary.md)
+
+Fantasy projections estimate 2026 season-long PPR points for players with 2025
+NFL production data. The weekly win section is currently a rolling historical
+backtest, meaning each validation season is predicted using only earlier
+seasons. This makes the section honest enough to evaluate before adding future
+schedule rows.
 
 ## Context Feature Impact Review
 

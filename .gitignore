@@ -40,6 +40,10 @@ outputs/tables/*
 !outputs/tables/salary_findings_team_summary.csv
 !outputs/tables/salary_findings_position_salary_tiers.csv
 !outputs/tables/salary_findings_season_trends.csv
+!outputs/tables/2026_fantasy_football_projections.csv
+!outputs/tables/fantasy_projection_validation_by_position.csv
+!outputs/tables/weekly_win_projection_games.csv
+!outputs/tables/weekly_win_projection_validation.csv
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv

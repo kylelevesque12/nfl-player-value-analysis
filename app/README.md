@@ -1,6 +1,6 @@
 # NFL Player Value Dashboard
 
-This Streamlit app turns the project output tables into an interactive dashboard.
+This Streamlit app turns the project output tables into an interactive dashboard with three product views: front office, fantasy football, and weekly win projection.
 
 ## Run Locally
 
@@ -13,15 +13,12 @@ streamlit run app/streamlit_app.py
 
 The dashboard reads committed output tables from `outputs/tables/`.
 
-## Pages
+## Sections
 
-- Overview
-- 2026 Player Predictions
-- Player Lookup
-- Salary Efficiency
-- Model Validation
-- Methodology
-- Reports
+- Front Office Perspective: value projections, player lookup, salary efficiency, and validation
+- Fantasy Football Perspective: 2026 PPR fantasy projections and validation
+- Weekly Win Projection: rolling backtest game probabilities and validation
+- Methodology And Reports: project checks and written summaries
 
 ## Rebuild Data
 

@@ -18,8 +18,10 @@ from src.salary_efficiency import build_salary_efficiency_tables
 from src.salary_findings import build_salary_finding_tables
 from src.context_features import build_contextual_player_features
 from src.feature_impact import build_context_feature_impact_outputs
+from src.fantasy_projection import build_fantasy_projection_outputs
 from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
+from src.weekly_win_projection import build_weekly_win_projection_outputs
 
 
 PIPELINE_STEPS = [
@@ -28,6 +30,8 @@ PIPELINE_STEPS = [
     "predictions",
     "salary",
     "findings",
+    "fantasy",
+    "weekly_wins",
     "context",
     "feature_impact",
     "checks",
@@ -39,6 +43,8 @@ DEFAULT_PIPELINE_STEPS = [
     "predictions",
     "salary",
     "findings",
+    "fantasy",
+    "weekly_wins",
     "checks",
     "interpretation",
 ]
@@ -96,6 +102,18 @@ def build_salary_findings(project_root: str | Path | None = None) -> dict[str, A
     """Rebuild salary-efficiency finding tables and narrative report."""
     root = _resolve_project_root(project_root)
     return build_salary_finding_tables(project_root=root, save_outputs=True)
+
+
+def build_fantasy_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild 2026 fantasy-football projection tables and report."""
+    root = _resolve_project_root(project_root)
+    return build_fantasy_projection_outputs(project_root=root, save_outputs=True)
+
+
+def build_weekly_win_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild weekly game winner projection tables and report."""
+    root = _resolve_project_root(project_root)
+    return build_weekly_win_projection_outputs(project_root=root, save_outputs=True)
 
 
 def build_context_features(project_root: str | Path | None = None) -> pd.DataFrame:
@@ -157,6 +175,10 @@ def run_pipeline(
             results[step] = build_salary_outputs(root)
         elif step == "findings":
             results[step] = build_salary_findings(root)
+        elif step == "fantasy":
+            results[step] = build_fantasy_outputs(root)
+        elif step == "weekly_wins":
+            results[step] = build_weekly_win_outputs(root)
         elif step == "context":
             results[step] = build_context_features(root)
         elif step == "feature_impact":

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -22,7 +23,7 @@ st.set_page_config(
 
 
 @st.cache_data
-def load_csv(filename: str) -> pd.DataFrame:
+def load_csv(filename: str, modified_at: float) -> pd.DataFrame:
     path = TABLE_DIR / filename
     if not path.exists():
         return pd.DataFrame()
@@ -30,11 +31,15 @@ def load_csv(filename: str) -> pd.DataFrame:
 
 
 @st.cache_data
-def load_markdown(relative_path: str) -> str:
+def load_markdown(relative_path: str, modified_at: float) -> str:
     path = PROJECT_ROOT / relative_path
     if not path.exists():
         return ""
     return path.read_text()
+
+
+def file_mtime(path: Path) -> float:
+    return path.stat().st_mtime if path.exists() else 0.0
 
 
 def fmt_number(value: float | int | None, decimals: int = 2) -> str:
@@ -67,6 +72,10 @@ def apply_filter(df: pd.DataFrame, column: str, selected: list[str]) -> pd.DataF
     return df[df[column].astype(str).isin(selected)].copy()
 
 
+def _available_columns(df: pd.DataFrame, cols: list[str]) -> list[str]:
+    return [col for col in cols if col in df.columns]
+
+
 def card_row(metrics: list[tuple[str, str, str | None]]) -> None:
     columns = st.columns(len(metrics))
     for column, (label, value, help_text) in zip(columns, metrics):
@@ -96,8 +105,15 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "feature_importance": "model_interpretation_feature_importance.csv",
         "position_models": "position_model_comparison_summary.csv",
         "context_summary": "context_feature_group_summary.csv",
+        "fantasy": "2026_fantasy_football_projections.csv",
+        "fantasy_validation": "fantasy_projection_validation_by_position.csv",
+        "weekly_wins": "weekly_win_projection_games.csv",
+        "weekly_win_validation": "weekly_win_projection_validation.csv",
     }
-    return {name: load_csv(filename) for name, filename in files.items()}
+    return {
+        name: load_csv(filename, file_mtime(TABLE_DIR / filename))
+        for name, filename in files.items()
+    }
 
 
 def overview_page(data: dict[str, pd.DataFrame]) -> None:
@@ -109,8 +125,8 @@ def overview_page(data: dict[str, pd.DataFrame]) -> None:
 
     st.title("NFL Player Value Dashboard")
     st.caption(
-        "Portfolio dashboard for player value, 2026 projections, salary efficiency, "
-        "model validation, and methodology checks."
+        "Portfolio dashboard with three product views: front-office player value, "
+        "fantasy-football projections, and weekly game-pick probabilities."
     )
 
     overall_interval = interval[interval.get("segment", pd.Series(dtype=str)).eq("overall")]
@@ -207,6 +223,7 @@ def overview_page(data: dict[str, pd.DataFrame]) -> None:
             "- The main value metric is position-season standardized total EPA.\n"
             "- The prediction model is intended for tiering and screening.\n"
             "- Salary efficiency uses `inflated_apy`, not exact cap hit.\n"
+            "- Fantasy and weekly-win sections are first-pass draft models.\n"
             "- GitHub-friendly notebook mirrors are available in `notebooks_markdown/`."
         )
 
@@ -214,6 +231,13 @@ def overview_page(data: dict[str, pd.DataFrame]) -> None:
 def predictions_page(data: dict[str, pd.DataFrame]) -> None:
     predictions = data["predictions"]
     st.title("2026 Player Predictions")
+    with st.expander("How to read the front-office value board", expanded=True):
+        st.markdown(
+            "- `predicted_2026_value_score` is the expected position-adjusted EPA value for 2026. Around `0` is average for that position; positive is above average.\n"
+            "- `prediction_interval_low` and `prediction_interval_high` show a rough model range, not a guarantee.\n"
+            "- `confidence_level` is about projection stability, while `availability_risk_level` is about the chance of a qualifying season.\n"
+            "- `prediction_driver` is the fastest plain-English explanation of why the model sees the player that way."
+        )
 
     if predictions.empty:
         st.info("Prediction table is missing. Run `python scripts/run_pipeline.py`.")
@@ -319,7 +343,7 @@ def predictions_page(data: dict[str, pd.DataFrame]) -> None:
     ]
     st.subheader("Filtered Player Table")
     st.dataframe(
-        filtered[display_cols].sort_values("predicted_2026_value_score", ascending=False),
+        filtered[_available_columns(filtered, display_cols)].sort_values("predicted_2026_value_score", ascending=False),
         width="stretch",
     )
     st.download_button(
@@ -667,6 +691,359 @@ def validation_page(data: dict[str, pd.DataFrame]) -> None:
         st.dataframe(availability, width="stretch")
 
 
+def front_office_page(data: dict[str, pd.DataFrame]) -> None:
+    st.sidebar.subheader("Front Office")
+    office_view = st.sidebar.radio(
+        "Choose a front-office view",
+        [
+            "Executive Summary",
+            "2026 Value Board",
+            "Player Lookup",
+            "Salary Efficiency",
+            "Model Validation",
+        ],
+    )
+
+    if office_view == "Executive Summary":
+        overview_page(data)
+    elif office_view == "2026 Value Board":
+        predictions_page(data)
+    elif office_view == "Player Lookup":
+        player_lookup_page(data)
+    elif office_view == "Salary Efficiency":
+        salary_page(data)
+    elif office_view == "Model Validation":
+        validation_page(data)
+
+
+def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
+    fantasy = data["fantasy"]
+    validation = data["fantasy_validation"]
+
+    st.title("Fantasy Football Perspective")
+    st.caption(
+        "A draft model for 2026 season-long PPR fantasy points. This is a "
+        "model-driven starting board, not a final draft kit: it does not yet "
+        "include rookies, manual depth-chart changes, injuries, or offseason news."
+    )
+    with st.expander("How to read the fantasy board", expanded=True):
+        st.markdown(
+            "- `predicted_2026_fantasy_points_ppr` is projected season-long PPR scoring.\n"
+            "- `projection_change_from_2025` shows whether the model expects the player to rise or regress from 2025.\n"
+            "- `usage_profile` translates targets, receptions, and carries into a football role label.\n"
+            "- `confidence_level` describes projection stability, not upside. A low-confidence player can still be a high-upside target.\n"
+            "- `fantasy_explanation` gives the one-sentence reason to care about the row."
+        )
+
+    if fantasy.empty:
+        st.info(
+            "Fantasy projection table is missing. Run "
+            "`python scripts/run_pipeline.py --steps fantasy`."
+        )
+        return
+
+    with st.sidebar:
+        st.subheader("Fantasy Filters")
+        positions = multiselect_filter(fantasy, "position", "Position")
+        teams = multiselect_filter(fantasy, "primary_team_2025", "2025 team")
+        tiers = multiselect_filter(fantasy, "fantasy_projection_tier", "Projection tier")
+        confidence = multiselect_filter(fantasy, "confidence_level", "Confidence")
+        max_rank = st.slider(
+            "Maximum overall fantasy rank",
+            1,
+            int(fantasy["fantasy_overall_rank"].max()),
+            min(120, int(fantasy["fantasy_overall_rank"].max())),
+        )
+
+    filtered = fantasy.copy()
+    for column, selected in [
+        ("position", positions),
+        ("primary_team_2025", teams),
+        ("fantasy_projection_tier", tiers),
+        ("confidence_level", confidence),
+    ]:
+        filtered = apply_filter(filtered, column, selected)
+    filtered = filtered[filtered["fantasy_overall_rank"].le(max_rank)].copy()
+
+    if filtered.empty:
+        st.warning("No players match the selected fantasy filters.")
+        return
+
+    stable_projection_count = filtered["confidence_level"].isin(["Medium", "High"]).sum()
+    card_row(
+        [
+            ("Players", f"{len(filtered):,}", None),
+            (
+                "Avg projected PPR",
+                fmt_number(filtered["predicted_2026_fantasy_points_ppr"].mean(), 1),
+                None,
+            ),
+            (
+                "Medium/high confidence",
+                f"{stable_projection_count:,}",
+                "Confidence describes projection stability, not player upside.",
+            ),
+            (
+                "Top projection",
+                fmt_number(filtered["predicted_2026_fantasy_points_ppr"].max(), 1),
+                None,
+            ),
+        ]
+    )
+
+    left, right = st.columns([1.1, 1])
+    with left:
+        chart_df = filtered.nsmallest(25, "fantasy_overall_rank")
+        fig = px.bar(
+            chart_df.sort_values("predicted_2026_fantasy_points_ppr"),
+            x="predicted_2026_fantasy_points_ppr",
+            y="player_display_name",
+            color="position",
+            orientation="h",
+            labels={
+                "predicted_2026_fantasy_points_ppr": "Projected 2026 PPR points",
+                "player_display_name": "Player",
+            },
+            title="Top filtered fantasy projections",
+        )
+        fig.update_layout(height=620)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with right:
+        fig = px.scatter(
+            filtered,
+            x="fantasy_points_ppr_2025",
+            y="predicted_2026_fantasy_points_ppr",
+            color="position",
+            hover_data=[
+                "player_display_name",
+                "primary_team_2025",
+                "fantasy_position_rank",
+                "projection_change_label",
+                "usage_profile",
+                "confidence_level",
+            ],
+            labels={
+                "fantasy_points_ppr_2025": "2025 PPR points",
+                "predicted_2026_fantasy_points_ppr": "Projected 2026 PPR points",
+            },
+            title="Current fantasy production vs next-season projection",
+        )
+        fig.update_layout(height=620)
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("Fantasy Model Validation")
+    if validation.empty:
+        st.info("Fantasy validation summary is missing.")
+    else:
+        position_validation = validation[validation["segment"].eq("position")].copy()
+        if not position_validation.empty:
+            fig = px.bar(
+                position_validation,
+                x="segment_value",
+                y=["mae", "rmse"],
+                barmode="group",
+                labels={"segment_value": "Position", "value": "PPR points", "variable": "Metric"},
+                title="Rolling validation error by position",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(validation, width="stretch")
+
+    display_cols = [
+        "fantasy_overall_rank",
+        "fantasy_position_rank",
+        "player_display_name",
+        "position",
+        "primary_team_2025",
+        "games_played_2025",
+        "fantasy_points_ppr_2025",
+        "predicted_2026_fantasy_points_ppr",
+        "projection_change_from_2025",
+        "projection_change_label",
+        "prediction_interval_low",
+        "prediction_interval_high",
+        "fantasy_projection_tier",
+        "usage_profile",
+        "confidence_level",
+        "fantasy_explanation",
+    ]
+    st.subheader("Filtered Fantasy Board")
+    st.dataframe(
+        filtered[_available_columns(filtered, display_cols)].sort_values("fantasy_overall_rank"),
+        width="stretch",
+    )
+    st.download_button(
+        "Download filtered fantasy board",
+        filtered.to_csv(index=False),
+        file_name="filtered_2026_fantasy_projections.csv",
+        mime="text/csv",
+    )
+
+
+def weekly_win_projection_page(data: dict[str, pd.DataFrame]) -> None:
+    games = data["weekly_wins"]
+    validation = data["weekly_win_validation"]
+
+    st.title("Weekly Win Projection")
+    st.caption(
+        "A draft game-pick section that estimates home-win probability from "
+        "market context, rest, divisional status, weather, and recent team form. "
+        "The current table is a rolling historical backtest, so it is useful for "
+        "validating the approach before adding future schedule rows."
+    )
+    with st.expander("How to read weekly win projections", expanded=True):
+        st.markdown(
+            "- `winner_probability` is the model's probability for the team listed in `predicted_winner`.\n"
+            "- The model is market-informed because it uses `spread_line` and `total_line`, so this is not a pure team-strength rating.\n"
+            "- `market_signal` translates the spread into which side the betting market leaned toward.\n"
+            "- `pick_explanation` combines the market lean, recent form, and rest edge into a short explanation.\n"
+            "- `correct_prediction` is only available because this table is currently a historical backtest."
+        )
+
+    if games.empty:
+        st.info(
+            "Weekly win projection table is missing. Run "
+            "`python scripts/run_pipeline.py --steps weekly_wins`."
+        )
+        return
+
+    with st.sidebar:
+        st.subheader("Game Filters")
+        seasons = st.multiselect(
+            "Season",
+            sorted(games["season"].dropna().unique(), reverse=True),
+            default=[games["season"].max()],
+        )
+        weeks = st.multiselect(
+            "Week",
+            sorted(games["week"].dropna().astype(int).unique()),
+            default=[],
+        )
+        teams = sorted(
+            set(games["home_team"].dropna().astype(str))
+            | set(games["away_team"].dropna().astype(str))
+        )
+        selected_teams = st.multiselect("Team", teams)
+        confidence = multiselect_filter(games, "confidence_level", "Confidence")
+
+    filtered = games.copy()
+    if seasons:
+        filtered = filtered[filtered["season"].isin(seasons)].copy()
+    if weeks:
+        filtered = filtered[filtered["week"].isin(weeks)].copy()
+    if selected_teams:
+        filtered = filtered[
+            filtered["home_team"].astype(str).isin(selected_teams)
+            | filtered["away_team"].astype(str).isin(selected_teams)
+        ].copy()
+    filtered = apply_filter(filtered, "confidence_level", confidence)
+
+    if filtered.empty:
+        st.warning("No games match the selected filters.")
+        return
+
+    accuracy = (
+        filtered["correct_prediction"].mean()
+        if "correct_prediction" in filtered.columns
+        else np.nan
+    )
+    card_row(
+        [
+            ("Games", f"{len(filtered):,}", None),
+            ("Filtered accuracy", fmt_percent(accuracy), "Accuracy only applies to completed backtest games."),
+            (
+                "Avg winner probability",
+                fmt_percent(filtered["winner_probability"].mean()),
+                None,
+            ),
+            (
+                "High-confidence picks",
+                f"{filtered['confidence_level'].eq('High').sum():,}",
+                "High confidence means the predicted winner probability is at least 65%.",
+            ),
+        ]
+    )
+
+    left, right = st.columns([1.15, 1])
+    with left:
+        chart_df = filtered.sort_values(["season", "week", "game_id"]).head(40)
+        fig = px.bar(
+            chart_df,
+            x="winner_probability",
+            y="matchup",
+            color="predicted_winner",
+            orientation="h",
+            labels={"winner_probability": "Predicted winner probability", "matchup": "Game"},
+            title="Projected winners for selected games",
+        )
+        fig.update_xaxes(tickformat=".0%")
+        fig.update_layout(height=650)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with right:
+        if validation.empty:
+            st.info("Weekly validation table is missing.")
+        else:
+            season_validation = validation[
+                ~validation["season"].astype(str).eq("overall")
+            ].copy()
+            fig = px.line(
+                season_validation,
+                x="season",
+                y="accuracy",
+                markers=True,
+                labels={"season": "Validation season", "accuracy": "Accuracy"},
+                title="Rolling backtest accuracy by season",
+            )
+            fig.update_yaxes(tickformat=".0%")
+            fig.update_layout(height=360)
+            st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(validation, width="stretch")
+
+        fig = px.histogram(
+            filtered,
+            x="winner_probability",
+            nbins=12,
+            labels={"winner_probability": "Predicted winner probability"},
+            title="Confidence distribution",
+        )
+        fig.update_xaxes(tickformat=".0%")
+        fig.update_layout(height=280)
+        st.plotly_chart(fig, use_container_width=True)
+
+    display_cols = [
+        "season",
+        "week",
+        "gameday",
+        "away_team",
+        "home_team",
+        "predicted_winner",
+        "winner_probability",
+        "actual_winner",
+        "correct_prediction",
+        "confidence_level",
+        "market_signal",
+        "recent_point_diff_diff",
+        "recent_win_rate_diff",
+        "rest_advantage",
+        "spread_line",
+        "total_line",
+        "pick_explanation",
+    ]
+    st.subheader("Filtered Game Table")
+    sorted_games = filtered.sort_values(["season", "week", "game_id"])
+    st.dataframe(
+        sorted_games[_available_columns(sorted_games, display_cols)],
+        width="stretch",
+    )
+    st.download_button(
+        "Download filtered game projections",
+        filtered.to_csv(index=False),
+        file_name="filtered_weekly_win_projections.csv",
+        mime="text/csv",
+    )
+
+
 def methodology_page(data: dict[str, pd.DataFrame]) -> None:
     methodology = data["methodology"]
     st.title("Methodology Checks")
@@ -702,7 +1079,11 @@ def methodology_page(data: dict[str, pd.DataFrame]) -> None:
     st.dataframe(methodology, width="stretch")
 
     st.subheader("Report Text")
-    report_text = load_markdown("report/methodology_checks.md")
+    methodology_path = PROJECT_ROOT / "report" / "methodology_checks.md"
+    report_text = load_markdown(
+        "report/methodology_checks.md",
+        file_mtime(methodology_path),
+    )
     if report_text:
         st.markdown(report_text)
 
@@ -719,6 +1100,8 @@ def reports_page() -> None:
         ("Methodology checks", "report/methodology_checks.md"),
         ("Model interpretation", "report/model_interpretation.md"),
         ("Salary-efficiency findings", "report/salary_efficiency_findings.md"),
+        ("Fantasy football projection summary", "report/fantasy_football_projection_summary.md"),
+        ("Weekly win projection summary", "report/weekly_win_projection_summary.md"),
         ("Context feature impact", "report/context_feature_impact.md"),
         ("Prediction report summary", "report/2026_prediction_report_summary.md"),
     ]
@@ -728,7 +1111,11 @@ def reports_page() -> None:
         st.write(f"- `{relative_path}`: {status}")
 
     st.subheader("Final Project Report Preview")
-    report_text = load_markdown("report/final_project_report.md")
+    final_report_path = PROJECT_ROOT / "report" / "final_project_report.md"
+    report_text = load_markdown(
+        "report/final_project_report.md",
+        file_mtime(final_report_path),
+    )
     if report_text:
         st.markdown(report_text[:6000] + "\n\n...")
     else:
@@ -749,21 +1136,20 @@ def main() -> None:
             "interval_validation",
             "methodology",
             "feature_importance",
+            "fantasy",
+            "weekly_wins",
         }
     ]
     show_missing_data_warning(missing)
 
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Choose a page",
+        "Choose a section",
         [
-            "Overview",
-            "2026 Player Predictions",
-            "Player Lookup",
-            "Salary Efficiency",
-            "Model Validation",
-            "Methodology",
-            "Reports",
+            "Front Office Perspective",
+            "Fantasy Football Perspective",
+            "Weekly Win Projection",
+            "Methodology And Reports",
         ],
     )
     st.sidebar.divider()
@@ -772,19 +1158,15 @@ def main() -> None:
         "`python scripts/run_pipeline.py`."
     )
 
-    if page == "Overview":
-        overview_page(data)
-    elif page == "2026 Player Predictions":
-        predictions_page(data)
-    elif page == "Player Lookup":
-        player_lookup_page(data)
-    elif page == "Salary Efficiency":
-        salary_page(data)
-    elif page == "Model Validation":
-        validation_page(data)
-    elif page == "Methodology":
+    if page == "Front Office Perspective":
+        front_office_page(data)
+    elif page == "Fantasy Football Perspective":
+        fantasy_page(data)
+    elif page == "Weekly Win Projection":
+        weekly_win_projection_page(data)
+    elif page == "Methodology And Reports":
         methodology_page(data)
-    elif page == "Reports":
+        st.divider()
         reports_page()
 
 
