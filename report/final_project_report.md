@@ -301,7 +301,7 @@ The Streamlit app adds a presentation layer on top of those outputs. It is now
 organized into three user-facing perspectives:
 
 - Front office: player value projections, player lookup, salary efficiency, and validation.
-- Fantasy football: 2026 season-long PPR projections and fantasy-model validation.
+- Fantasy football: 2026 season-long PPR projections, fantasy-model comparison, and validation.
 - Weekly win projection: rolling backtest game probabilities and validation.
 
 ## Limitations

@@ -107,6 +107,7 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "context_summary": "context_feature_group_summary.csv",
         "fantasy": "2026_fantasy_football_projections.csv",
         "fantasy_validation": "fantasy_projection_validation_by_position.csv",
+        "fantasy_model_comparison": "fantasy_model_comparison.csv",
         "weekly_wins": "weekly_win_projection_games.csv",
         "weekly_win_validation": "weekly_win_projection_validation.csv",
     }
@@ -719,16 +720,20 @@ def front_office_page(data: dict[str, pd.DataFrame]) -> None:
 def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
     fantasy = data["fantasy"]
     validation = data["fantasy_validation"]
+    model_comparison = data["fantasy_model_comparison"]
 
     st.title("Fantasy Football Perspective")
     st.caption(
-        "A draft model for 2026 season-long PPR fantasy points. This is a "
-        "model-driven starting board, not a final draft kit: it does not yet "
-        "include rookies, manual depth-chart changes, injuries, or offseason news."
+        "A model comparison and projection board for 2026 season-long PPR "
+        "fantasy points. This is still not a full draft kit because it does "
+        "not yet include rookies, injuries, manual depth-chart changes, or "
+        "offseason news."
     )
     with st.expander("How to read the fantasy board", expanded=True):
         st.markdown(
             "- `predicted_2026_fantasy_points_ppr` is projected season-long PPR scoring.\n"
+            "- The final model is selected from rolling validation across multiple candidates: baseline, Ridge, Elastic Net, Random Forest, Histogram Gradient Boosting, and a two-stage model.\n"
+            "- The two-stage model predicts games played and PPR per game separately, then multiplies them together.\n"
             "- `projection_change_from_2025` shows whether the model expects the player to rise or regress from 2025.\n"
             "- `usage_profile` translates targets, receptions, and carries into a football role label.\n"
             "- `confidence_level` describes projection stability, not upside. A low-confidence player can still be a high-upside target.\n"
@@ -769,6 +774,17 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
         st.warning("No players match the selected fantasy filters.")
         return
 
+    selected_model_label = (
+        str(filtered["selected_model_label"].dropna().iloc[0])
+        if "selected_model_label" in filtered.columns
+        and not filtered["selected_model_label"].dropna().empty
+        else "N/A"
+    )
+    st.info(
+        "Selected fantasy model: "
+        + selected_model_label
+        + ". The model comparison below shows why it was chosen."
+    )
     stable_projection_count = filtered["confidence_level"].isin(["Medium", "High"]).sum()
     card_row(
         [
@@ -822,6 +838,7 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
                 "projection_change_label",
                 "usage_profile",
                 "confidence_level",
+                "selected_model_label",
             ],
             labels={
                 "fantasy_points_ppr_2025": "2025 PPR points",
@@ -833,11 +850,44 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
         st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Fantasy Model Validation")
-    if validation.empty:
+    if model_comparison.empty and validation.empty:
         st.info("Fantasy validation summary is missing.")
     else:
+        if not model_comparison.empty:
+            overall_models = model_comparison[
+                model_comparison["segment"].eq("overall")
+            ].copy()
+            if not overall_models.empty:
+                st.markdown("#### Model Comparison")
+                fig = px.bar(
+                    overall_models.sort_values("rmse"),
+                    x="rmse",
+                    y="model_label",
+                    color="model_type",
+                    orientation="h",
+                    labels={"rmse": "Rolling RMSE", "model_label": "Model"},
+                    title="Fantasy model comparison by rolling RMSE",
+                )
+                fig.update_layout(height=360)
+                st.plotly_chart(fig, use_container_width=True)
+                comparison_cols = [
+                    "model_label",
+                    "model_type",
+                    "mae",
+                    "rmse",
+                    "spearman_rank_corr",
+                    "top_rank_hit_rate",
+                    "bias",
+                ]
+                st.dataframe(
+                    overall_models[_available_columns(overall_models, comparison_cols)]
+                    .sort_values("rmse"),
+                    width="stretch",
+                )
+
         position_validation = validation[validation["segment"].eq("position")].copy()
         if not position_validation.empty:
+            st.markdown("#### Selected Model By Position")
             fig = px.bar(
                 position_validation,
                 x="segment_value",
@@ -858,6 +908,8 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
         "games_played_2025",
         "fantasy_points_ppr_2025",
         "predicted_2026_fantasy_points_ppr",
+        "predicted_2026_games_played",
+        "predicted_2026_ppr_per_game",
         "projection_change_from_2025",
         "projection_change_label",
         "prediction_interval_low",
@@ -865,6 +917,7 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
         "fantasy_projection_tier",
         "usage_profile",
         "confidence_level",
+        "selected_model_label",
         "fantasy_explanation",
     ]
     st.subheader("Filtered Fantasy Board")
@@ -1137,6 +1190,7 @@ def main() -> None:
             "methodology",
             "feature_importance",
             "fantasy",
+            "fantasy_model_comparison",
             "weekly_wins",
         }
     ]

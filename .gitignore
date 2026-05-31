@@ -42,6 +42,7 @@ outputs/tables/*
 !outputs/tables/salary_findings_season_trends.csv
 !outputs/tables/2026_fantasy_football_projections.csv
 !outputs/tables/fantasy_projection_validation_by_position.csv
+!outputs/tables/fantasy_model_comparison.csv
 !outputs/tables/weekly_win_projection_games.csv
 !outputs/tables/weekly_win_projection_validation.csv
 !outputs/tables/context_feature_group_comparison.csv

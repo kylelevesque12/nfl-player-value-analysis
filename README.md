@@ -85,7 +85,7 @@ streamlit run app/streamlit_app.py
 Dashboard sections include:
 
 - front office perspective: value projections, player lookup, salary efficiency, and model validation
-- fantasy football perspective: 2026 season-long PPR projections and validation
+- fantasy football perspective: 2026 season-long PPR projections, model comparison, and validation
 - weekly win projection: rolling backtest game probabilities and validation
 - methodology and report index
 
@@ -156,16 +156,19 @@ The Streamlit app now includes two additional draft perspectives:
 
 - [2026 fantasy football projections](outputs/tables/2026_fantasy_football_projections.csv)
 - [Fantasy projection validation](outputs/tables/fantasy_projection_validation_by_position.csv)
+- [Fantasy model comparison](outputs/tables/fantasy_model_comparison.csv)
 - [Weekly win projection backtest](outputs/tables/weekly_win_projection_games.csv)
 - [Weekly win projection validation](outputs/tables/weekly_win_projection_validation.csv)
 - [Fantasy projection summary](report/fantasy_football_projection_summary.md)
 - [Weekly win projection summary](report/weekly_win_projection_summary.md)
 
 Fantasy projections estimate 2026 season-long PPR points for players with 2025
-NFL production data. The weekly win section is currently a rolling historical
-backtest, meaning each validation season is predicted using only earlier
-seasons. This makes the section honest enough to evaluate before adding future
-schedule rows.
+NFL production data. The fantasy pipeline compares a current-year baseline,
+regularized linear models, Random Forest, Histogram Gradient Boosting, and a
+two-stage model that predicts games played and PPR per game separately. The
+weekly win section is currently a rolling historical backtest, meaning each
+validation season is predicted using only earlier seasons. This makes the
+section honest enough to evaluate before adding future schedule rows.
 
 ## Context Feature Impact Review
 
