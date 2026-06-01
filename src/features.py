@@ -5,9 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from src import config
 
-MIN_VALUE_GAMES = 4
-VALUE_GROUP_COLS = ["season", "position"]
+
+MIN_VALUE_GAMES = config.MIN_VALUE_GAMES
+VALUE_GROUP_COLS = list(config.VALUE_GROUP_COLS)
 
 
 def _series_or_zero(df: pd.DataFrame, col: str) -> pd.Series:

@@ -67,6 +67,13 @@ Quality-control and interpretation reports can also be rebuilt by themselves:
 python scripts/run_pipeline.py --steps checks,interpretation
 ```
 
+The model benchmark stage compares the prediction model against strong naive
+baselines and reports a skill score, plus calibrated conformal intervals:
+
+```bash
+python scripts/run_pipeline.py --steps benchmark
+```
+
 Optional advanced modeling diagnostics can be rebuilt separately:
 
 ```bash
@@ -197,6 +204,35 @@ usage context, team environment context, schedule context, and all context
 features together. The point is to avoid blindly adding features: a context
 group should either improve rolling validation or make the model meaningfully
 more explainable.
+
+## Model Benchmark: Skill Score And Calibrated Intervals
+
+Because the prediction target (`next_value_score`) is standardized within each
+season-position group, its per-season standard deviation is about 1.0, so a
+model that simply predicts the group mean already scores an RMSE near 1.0.
+RMSE alone therefore overstates model quality. The benchmark stage reports the
+honest measure — a *skill score*, the percentage RMSE reduction versus strong
+naive baselines (season mean, raw persistence, shrunken persistence, and an age
+curve) — for both the tuned Random Forest and a Histogram Gradient Boosting
+model, all under rolling-origin validation. It also adds split-conformal
+prediction intervals, which are distribution-free and calibrated by
+construction rather than assuming Gaussian residuals.
+
+- [Read the model benchmark report](report/model_benchmark.md)
+- [View overall benchmark summary](outputs/tables/model_benchmark_summary.csv)
+- [View skill score by position](outputs/tables/model_benchmark_by_position.csv)
+- [View per-fold results](outputs/tables/model_benchmark_by_fold.csv)
+- [View conformal interval coverage](outputs/tables/model_benchmark_conformal_coverage.csv)
+
+## Testing
+
+Unit tests cover leakage-safety in the feature/target helpers, the benchmark
+metric math and baselines, and cross-module config consistency:
+
+```bash
+pip install pytest
+python -m pytest tests/ -q
+```
 
 ## Methodology And Model Interpretation
 

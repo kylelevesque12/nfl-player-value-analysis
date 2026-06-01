@@ -18,12 +18,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--steps",
-        default="clean,value,predictions,salary,findings,fantasy,weekly_wins,checks,interpretation",
+        default="clean,value,predictions,salary,findings,fantasy,weekly_wins,checks,interpretation,benchmark",
         help=(
             "Comma-separated pipeline steps to run. "
             "Options: clean,value,predictions,salary,findings,context,"
             "fantasy,weekly_wins,feature_impact,checks,interpretation,"
-            "advanced_modeling"
+            "benchmark,advanced_modeling"
         ),
     )
     return parser.parse_args()
@@ -78,6 +78,9 @@ def main() -> int:
         position_summary = results["interpretation"]["position_model_summary"]
         print("Model interpretation feature rows:", feature_importance.shape)
         print("Position model summary:", position_summary.shape)
+    if "benchmark" in results:
+        method_summary = results["benchmark"]["method_summary"]
+        print("Model benchmark methods compared:", method_summary.shape)
     if "advanced_modeling" in results:
         advanced_summary = results["advanced_modeling"]["comparison_summary"]
         shap_importance = results["advanced_modeling"]["shap_importance"]
