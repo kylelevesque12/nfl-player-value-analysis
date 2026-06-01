@@ -54,6 +54,17 @@ outputs/tables/*
 !outputs/tables/model_interpretation_feature_group_importance.csv
 !outputs/tables/position_model_comparison_by_fold.csv
 !outputs/tables/position_model_comparison_summary.csv
+!outputs/tables/advanced_modeling_optuna_trials.csv
+!outputs/tables/advanced_modeling_validation_summary.csv
+!outputs/tables/advanced_modeling_validation_folds.csv
+!outputs/tables/advanced_modeling_validation_predictions.csv
+!outputs/tables/advanced_modeling_shap_importance.csv
+!outputs/tables/advanced_modeling_shap_group_importance.csv
+!outputs/tables/advanced_modeling_polars_data_profile.csv
+!outputs/tables/advanced_modeling_best_params.json
+
+# Local experiment tracking
+mlruns/
 
 # System files
 .DS_Store

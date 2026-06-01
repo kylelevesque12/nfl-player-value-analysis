@@ -18,6 +18,7 @@ The primary deliverables are the 2026 Player Value Prediction Report and the fir
 - Salary-efficiency diagnostics: `outputs/tables/salary_efficiency_merge_diagnostics.csv`
 - Salary-efficiency summary: `report/salary_efficiency_summary.md`
 - Salary-efficiency findings: `report/salary_efficiency_findings.md`
+- Advanced modeling methodology: `report/advanced_modeling_methodology.md`
 - Final project report: `report/final_project_report.md`
 
 The workbook has a simplified front-facing layer for decision makers and separate audit tabs for technical review.
@@ -30,6 +31,10 @@ The main project outputs can be rebuilt with:
 
 This command rebuilds the cleaned player-season data, value scores, 2026 prediction outputs, Excel workbook, salary-efficiency tables, and salary-efficiency findings from the local raw data files.
 
+Optional advanced model diagnostics can be rebuilt with:
+
+`python scripts/run_pipeline.py --steps advanced_modeling`
+
 ## Modeling Approach
 
 The prediction report uses two models:
@@ -38,6 +43,8 @@ The prediction report uses two models:
 - A Random Forest classification model estimates the probability that a player has a qualifying next-season row.
 
 The value model uses current-season production, age, experience, draft information, EPA-based value, prior value, rolling value averages, trend, and recent games played.
+
+The advanced modeling step adds Optuna tuning, SHAP explanations, a Polars data profile, and local MLflow tracking. In the current run, Optuna improves rolling RMSE only slightly, so it is best treated as a methodology check rather than an automatic replacement for the simpler production model.
 
 The salary-efficiency analysis merges value scores with nflverse historical contract data from OverTheCap. It uses inflated APY as an approximate annual contract-cost metric, then estimates value above expected salary using salary, position, age, experience, draft slot, and games played.
 

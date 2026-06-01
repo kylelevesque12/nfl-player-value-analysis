@@ -20,6 +20,7 @@ work lives.
 | Main prediction deliverable | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Model drivers and position diagnostics | [Model interpretation](report/model_interpretation.md) |
+| Advanced modeling methodology | [Optuna/SHAP methodology report](report/advanced_modeling_methodology.md) |
 | Interactive dashboard | [Streamlit app source](app/streamlit_app.py) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
 | Notebook narrative if GitHub preview fails | [Markdown notebook mirrors](notebooks_markdown/01_data_collection.md) |
@@ -65,6 +66,17 @@ Quality-control and interpretation reports can also be rebuilt by themselves:
 ```bash
 python scripts/run_pipeline.py --steps checks,interpretation
 ```
+
+Optional advanced modeling diagnostics can be rebuilt separately:
+
+```bash
+python scripts/run_pipeline.py --steps advanced_modeling
+```
+
+That step uses Optuna for rolling-validation hyperparameter search, SHAP for
+tree-model explanation, Polars for a fast data profile, and MLflow for local
+experiment tracking. The MLflow run directory is intentionally ignored by Git;
+the recruiter-friendly results are committed as CSV and Markdown outputs.
 
 You can also run selected steps:
 

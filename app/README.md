@@ -18,7 +18,7 @@ The dashboard reads committed output tables from `outputs/tables/`.
 - Front Office Perspective: value projections, player lookup, salary efficiency, and validation
 - Fantasy Football Perspective: 2026 PPR fantasy projections, model comparison, and validation
 - Weekly Win Projection: rolling backtest game probabilities and validation
-- Methodology And Reports: project checks and written summaries
+- Methodology And Reports: project checks, Optuna/SHAP diagnostics, and written summaries
 
 ## Rebuild Data
 

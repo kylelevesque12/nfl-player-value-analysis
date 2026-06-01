@@ -1,0 +1,3 @@
+model_id,validation_folds,avg_train_rows,avg_validation_rows,mean_mae,mean_rmse,mean_r2,rmse_delta_vs_current
+optuna_tuned_random_forest,5,2017.4,354.6,0.672814882013,0.920735708633,0.236726997111,-0.00395332059355
+current_depth_limited_random_forest,5,2017.4,354.6,0.675967457669,0.924689029226,0.230183366561,0

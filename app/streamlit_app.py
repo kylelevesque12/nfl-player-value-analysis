@@ -19,7 +19,135 @@ st.set_page_config(
     page_title="NFL Player Value Dashboard",
     page_icon="NFL",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
+
+px.defaults.template = "plotly_white"
+px.defaults.color_discrete_sequence = [
+    "#157A6E",
+    "#C8553D",
+    "#3D6B99",
+    "#B08900",
+    "#7A5C99",
+    "#4C956C",
+    "#D17A22",
+]
+
+
+def inject_custom_css() -> None:
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: #F6F8FB;
+        }
+
+        h1, h2, h3 {
+            letter-spacing: 0;
+        }
+
+        h1 {
+            color: #182026;
+            font-weight: 750;
+        }
+
+        [data-testid="stSidebar"] {
+            background: #FFFFFF;
+            border-right: 1px solid #E2E8F0;
+        }
+
+        [data-testid="stMetric"] {
+            background: #FFFFFF;
+            border: 1px solid #DFE7EF;
+            border-left: 4px solid #157A6E;
+            border-radius: 8px;
+            padding: 14px 16px;
+            box-shadow: 0 1px 2px rgba(24, 32, 38, 0.06);
+        }
+
+        [data-testid="stMetricLabel"] p {
+            color: #5E6A75;
+            font-size: 0.86rem;
+        }
+
+        [data-testid="stMetricValue"] {
+            color: #182026;
+        }
+
+        div[data-testid="stExpander"] {
+            background: #FFFFFF;
+            border: 1px solid #DFE7EF;
+            border-radius: 8px;
+        }
+
+        div[data-testid="stDataFrame"] {
+            border: 1px solid #DFE7EF;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #FFFFFF;
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            background: #FFFFFF;
+            border: 1px solid #DFE7EF;
+            border-radius: 8px 8px 0 0;
+            padding: 10px 16px;
+        }
+
+        .stTabs [aria-selected="true"] {
+            border-top: 3px solid #157A6E;
+        }
+
+        div[data-testid="stAlert"] {
+            border-radius: 8px;
+            border: 1px solid #CFE7DF;
+        }
+
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        .section-note {
+            background: #FFFFFF;
+            border: 1px solid #DFE7EF;
+            border-left: 4px solid #C8553D;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 0.75rem 0 1rem 0;
+            color: #38434D;
+        }
+
+        @media (max-width: 900px) {
+            h1 {
+                font-size: 2rem !important;
+                line-height: 1.15;
+            }
+
+            h2 {
+                font-size: 1.45rem !important;
+            }
+
+            h3 {
+                font-size: 1.12rem !important;
+            }
+
+            .block-container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+inject_custom_css()
 
 
 @st.cache_data
@@ -105,6 +233,10 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "feature_importance": "model_interpretation_feature_importance.csv",
         "position_models": "position_model_comparison_summary.csv",
         "context_summary": "context_feature_group_summary.csv",
+        "advanced_summary": "advanced_modeling_validation_summary.csv",
+        "advanced_shap": "advanced_modeling_shap_importance.csv",
+        "advanced_shap_groups": "advanced_modeling_shap_group_importance.csv",
+        "advanced_trials": "advanced_modeling_optuna_trials.csv",
         "fantasy": "2026_fantasy_football_projections.csv",
         "fantasy_validation": "fantasy_projection_validation_by_position.csv",
         "fantasy_model_comparison": "fantasy_model_comparison.csv",
@@ -588,6 +720,10 @@ def validation_page(data: dict[str, pd.DataFrame]) -> None:
     feature_importance = data["feature_importance"]
     position_models = data["position_models"]
     context_summary = data["context_summary"]
+    advanced_summary = data["advanced_summary"]
+    advanced_shap = data["advanced_shap"]
+    advanced_shap_groups = data["advanced_shap_groups"]
+    advanced_trials = data["advanced_trials"]
 
     left, right = st.columns(2)
     with left:
@@ -640,6 +776,58 @@ def validation_page(data: dict[str, pd.DataFrame]) -> None:
         fig.update_layout(height=560)
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(feature_importance, width="stretch")
+
+    st.subheader("Advanced Modeling Layer")
+    st.caption(
+        "Optional Optuna, SHAP, Polars, and MLflow outputs. These are methodology "
+        "diagnostics, not a requirement for using the main prediction board."
+    )
+    if advanced_summary.empty and advanced_shap.empty:
+        st.info(
+            "Advanced modeling outputs are missing. Rebuild them with "
+            "`python scripts/run_pipeline.py --steps advanced_modeling`."
+        )
+    else:
+        left, right = st.columns(2)
+        with left:
+            if advanced_summary.empty:
+                st.info("Advanced validation summary is missing.")
+            else:
+                fig = px.bar(
+                    advanced_summary.sort_values("mean_rmse"),
+                    x="mean_rmse",
+                    y="model_id",
+                    orientation="h",
+                    labels={"mean_rmse": "Mean rolling RMSE", "model_id": "Model"},
+                    title="Current model vs Optuna-tuned candidate",
+                )
+                fig.update_layout(height=330)
+                st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(advanced_summary, width="stretch")
+        with right:
+            if advanced_shap.empty or "mean_abs_shap" not in advanced_shap.columns:
+                st.info("SHAP feature table is missing.")
+            else:
+                top_shap = advanced_shap.nlargest(12, "mean_abs_shap")
+                fig = px.bar(
+                    top_shap.sort_values("mean_abs_shap"),
+                    x="mean_abs_shap",
+                    y="transformed_feature",
+                    color="feature_group",
+                    orientation="h",
+                    labels={
+                        "mean_abs_shap": "Mean absolute SHAP value",
+                        "transformed_feature": "Feature",
+                    },
+                    title="Top SHAP signals on 2024 validation fold",
+                )
+                fig.update_layout(height=430)
+                st.plotly_chart(fig, use_container_width=True)
+        if not advanced_shap_groups.empty:
+            st.dataframe(advanced_shap_groups, width="stretch")
+        if not advanced_trials.empty:
+            with st.expander("Optuna trial details"):
+                st.dataframe(advanced_trials, width="stretch")
 
     left, right = st.columns(2)
     with left:
@@ -722,21 +910,19 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
     validation = data["fantasy_validation"]
     model_comparison = data["fantasy_model_comparison"]
 
-    st.title("Fantasy Football Perspective")
+    st.title("Fantasy Football Draft Board")
     st.caption(
-        "A model comparison and projection board for 2026 season-long PPR "
-        "fantasy points. This is still not a full draft kit because it does "
-        "not yet include rookies, injuries, manual depth-chart changes, or "
-        "offseason news."
+        "A cleaner decision board for 2026 PPR projections, role filters, "
+        "breakout targets, regression risks, and model validation."
     )
     with st.expander("How to read the fantasy board", expanded=True):
         st.markdown(
             "- `predicted_2026_fantasy_points_ppr` is projected season-long PPR scoring.\n"
             "- The final model is selected from rolling validation across multiple candidates: baseline, Ridge, Elastic Net, Random Forest, Histogram Gradient Boosting, and a two-stage model.\n"
-            "- The two-stage model predicts games played and PPR per game separately, then multiplies them together.\n"
-            "- `projection_change_from_2025` shows whether the model expects the player to rise or regress from 2025.\n"
+            "- `draft_board_bucket` groups players into practical fantasy categories like Core Starter, Breakout Target, Slump Watch, or Volatile Depth.\n"
+            "- `breakout_potential` and `slump_potential` are simple flags based on projected change, projected percentile, prior production, and uncertainty.\n"
             "- `usage_profile` translates targets, receptions, and carries into a football role label.\n"
-            "- `confidence_level` describes projection stability, not upside. A low-confidence player can still be a high-upside target.\n"
+            "- The two-stage model still appears as context through projected games and projected PPR/game.\n"
             "- `fantasy_explanation` gives the one-sentence reason to care about the row."
         )
 
@@ -747,24 +933,72 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
         )
         return
 
-    with st.sidebar:
-        st.subheader("Fantasy Filters")
-        positions = multiselect_filter(fantasy, "position", "Position")
-        teams = multiselect_filter(fantasy, "primary_team_2025", "2025 team")
-        tiers = multiselect_filter(fantasy, "fantasy_projection_tier", "Projection tier")
-        confidence = multiselect_filter(fantasy, "confidence_level", "Confidence")
-        max_rank = st.slider(
-            "Maximum overall fantasy rank",
-            1,
-            int(fantasy["fantasy_overall_rank"].max()),
-            min(120, int(fantasy["fantasy_overall_rank"].max())),
-        )
+    selected_model_label = (
+        str(fantasy["selected_model_label"].dropna().iloc[0])
+        if "selected_model_label" in fantasy.columns
+        and not fantasy["selected_model_label"].dropna().empty
+        else "N/A"
+    )
+    st.info(
+        "Selected fantasy model: "
+        + selected_model_label
+        + ". Use the validation tab to see the model comparison."
+    )
+
+    st.markdown("### Board Controls")
+    control_row_1 = st.columns([1, 1, 1.1, 1.1])
+    positions = control_row_1[0].multiselect(
+        "Position",
+        sorted(fantasy["position"].dropna().astype(str).unique()),
+    )
+    teams = control_row_1[1].multiselect(
+        "Team",
+        sorted(fantasy["primary_team_2025"].dropna().astype(str).unique()),
+    )
+    buckets = control_row_1[2].multiselect(
+        "Draft bucket",
+        sorted(fantasy["draft_board_bucket"].dropna().astype(str).unique())
+        if "draft_board_bucket" in fantasy.columns
+        else [],
+    )
+    usage_profiles = control_row_1[3].multiselect(
+        "Usage profile",
+        sorted(fantasy["usage_profile"].dropna().astype(str).unique())
+        if "usage_profile" in fantasy.columns
+        else [],
+    )
+
+    control_row_2 = st.columns([1, 1, 1, 1])
+    breakout = control_row_2[0].multiselect(
+        "Breakout potential",
+        ["High", "Medium", "Low"],
+        default=[],
+    )
+    slump = control_row_2[1].multiselect(
+        "Slump potential",
+        ["High", "Medium", "Low"],
+        default=[],
+    )
+    confidence = control_row_2[2].multiselect(
+        "Confidence",
+        ["High", "Medium", "Low"],
+        default=[],
+    )
+    max_rank = control_row_2[3].slider(
+        "Max overall rank",
+        1,
+        int(fantasy["fantasy_overall_rank"].max()),
+        min(120, int(fantasy["fantasy_overall_rank"].max())),
+    )
 
     filtered = fantasy.copy()
     for column, selected in [
         ("position", positions),
         ("primary_team_2025", teams),
-        ("fantasy_projection_tier", tiers),
+        ("draft_board_bucket", buckets),
+        ("usage_profile", usage_profiles),
+        ("breakout_potential", breakout),
+        ("slump_potential", slump),
         ("confidence_level", confidence),
     ]:
         filtered = apply_filter(filtered, column, selected)
@@ -774,18 +1008,17 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
         st.warning("No players match the selected fantasy filters.")
         return
 
-    selected_model_label = (
-        str(filtered["selected_model_label"].dropna().iloc[0])
-        if "selected_model_label" in filtered.columns
-        and not filtered["selected_model_label"].dropna().empty
-        else "N/A"
-    )
-    st.info(
-        "Selected fantasy model: "
-        + selected_model_label
-        + ". The model comparison below shows why it was chosen."
-    )
     stable_projection_count = filtered["confidence_level"].isin(["Medium", "High"]).sum()
+    breakout_count = (
+        filtered["breakout_potential"].isin(["High", "Medium"]).sum()
+        if "breakout_potential" in filtered.columns
+        else 0
+    )
+    slump_count = (
+        filtered["slump_potential"].isin(["High", "Medium"]).sum()
+        if "slump_potential" in filtered.columns
+        else 0
+    )
     card_row(
         [
             ("Players", f"{len(filtered):,}", None),
@@ -795,142 +1028,250 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
                 None,
             ),
             (
-                "Medium/high confidence",
-                f"{stable_projection_count:,}",
-                "Confidence describes projection stability, not player upside.",
+                "Breakout watch",
+                f"{breakout_count:,}",
+                "Players tagged with high or medium breakout potential.",
             ),
             (
-                "Top projection",
-                fmt_number(filtered["predicted_2026_fantasy_points_ppr"].max(), 1),
-                None,
+                "Slump watch",
+                f"{slump_count:,}",
+                "Players tagged with high or medium slump potential.",
+            ),
+            (
+                "Stable projections",
+                f"{stable_projection_count:,}",
+                "Players with medium or high model confidence.",
             ),
         ]
     )
 
-    left, right = st.columns([1.1, 1])
-    with left:
-        chart_df = filtered.nsmallest(25, "fantasy_overall_rank")
-        fig = px.bar(
-            chart_df.sort_values("predicted_2026_fantasy_points_ppr"),
-            x="predicted_2026_fantasy_points_ppr",
-            y="player_display_name",
-            color="position",
-            orientation="h",
-            labels={
-                "predicted_2026_fantasy_points_ppr": "Projected 2026 PPR points",
-                "player_display_name": "Player",
-            },
-            title="Top filtered fantasy projections",
-        )
-        fig.update_layout(height=620)
-        st.plotly_chart(fig, use_container_width=True)
+    board_tab, buckets_tab, validation_tab = st.tabs(
+        ["Draft Board", "Player Buckets", "Model Validation"]
+    )
 
-    with right:
-        fig = px.scatter(
-            filtered,
-            x="fantasy_points_ppr_2025",
-            y="predicted_2026_fantasy_points_ppr",
-            color="position",
-            hover_data=[
-                "player_display_name",
-                "primary_team_2025",
-                "fantasy_position_rank",
-                "projection_change_label",
-                "usage_profile",
-                "confidence_level",
-                "selected_model_label",
-            ],
-            labels={
-                "fantasy_points_ppr_2025": "2025 PPR points",
-                "predicted_2026_fantasy_points_ppr": "Projected 2026 PPR points",
-            },
-            title="Current fantasy production vs next-season projection",
-        )
-        fig.update_layout(height=620)
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Fantasy Model Validation")
-    if model_comparison.empty and validation.empty:
-        st.info("Fantasy validation summary is missing.")
-    else:
-        if not model_comparison.empty:
-            overall_models = model_comparison[
-                model_comparison["segment"].eq("overall")
-            ].copy()
-            if not overall_models.empty:
-                st.markdown("#### Model Comparison")
-                fig = px.bar(
-                    overall_models.sort_values("rmse"),
-                    x="rmse",
-                    y="model_label",
-                    color="model_type",
-                    orientation="h",
-                    labels={"rmse": "Rolling RMSE", "model_label": "Model"},
-                    title="Fantasy model comparison by rolling RMSE",
-                )
-                fig.update_layout(height=360)
-                st.plotly_chart(fig, use_container_width=True)
-                comparison_cols = [
-                    "model_label",
-                    "model_type",
-                    "mae",
-                    "rmse",
-                    "spearman_rank_corr",
-                    "top_rank_hit_rate",
-                    "bias",
-                ]
-                st.dataframe(
-                    overall_models[_available_columns(overall_models, comparison_cols)]
-                    .sort_values("rmse"),
-                    width="stretch",
-                )
-
-        position_validation = validation[validation["segment"].eq("position")].copy()
-        if not position_validation.empty:
-            st.markdown("#### Selected Model By Position")
+    with board_tab:
+        left, right = st.columns([1.15, 1])
+        with left:
+            chart_df = filtered.nsmallest(25, "fantasy_overall_rank")
             fig = px.bar(
-                position_validation,
-                x="segment_value",
-                y=["mae", "rmse"],
-                barmode="group",
-                labels={"segment_value": "Position", "value": "PPR points", "variable": "Metric"},
-                title="Rolling validation error by position",
+                chart_df.sort_values("predicted_2026_fantasy_points_ppr"),
+                x="predicted_2026_fantasy_points_ppr",
+                y="player_display_name",
+                color="draft_board_bucket" if "draft_board_bucket" in chart_df.columns else "position",
+                orientation="h",
+                labels={
+                    "predicted_2026_fantasy_points_ppr": "Projected 2026 PPR points",
+                    "player_display_name": "Player",
+                    "draft_board_bucket": "Draft bucket",
+                },
+                title="Top filtered fantasy projections",
             )
+            fig.update_layout(height=620)
             st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(validation, width="stretch")
 
-    display_cols = [
-        "fantasy_overall_rank",
-        "fantasy_position_rank",
-        "player_display_name",
-        "position",
-        "primary_team_2025",
-        "games_played_2025",
-        "fantasy_points_ppr_2025",
-        "predicted_2026_fantasy_points_ppr",
-        "predicted_2026_games_played",
-        "predicted_2026_ppr_per_game",
-        "projection_change_from_2025",
-        "projection_change_label",
-        "prediction_interval_low",
-        "prediction_interval_high",
-        "fantasy_projection_tier",
-        "usage_profile",
-        "confidence_level",
-        "selected_model_label",
-        "fantasy_explanation",
-    ]
-    st.subheader("Filtered Fantasy Board")
-    st.dataframe(
-        filtered[_available_columns(filtered, display_cols)].sort_values("fantasy_overall_rank"),
-        width="stretch",
-    )
-    st.download_button(
-        "Download filtered fantasy board",
-        filtered.to_csv(index=False),
-        file_name="filtered_2026_fantasy_projections.csv",
-        mime="text/csv",
-    )
+        with right:
+            fig = px.scatter(
+                filtered,
+                x="fantasy_points_ppr_2025",
+                y="predicted_2026_fantasy_points_ppr",
+                color="draft_board_bucket" if "draft_board_bucket" in filtered.columns else "position",
+                hover_data=[
+                    "player_display_name",
+                    "position",
+                    "primary_team_2025",
+                    "fantasy_position_rank",
+                    "breakout_potential",
+                    "slump_potential",
+                    "usage_profile",
+                    "confidence_level",
+                ],
+                labels={
+                    "fantasy_points_ppr_2025": "2025 PPR points",
+                    "predicted_2026_fantasy_points_ppr": "Projected 2026 PPR points",
+                    "draft_board_bucket": "Draft bucket",
+                },
+                title="2025 production vs 2026 projection",
+            )
+            fig.update_layout(height=620)
+            st.plotly_chart(fig, use_container_width=True)
+
+        display_cols = [
+            "fantasy_overall_rank",
+            "fantasy_position_rank",
+            "player_display_name",
+            "position",
+            "primary_team_2025",
+            "draft_board_bucket",
+            "breakout_potential",
+            "slump_potential",
+            "usage_profile",
+            "fantasy_points_ppr_2025",
+            "predicted_2026_fantasy_points_ppr",
+            "predicted_2026_games_played",
+            "predicted_2026_ppr_per_game",
+            "projection_change_from_2025",
+            "fantasy_projection_tier",
+            "confidence_level",
+            "fantasy_explanation",
+        ]
+        st.subheader("Filtered Fantasy Board")
+        st.dataframe(
+            filtered[_available_columns(filtered, display_cols)].sort_values("fantasy_overall_rank"),
+            width="stretch",
+        )
+        st.download_button(
+            "Download filtered fantasy board",
+            filtered.to_csv(index=False),
+            file_name="filtered_2026_fantasy_projections.csv",
+            mime="text/csv",
+        )
+
+    with buckets_tab:
+        st.subheader("Player Buckets")
+        bucket_summary = (
+            filtered
+            .groupby("draft_board_bucket", as_index=False)
+            .agg(
+                players=("player_id", "count"),
+                avg_projected_ppr=("predicted_2026_fantasy_points_ppr", "mean"),
+                avg_rank=("fantasy_overall_rank", "mean"),
+                high_breakout=("breakout_potential", lambda s: int((s == "High").sum())),
+                high_slump=("slump_potential", lambda s: int((s == "High").sum())),
+            )
+            .sort_values("avg_projected_ppr", ascending=False)
+        )
+        fig = px.bar(
+            bucket_summary,
+            x="draft_board_bucket",
+            y="players",
+            color="avg_projected_ppr",
+            labels={
+                "draft_board_bucket": "Draft bucket",
+                "players": "Players",
+                "avg_projected_ppr": "Avg projected PPR",
+            },
+            title="Filtered players by draft bucket",
+        )
+        fig.update_layout(height=420)
+        st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(bucket_summary, width="stretch")
+
+        bucket_cols = st.columns(3)
+        with bucket_cols[0]:
+            st.markdown("#### Breakout Targets")
+            breakout_table = filtered[
+                filtered["breakout_potential"].isin(["High", "Medium"])
+            ].copy()
+            st.dataframe(
+                breakout_table[_available_columns(
+                    breakout_table,
+                    [
+                        "player_display_name",
+                        "position",
+                        "primary_team_2025",
+                        "breakout_potential",
+                        "projection_change_from_2025",
+                        "predicted_2026_fantasy_points_ppr",
+                        "usage_profile",
+                    ],
+                )]
+                .sort_values(["breakout_potential", "predicted_2026_fantasy_points_ppr"], ascending=[True, False])
+                .head(12),
+                width="stretch",
+            )
+        with bucket_cols[1]:
+            st.markdown("#### Regression Watch")
+            slump_table = filtered[
+                filtered["slump_potential"].isin(["High", "Medium"])
+            ].copy()
+            st.dataframe(
+                slump_table[_available_columns(
+                    slump_table,
+                    [
+                        "player_display_name",
+                        "position",
+                        "primary_team_2025",
+                        "slump_potential",
+                        "projection_change_from_2025",
+                        "fantasy_points_ppr_2025",
+                        "predicted_2026_fantasy_points_ppr",
+                    ],
+                )]
+                .sort_values(["slump_potential", "fantasy_points_ppr_2025"], ascending=[True, False])
+                .head(12),
+                width="stretch",
+            )
+        with bucket_cols[2]:
+            st.markdown("#### Stable Starters")
+            stable_table = filtered[
+                filtered["draft_board_bucket"].isin(["Core Starter", "Stable Option"])
+            ].copy()
+            st.dataframe(
+                stable_table[_available_columns(
+                    stable_table,
+                    [
+                        "player_display_name",
+                        "position",
+                        "primary_team_2025",
+                        "draft_board_bucket",
+                        "confidence_level",
+                        "predicted_2026_fantasy_points_ppr",
+                        "fantasy_position_rank",
+                    ],
+                )]
+                .sort_values("predicted_2026_fantasy_points_ppr", ascending=False)
+                .head(12),
+                width="stretch",
+            )
+
+    with validation_tab:
+        st.subheader("Fantasy Model Validation")
+        if model_comparison.empty and validation.empty:
+            st.info("Fantasy validation summary is missing.")
+        else:
+            if not model_comparison.empty:
+                overall_models = model_comparison[
+                    model_comparison["segment"].eq("overall")
+                ].copy()
+                if not overall_models.empty:
+                    fig = px.bar(
+                        overall_models.sort_values("rmse"),
+                        x="rmse",
+                        y="model_label",
+                        color="model_type",
+                        orientation="h",
+                        labels={"rmse": "Rolling RMSE", "model_label": "Model"},
+                        title="Fantasy model comparison by rolling RMSE",
+                    )
+                    fig.update_layout(height=360)
+                    st.plotly_chart(fig, use_container_width=True)
+                    comparison_cols = [
+                        "model_label",
+                        "model_type",
+                        "mae",
+                        "rmse",
+                        "spearman_rank_corr",
+                        "top_rank_hit_rate",
+                        "bias",
+                    ]
+                    st.dataframe(
+                        overall_models[_available_columns(overall_models, comparison_cols)]
+                        .sort_values("rmse"),
+                        width="stretch",
+                    )
+
+            position_validation = validation[validation["segment"].eq("position")].copy()
+            if not position_validation.empty:
+                fig = px.bar(
+                    position_validation,
+                    x="segment_value",
+                    y=["mae", "rmse"],
+                    barmode="group",
+                    labels={"segment_value": "Position", "value": "PPR points", "variable": "Metric"},
+                    title="Selected-model rolling validation error by position",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(validation, width="stretch")
 
 
 def weekly_win_projection_page(data: dict[str, pd.DataFrame]) -> None:
@@ -1152,6 +1493,7 @@ def reports_page() -> None:
         ("Final project report", "report/final_project_report.md"),
         ("Methodology checks", "report/methodology_checks.md"),
         ("Model interpretation", "report/model_interpretation.md"),
+        ("Advanced modeling methodology", "report/advanced_modeling_methodology.md"),
         ("Salary-efficiency findings", "report/salary_efficiency_findings.md"),
         ("Fantasy football projection summary", "report/fantasy_football_projection_summary.md"),
         ("Weekly win projection summary", "report/weekly_win_projection_summary.md"),

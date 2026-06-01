@@ -167,6 +167,14 @@ This is a useful result because it matches the football intuition behind the pro
 
 The project also compares pooled and position-specific models. Position-specific models slightly improve RMSE for RBs and WRs, but the differences are small. The pooled model remains the preferred production model because it is simpler, uses more training data, and performs similarly across positions.
 
+## Advanced Modeling Methodology
+
+The project now includes an optional advanced modeling step in `src/advanced_modeling.py`. This step uses Optuna, SHAP, Polars, and MLflow as methodology tools rather than as decoration.
+
+Optuna searches Random Forest hyperparameters across the same rolling-validation folds used elsewhere in the project. In the current run, the Optuna-tuned model improves average rolling RMSE from about 0.925 to about 0.921. That is a real improvement, but it is small. I would treat it as evidence that tuning was checked, not as proof that the more complex model should automatically replace the current production model.
+
+SHAP is used on the 2024 validation fold to explain the tree model. The strongest SHAP signals are current EPA production and recent value history, which is consistent with the rest of the project. Polars is used for a fast data profile of the cleaned player-season file, and MLflow logs the advanced run locally while the CSV and Markdown outputs remain the reviewer-facing artifacts.
+
 ## Context Feature Impact
 
 The project now tests whether additional football context actually improves the model instead of simply adding more variables. The context-feature workflow creates usage, team-environment, and schedule-context features, then compares each group with rolling validation.
@@ -333,11 +341,12 @@ The strongest next improvements would be:
 
 1. Add exact season-level cap hit or cash-paid data.
 2. Compare raw EPA and standardized value score as parallel modeling targets.
-3. Decide whether to promote team-context features into the production prediction model after reviewing stability by position.
-4. Add richer external context such as offensive line metrics, quarterback situation, injuries, depth-chart changes, and coaching changes.
-5. Add offseason fantasy context such as rookies, depth-chart changes, injuries, and projected team passing/rushing volume.
-6. Add future schedule rows to turn the weekly win projection from a historical backtest into a forward-looking weekly tool.
-7. Extend the salary analysis to team-level cap allocation once better salary data is available.
+3. Decide whether the Optuna-tuned model is stable enough across future runs to replace the current depth-limited Random Forest.
+4. Decide whether to promote team-context features into the production prediction model after reviewing stability by position.
+5. Add richer external context such as offensive line metrics, quarterback situation, injuries, depth-chart changes, and coaching changes.
+6. Add offseason fantasy context such as rookies, depth-chart changes, injuries, and projected team passing/rushing volume.
+7. Add future schedule rows to turn the weekly win projection from a historical backtest into a forward-looking weekly tool.
+8. Extend the salary analysis to team-level cap allocation once better salary data is available.
 
 ## Conclusion
 

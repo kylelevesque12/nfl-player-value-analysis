@@ -220,6 +220,66 @@ def _projection_change_label(change: float) -> str:
     return "Similar to 2025"
 
 
+def _breakout_potential(row: pd.Series) -> str:
+    change = row.get("projection_change_from_2025", np.nan)
+    position_percentile = row.get("predicted_2026_position_percentile", np.nan)
+    age = row.get("age_2025", np.nan)
+    prior_points = row.get("fantasy_points_ppr_2025", np.nan)
+
+    if pd.notna(change) and pd.notna(position_percentile):
+        if change >= 40 and position_percentile >= 0.50:
+            return "High"
+        if change >= 20 and position_percentile >= 0.40:
+            return "Medium"
+
+    if (
+        pd.notna(age)
+        and pd.notna(position_percentile)
+        and pd.notna(prior_points)
+        and age <= 25
+        and position_percentile >= 0.75
+        and prior_points < 200
+    ):
+        return "Medium"
+
+    return "Low"
+
+
+def _slump_potential(row: pd.Series) -> str:
+    change = row.get("projection_change_from_2025", np.nan)
+    prior_points = row.get("fantasy_points_ppr_2025", np.nan)
+    uncertainty = row.get("prediction_uncertainty", np.nan)
+
+    if pd.notna(change) and pd.notna(prior_points):
+        if change <= -60 and prior_points >= 200:
+            return "High"
+        if change <= -30 and prior_points >= 150:
+            return "Medium"
+
+    if pd.notna(uncertainty) and uncertainty >= 90 and pd.notna(prior_points) and prior_points >= 150:
+        return "Medium"
+
+    return "Low"
+
+
+def _draft_board_bucket(row: pd.Series) -> str:
+    if row.get("breakout_potential") == "High":
+        return "Breakout Target"
+    if row.get("slump_potential") == "High":
+        return "Regression Watch"
+    if row.get("fantasy_projection_tier") == "Elite Fantasy Profile":
+        if row.get("confidence_level") in {"Medium", "High"}:
+            return "Core Starter"
+        return "Elite Upside"
+    if row.get("breakout_potential") == "Medium":
+        return "Upside Watch"
+    if row.get("slump_potential") == "Medium":
+        return "Slump Watch"
+    if row.get("confidence_level") == "Low":
+        return "Volatile Depth"
+    return "Stable Option"
+
+
 def _usage_profile(row: pd.Series) -> str:
     position = row.get("position")
     targets = row.get("targets_2025", 0)
@@ -759,6 +819,9 @@ def build_fantasy_projection_outputs(
         "projection_change_from_2025"
     ].apply(_projection_change_label)
     report_df["usage_profile"] = report_df.apply(_usage_profile, axis=1)
+    report_df["breakout_potential"] = report_df.apply(_breakout_potential, axis=1)
+    report_df["slump_potential"] = report_df.apply(_slump_potential, axis=1)
+    report_df["draft_board_bucket"] = report_df.apply(_draft_board_bucket, axis=1)
     report_df["fantasy_note"] = report_df.apply(_format_fantasy_note, axis=1)
     report_df["fantasy_explanation"] = report_df.apply(_format_fantasy_explanation, axis=1)
 
@@ -793,6 +856,9 @@ def build_fantasy_projection_outputs(
         "predicted_2026_position_percentile",
         "fantasy_projection_tier",
         "usage_profile",
+        "breakout_potential",
+        "slump_potential",
+        "draft_board_bucket",
         "confidence_score",
         "confidence_level",
         "selected_model",
@@ -823,7 +889,8 @@ def build_fantasy_projection_outputs(
         "yet include rookies, depth-chart changes, injuries, coaching changes, "
         "betting markets, or manual playing-time projections.\n\n"
         "To make the output easier to use, each player row includes a projection "
-        "change label, a usage profile, and a plain-English fantasy explanation.\n\n"
+        "change label, a usage profile, breakout and slump potential labels, a "
+        "draft-board bucket, and a plain-English fantasy explanation.\n\n"
         f"Projected players: {len(report_df):,}\n\n"
         f"Rolling validation rows: {len(selected_validation):,}\n\n"
         f"Selected model: {MODEL_LABELS[selected_model]}\n\n"

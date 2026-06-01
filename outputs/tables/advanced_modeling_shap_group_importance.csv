@@ -1,0 +1,5 @@
+feature_group,total_mean_abs_shap,mean_abs_shap,feature_count
+current_season_production,0.290527311059,0.0581054622118,5
+player_history,0.219678473604,0.018306539467,12
+player_profile,0.0483918473595,0.0161306157865,3
+position_indicator,0.038913776765,0.00972844419126,4

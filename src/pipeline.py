@@ -22,6 +22,7 @@ from src.fantasy_projection import build_fantasy_projection_outputs
 from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
 from src.weekly_win_projection import build_weekly_win_projection_outputs
+from src.advanced_modeling import build_advanced_modeling_outputs
 
 
 PIPELINE_STEPS = [
@@ -36,6 +37,7 @@ PIPELINE_STEPS = [
     "feature_impact",
     "checks",
     "interpretation",
+    "advanced_modeling",
 ]
 DEFAULT_PIPELINE_STEPS = [
     "clean",
@@ -147,6 +149,12 @@ def build_interpretation_outputs(project_root: str | Path | None = None) -> dict
     return build_model_interpretation_outputs(project_root=root, save_outputs=True)
 
 
+def build_advanced_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild optional advanced modeling outputs."""
+    root = _resolve_project_root(project_root)
+    return build_advanced_modeling_outputs(project_root=root, save_outputs=True)
+
+
 def run_pipeline(
     steps: list[str] | None = None,
     project_root: str | Path | None = None,
@@ -187,5 +195,7 @@ def run_pipeline(
             results[step] = build_check_outputs(root)
         elif step == "interpretation":
             results[step] = build_interpretation_outputs(root)
+        elif step == "advanced_modeling":
+            results[step] = build_advanced_outputs(root)
 
     return results

@@ -8,7 +8,7 @@ The final projection model is selected by the lowest rolling-validation RMSE. Th
 
 The model is still not a finished fantasy ranking system. It does not yet include rookies, depth-chart changes, injuries, coaching changes, betting markets, or manual playing-time projections.
 
-To make the output easier to use, each player row includes a projection change label, a usage profile, and a plain-English fantasy explanation.
+To make the output easier to use, each player row includes a projection change label, a usage profile, breakout and slump potential labels, a draft-board bucket, and a plain-English fantasy explanation.
 
 Projected players: 505
 
