@@ -147,3 +147,48 @@ def test_standardize_to_value_score_uses_frozen_stats():
     pos = pd.Series(["RB", "RB"])
     z = ts.standardize_to_value_score(pred, pos, stats)
     assert np.allclose(z, [2.0, -2.0])  # (3-2)/.5, (1-2)/.5
+
+
+def test_propagate_product_interval_matches_closed_form():
+    # E=2, O=10, se=0.5, so=1.0 -> var_eff=25, var_opp=4, var_int=0.25
+    out = ts.propagate_product_interval(
+        np.array([2.0]), np.array([10.0]), np.array([0.5]), np.array([1.0]), z=2.0
+    )
+    assert out["value_pred"][0] == 20.0
+    assert out["var_from_efficiency"][0] == 25.0
+    assert out["var_from_opportunity"][0] == 4.0
+    assert abs(out["var_interaction"][0] - 0.25) < 1e-12
+    assert abs(out["sigma"][0] - np.sqrt(29.25)) < 1e-12
+    assert abs(out["interval_width"][0] - 2 * 2.0 * np.sqrt(29.25)) < 1e-12
+    assert abs(out["efficiency_variance_share"][0] - 25.0 / 29.25) < 1e-12
+
+
+def test_propagate_interval_is_symmetric_around_prediction():
+    out = ts.propagate_product_interval(
+        np.array([1.5]), np.array([8.0]), np.array([0.3]), np.array([0.7]), z=1.28
+    )
+    mid = 0.5 * (out["interval_low"][0] + out["interval_high"][0])
+    assert abs(mid - out["value_pred"][0]) < 1e-12
+
+
+def test_propagate_zero_variance_guard():
+    out = ts.propagate_product_interval(
+        np.array([1.0]), np.array([1.0]), np.array([0.0]), np.array([0.0])
+    )
+    assert out["interval_width"][0] == 0.0
+    assert np.isnan(out["efficiency_variance_share"][0])
+
+
+def test_per_position_residual_sigma_uses_overall_fallback():
+    # A position with a single calibration row has undefined std -> fallback.
+    df = pd.DataFrame(
+        {
+            "position": ["WR", "WR", "WR", "QB"],
+            "resid": [1.0, -1.0, 0.5, 2.0],
+        }
+    )
+    per_pos, overall = ts._per_position_residual_sigma(df, "resid")
+    assert overall > 0
+    # QB has one row -> std is NaN -> replaced by overall.
+    assert abs(per_pos["QB"] - overall) < 1e-12
+    assert per_pos["WR"] > 0

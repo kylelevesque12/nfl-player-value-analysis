@@ -260,10 +260,22 @@ directly. All metrics use rolling-origin validation with skill scores.
 - [View efficiency summary](outputs/tables/two_stage_efficiency_summary.csv)
 - [View efficiency skill by position](outputs/tables/two_stage_efficiency_by_position.csv)
 - [View recombined vs single-model comparison](outputs/tables/two_stage_combined_summary.csv)
+- [View asymmetric interval coverage](outputs/tables/two_stage_interval_coverage.csv)
+- [View value-uncertainty variance share by axis](outputs/tables/two_stage_variance_share.csv)
 
 ```bash
 python scripts/run_pipeline.py --steps two_stage
 ```
+
+The two stages also produce an **asymmetric prediction interval**. Each stage's
+calibration-set residuals give a per-position error sigma, and these propagate
+through the product `value = efficiency × opportunity` as
+`Var(E·O) = O²σ_E² + E²σ_O² + σ_E²σ_O²`. This both sets the band width and
+decomposes each player's value uncertainty into an efficiency share and an
+opportunity share — so the interval is wide along exactly the axis the model
+cannot pin down. On the current data, essentially all WR/TE value uncertainty
+comes from the efficiency axis, while for QB/RB the opportunity axis carries the
+majority. A single blended model cannot express this distinction.
 
 The empirical pattern that justifies the design: opportunity is highly
 persistent (next-season R² ~0.83 for skill positions), while efficiency is

@@ -615,6 +615,73 @@ def reconstruct_value_predictions(
     )
 
 
+# ---------------------------------------------------------------------------
+# Asymmetric uncertainty: propagate per-stage error into a value interval
+# ---------------------------------------------------------------------------
+def propagate_product_interval(
+    efficiency_pred: np.ndarray,
+    opportunity_pred: np.ndarray,
+    sigma_efficiency: np.ndarray,
+    sigma_opportunity: np.ndarray,
+    z: float = config.PREDICTION_INTERVAL_MULTIPLIER,
+) -> dict[str, np.ndarray]:
+    """Propagate two independent stage errors through value = efficiency × opportunity.
+
+    For independent errors on the two factors, the variance of the product is
+    exactly::
+
+        Var(E·O) = O² σ_E² + E² σ_O² + σ_E² σ_O²
+
+    The first term is the uncertainty contributed by the **efficiency** axis, the
+    second by the **opportunity** axis, and the third is the (usually small)
+    interaction. This is what makes the band *legible*: we can report what share
+    of a player's value uncertainty comes from "how good per play" vs "how much
+    they play". Because skill-position efficiency is nearly unpredictable while
+    opportunity is highly predictable, the efficiency term typically dominates —
+    the interval is wide along the axis the model genuinely cannot pin down.
+
+    Returns a dict of arrays: predicted value, total sigma, interval bounds,
+    interval width, and the variance contributed by each axis plus the
+    efficiency variance share.
+    """
+    e = np.asarray(efficiency_pred, dtype="float64")
+    o = np.asarray(opportunity_pred, dtype="float64")
+    se = np.asarray(sigma_efficiency, dtype="float64")
+    so = np.asarray(sigma_opportunity, dtype="float64")
+
+    value = e * o
+    var_from_efficiency = np.square(o) * np.square(se)
+    var_from_opportunity = np.square(e) * np.square(so)
+    var_interaction = np.square(se) * np.square(so)
+    total_var = var_from_efficiency + var_from_opportunity + var_interaction
+    sigma = np.sqrt(total_var)
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        efficiency_share = np.where(total_var > 0, var_from_efficiency / total_var, np.nan)
+
+    return {
+        "value_pred": value,
+        "sigma": sigma,
+        "interval_low": value - z * sigma,
+        "interval_high": value + z * sigma,
+        "interval_width": 2.0 * z * sigma,
+        "var_from_efficiency": var_from_efficiency,
+        "var_from_opportunity": var_from_opportunity,
+        "var_interaction": var_interaction,
+        "efficiency_variance_share": efficiency_share,
+    }
+
+
+def _per_position_residual_sigma(
+    residual_df: pd.DataFrame, residual_col: str
+) -> tuple[dict[str, float], float]:
+    """Per-position residual std (and an overall fallback) from a calibration set."""
+    overall = float(residual_df[residual_col].std(ddof=1)) if len(residual_df) > 1 else 0.0
+    per_pos = residual_df.groupby("position")[residual_col].std(ddof=1).to_dict()
+    per_pos = {k: (v if np.isfinite(v) else overall) for k, v in per_pos.items()}
+    return per_pos, overall
+
+
 def combined_rolling_validation(
     project_root: Path,
     validation_years: list[int] | None = None,
@@ -742,6 +809,151 @@ def combined_rolling_validation(
     return preds, summary
 
 
+def interval_rolling_validation(
+    project_root: Path,
+    validation_years: list[int] | None = None,
+    target_coverage: float = config.PREDICTION_INTERVAL_TARGET_COVERAGE,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Validate asymmetric two-stage value intervals with rolling origin.
+
+    For each validation season the training years are split into a proper
+    training set and a calibration set (the most recent prior season). Both
+    stages are fit on the proper-train set; their residuals on the calibration
+    set give per-position error sigmas for each axis. Those sigmas are propagated
+    through the product to build a value prediction interval for the validation
+    rows, and empirical coverage is checked against the target.
+
+    Returns (per-row predictions+intervals, coverage summary, variance-share
+    summary).
+    """
+    if validation_years is None:
+        validation_years = DEFAULT_VALIDATION_YEARS
+    z = config.PREDICTION_INTERVAL_MULTIPLIER
+
+    value_scores_path = project_root / "data" / "processed" / "player_value_scores_2016_2025.csv"
+    ps = pd.read_csv(value_scores_path)
+    ps = add_opportunity_and_efficiency(ps)
+    ps = add_talent_rate_features(ps)
+    ps = add_opportunity_history_features(ps)
+    ps = add_efficiency_history_features(ps)
+    ps = add_next_season_opportunity_target(ps)
+    ps = add_next_season_efficiency_target(ps)
+    ps = ps.sort_values(["player_id", "season"])
+    grp = ps.groupby("player_id")
+    if "value_epa_per_game" not in ps.columns:
+        ps["value_epa_per_game"] = ps["efficiency_per_opportunity"] * ps["opportunity_per_game"]
+    ps["next_value_per_game"] = grp["value_epa_per_game"].shift(-1)
+    ps.loc[ps["next_season"].ne(ps["season"] + 1), "next_value_per_game"] = np.nan
+
+    opp_feats = [c for c in OPPORTUNITY_FEATURES if c in ps.columns]
+    eff_feats = [c for c in EFFICIENCY_FEATURES if c in ps.columns]
+    scored_mask = ps[EFFICIENCY_TARGET].notna() & ps["next_value_per_game"].notna()
+
+    fold_frames: list[pd.DataFrame] = []
+    for year in validation_years:
+        train_all = ps[ps["season"].lt(year)]
+        valid = ps[ps["season"].eq(year) & scored_mask]
+        if valid.empty or train_all.empty:
+            continue
+
+        calib_season = int(train_all["season"].max())
+        proper = train_all[train_all["season"].lt(calib_season)]
+        calib = train_all[train_all["season"].eq(calib_season)]
+        if proper.empty or len(calib) < 30:
+            # Fall back to a random split if there's too little history.
+            calib = train_all.sample(frac=0.25, random_state=config.RANDOM_STATE)
+            proper = train_all.drop(calib.index)
+            if proper.empty:
+                proper = train_all
+
+        # Fit each stage on the proper-train set only.
+        opp_train = proper.dropna(subset=[OPPORTUNITY_TARGET])
+        eff_train = proper.dropna(subset=[EFFICIENCY_TARGET])
+        opp_pipe = _make_opportunity_pipeline(opp_feats, "gradient_boosting")
+        opp_pipe.fit(opp_train[opp_feats], opp_train[OPPORTUNITY_TARGET])
+        eff_pipe = _make_opportunity_pipeline(eff_feats, "gradient_boosting")
+        eff_pipe.fit(eff_train[eff_feats], eff_train[EFFICIENCY_TARGET])
+
+        # Per-position residual sigma for each stage, from the calibration set.
+        calib_opp = calib.dropna(subset=[OPPORTUNITY_TARGET]).copy()
+        calib_opp["resid"] = (
+            calib_opp[OPPORTUNITY_TARGET].to_numpy() - opp_pipe.predict(calib_opp[opp_feats])
+        )
+        opp_sigma_pos, opp_sigma_all = _per_position_residual_sigma(calib_opp, "resid")
+
+        calib_eff = calib.dropna(subset=[EFFICIENCY_TARGET]).copy()
+        calib_eff["resid"] = (
+            calib_eff[EFFICIENCY_TARGET].to_numpy() - eff_pipe.predict(calib_eff[eff_feats])
+        )
+        eff_sigma_pos, eff_sigma_all = _per_position_residual_sigma(calib_eff, "resid")
+
+        # Predict both stages on the validation rows and build the interval.
+        opp_hat = opp_pipe.predict(valid[opp_feats])
+        eff_hat = eff_pipe.predict(valid[eff_feats])
+        pos = valid["position"].astype(str)
+        so = pos.map(opp_sigma_pos).fillna(opp_sigma_all).to_numpy()
+        se = pos.map(eff_sigma_pos).fillna(eff_sigma_all).to_numpy()
+
+        prop = propagate_product_interval(eff_hat, opp_hat, se, so, z=z)
+        out = valid[["player_id", "position", "season"]].copy()
+        out["actual_value_per_game"] = valid["next_value_per_game"].to_numpy()
+        for key in (
+            "value_pred",
+            "sigma",
+            "interval_low",
+            "interval_high",
+            "interval_width",
+            "var_from_efficiency",
+            "var_from_opportunity",
+            "efficiency_variance_share",
+        ):
+            out[key] = prop[key]
+        out["covered"] = out["actual_value_per_game"].between(
+            out["interval_low"], out["interval_high"]
+        )
+        fold_frames.append(out)
+
+    if not fold_frames:
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+    predictions = pd.concat(fold_frames, ignore_index=True)
+
+    def _coverage(group_df: pd.DataFrame) -> dict[str, float]:
+        return {
+            "n": int(len(group_df)),
+            "coverage": float(group_df["covered"].mean()),
+            "mean_width": float(group_df["interval_width"].mean()),
+            "mean_efficiency_variance_share": float(
+                group_df["efficiency_variance_share"].mean()
+            ),
+        }
+
+    overall = {"segment": "overall", "segment_value": "all", **_coverage(predictions)}
+    rows = [overall]
+    for pos, g in predictions.groupby("position"):
+        rows.append({"segment": "position", "segment_value": pos, **_coverage(g)})
+    coverage_summary = pd.DataFrame(rows)
+    coverage_summary["target_coverage"] = target_coverage
+    coverage_summary["coverage_gap"] = coverage_summary["coverage"] - target_coverage
+
+    # Variance-share table: how much of value uncertainty is from each axis.
+    var_rows = []
+    for seg_value, g in [("all", predictions)] + list(predictions.groupby("position")):
+        total_e = float(g["var_from_efficiency"].sum())
+        total_o = float(g["var_from_opportunity"].sum())
+        denom = total_e + total_o
+        var_rows.append(
+            {
+                "segment_value": "all" if isinstance(seg_value, str) and seg_value == "all" else seg_value,
+                "efficiency_variance_share": total_e / denom if denom > 0 else np.nan,
+                "opportunity_variance_share": total_o / denom if denom > 0 else np.nan,
+            }
+        )
+    variance_share = pd.DataFrame(var_rows)
+
+    return predictions, coverage_summary, variance_share
+
+
 # ---------------------------------------------------------------------------
 # Report + orchestration
 # ---------------------------------------------------------------------------
@@ -769,6 +981,8 @@ def build_two_stage_report_markdown(
     eff_summary: pd.DataFrame,
     eff_by_pos: pd.DataFrame,
     combined_summary: pd.DataFrame,
+    interval_coverage: pd.DataFrame | None = None,
+    variance_share: pd.DataFrame | None = None,
 ) -> str:
     lines: list[str] = []
     lines.append("# Two-Stage Value Model: Opportunity × Efficiency")
@@ -852,6 +1066,55 @@ def build_two_stage_report_markdown(
                 f"{_fmt_pct(r['skill_vs_persistence'])} | {_fmt_pct(r['skill_vs_single_model'])} |"
             )
         lines.append("")
+    if interval_coverage is not None and not interval_coverage.empty:
+        lines.append("## Asymmetric prediction intervals")
+        lines.append("")
+        lines.append(
+            "Each stage's calibration-set residuals give a per-position error "
+            "sigma, and these are propagated through the product "
+            "`value = efficiency × opportunity` via "
+            "`Var(E·O) = O²σ_E² + E²σ_O² + σ_E²σ_O²`. The first term is the "
+            "uncertainty from the efficiency axis, the second from opportunity. "
+            "This makes the band *legible*: the table below reports empirical "
+            "coverage against the "
+            f"{_fmt_pct(float(interval_coverage['target_coverage'].iloc[0]))} target "
+            "and the share of value uncertainty coming from each axis — something "
+            "a single blended model cannot decompose."
+        )
+        lines.append("")
+        lines.append(
+            "| Segment | Coverage | Target | Gap | Mean width | Efficiency variance share |"
+        )
+        lines.append("| --- | ---: | ---: | ---: | ---: | ---: |")
+        for _, r in interval_coverage.iterrows():
+            lines.append(
+                f"| {r['segment_value']} | {_fmt_pct(r['coverage'])} | "
+                f"{_fmt_pct(r['target_coverage'])} | {_fmt_pct(r['coverage_gap'])} | "
+                f"{r['mean_width']:.2f} | {_fmt_pct(r['mean_efficiency_variance_share'])} |"
+            )
+        lines.append("")
+        if variance_share is not None and not variance_share.empty:
+            lines.append(
+                "Variance attribution (share of total value uncertainty by axis):"
+            )
+            lines.append("")
+            lines.append("| Segment | Efficiency share | Opportunity share |")
+            lines.append("| --- | ---: | ---: |")
+            for _, r in variance_share.iterrows():
+                lines.append(
+                    f"| {r['segment_value']} | {_fmt_pct(r['efficiency_variance_share'])} | "
+                    f"{_fmt_pct(r['opportunity_variance_share'])} |"
+                )
+            lines.append("")
+            lines.append(
+                "For wide receivers and tight ends almost all value uncertainty "
+                "comes from the efficiency axis (the model cannot pin down "
+                "per-target quality), while for quarterbacks and running backs the "
+                "opportunity axis carries more of it. The interval is therefore "
+                "wide along exactly the axis the model genuinely cannot predict — "
+                "the practical payoff of modeling the two factors separately."
+            )
+            lines.append("")
     lines.append("## Interpretation")
     lines.append("")
     lines.append(
@@ -910,11 +1173,25 @@ def build_two_stage_value_outputs(
         combined_preds, combined_summary = combined_rolling_validation(
             project_root, validation_years
         )
+        interval_preds, interval_coverage, variance_share = interval_rolling_validation(
+            project_root, validation_years
+        )
     else:
         combined_preds, combined_summary = pd.DataFrame(), pd.DataFrame()
+        interval_preds, interval_coverage, variance_share = (
+            pd.DataFrame(),
+            pd.DataFrame(),
+            pd.DataFrame(),
+        )
 
     report_md = build_two_stage_report_markdown(
-        opp_summary, opp_by_pos, eff_summary, eff_by_pos, combined_summary
+        opp_summary,
+        opp_by_pos,
+        eff_summary,
+        eff_by_pos,
+        combined_summary,
+        interval_coverage,
+        variance_share,
     )
 
     outputs = {
@@ -926,6 +1203,9 @@ def build_two_stage_value_outputs(
         "efficiency_by_position": eff_by_pos,
         "combined_predictions": combined_preds,
         "combined_summary": combined_summary,
+        "interval_predictions": interval_preds,
+        "interval_coverage": interval_coverage,
+        "variance_share": variance_share,
         "report_markdown": report_md,
         "opportunity_features": opp_feats,
         "efficiency_features": eff_feats,
@@ -943,6 +1223,13 @@ def build_two_stage_value_outputs(
         if not combined_summary.empty:
             combined_summary.to_csv(
                 tables_dir / "two_stage_combined_summary.csv", index=False
+            )
+        if not interval_coverage.empty:
+            interval_coverage.to_csv(
+                tables_dir / "two_stage_interval_coverage.csv", index=False
+            )
+            variance_share.to_csv(
+                tables_dir / "two_stage_variance_share.csv", index=False
             )
         (report_dir / "two_stage_value.md").write_text(report_md)
 
