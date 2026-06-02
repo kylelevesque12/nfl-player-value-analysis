@@ -205,6 +205,73 @@ features together. The point is to avoid blindly adding features: a context
 group should either improve rolling validation or make the model meaningfully
 more explainable.
 
+## Value Decomposition: Efficiency vs Opportunity
+
+The headline `value_score` is the within season-position z-score of *total* EPA,
+which blends two different things a front office needs to separate: how good a
+player is *per opportunity* (efficiency/ability) and how *much* they are used
+(opportunity/role). The decomposition stage splits value into two standardized
+axes — `efficiency_z` (value EPA per opportunity) and `opportunity_z` (usage per
+game) — and adds talent-isolating rate features (catch rate, yards per target,
+aDOT, YAC per reception, RACR, yards per carry, completion %, yards per attempt,
+passing aDOT, PACR) reconstructed from the existing season totals. Efficiency is
+only standardized over player-seasons that clear a position-specific minimum
+opportunity load, so small-sample flukes do not distort the rankings.
+
+It then measures how repeatable each axis is year over year, which is the
+evidence for what actually reflects stable talent:
+
+- [Read the value decomposition report](report/value_decomposition.md)
+- [View year-over-year stability](outputs/tables/value_decomposition_stability.csv)
+- [View the decomposed player-season table](data/processed/player_value_decomposition_2016_2025.csv)
+
+```bash
+python scripts/run_pipeline.py --steps decompose
+```
+
+The headline finding from the current data: opportunity is far more persistent
+year over year (about 0.76) than efficiency for skill positions (roughly
+0.18–0.25 once small samples are excluded), while quarterback efficiency is the
+exception and is genuinely sticky (about 0.47). In other words, much of what the
+total-EPA value score appears to "predict" from one season to the next is role
+stability rather than ability — which is exactly why modeling the two axes
+separately is more honest for talent evaluation.
+
+## Two-Stage Value Model (Opportunity × Efficiency)
+
+The decomposition finding — that opportunity is highly persistent year over year
+while efficiency is mostly noise for skill positions — motivates a two-stage
+value model that predicts the two factors separately and recombines them, rather
+than predicting blended total value with one model. The factorization is exact:
+`value_epa_total = efficiency_per_opportunity × opportunity_per_game ×
+games_played`.
+
+Both stages are implemented. Stage 1 predicts next-season opportunity per game
+(Random Forest / Histogram Gradient Boosting vs a persistence baseline). Stage 2
+predicts next-season efficiency on efficiency-qualified seasons only, scored
+against a shrink-to-mean baseline — the right null when efficiency barely
+autocorrelates. The two stages then multiply to a per-game value projection,
+which is compared on the same rows against a single model that predicts value
+directly. All metrics use rolling-origin validation with skill scores.
+
+- [Read the two-stage model report](report/two_stage_value.md)
+- [View opportunity summary](outputs/tables/two_stage_opportunity_summary.csv)
+- [View opportunity skill by position](outputs/tables/two_stage_opportunity_by_position.csv)
+- [View efficiency summary](outputs/tables/two_stage_efficiency_summary.csv)
+- [View efficiency skill by position](outputs/tables/two_stage_efficiency_by_position.csv)
+- [View recombined vs single-model comparison](outputs/tables/two_stage_combined_summary.csv)
+
+```bash
+python scripts/run_pipeline.py --steps two_stage
+```
+
+The empirical pattern that justifies the design: opportunity is highly
+persistent (next-season R² ~0.83 for skill positions), while efficiency is
+learnable for quarterbacks (~13% skill over the positional mean) but close to
+pure regression to the mean for RB/WR/TE (~2%). Separating the axes lets the
+model concentrate confidence where signal exists and shrink hard where it does
+not.
+
 ## Model Benchmark: Skill Score And Calibrated Intervals
 
 Because the prediction target (`next_value_score`) is standardized within each

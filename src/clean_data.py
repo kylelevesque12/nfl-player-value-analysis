@@ -5,8 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from src import config
 
-SKILL_POSITIONS = ["QB", "RB", "WR", "TE"]
+
+SKILL_POSITIONS = list(config.SKILL_POSITIONS)
 
 DEFAULT_GROUP_COLS = [
     "season",

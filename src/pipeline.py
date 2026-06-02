@@ -23,11 +23,15 @@ from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
 from src.weekly_win_projection import build_weekly_win_projection_outputs
 from src.advanced_modeling import build_advanced_modeling_outputs
+from src.model_benchmark import build_model_benchmark_outputs
+from src.value_decomposition import build_value_decomposition_outputs
+from src.two_stage_value import build_two_stage_value_outputs
 
 
 PIPELINE_STEPS = [
     "clean",
     "value",
+    "decompose",
     "predictions",
     "salary",
     "findings",
@@ -37,11 +41,14 @@ PIPELINE_STEPS = [
     "feature_impact",
     "checks",
     "interpretation",
+    "benchmark",
+    "two_stage",
     "advanced_modeling",
 ]
 DEFAULT_PIPELINE_STEPS = [
     "clean",
     "value",
+    "decompose",
     "predictions",
     "salary",
     "findings",
@@ -49,6 +56,8 @@ DEFAULT_PIPELINE_STEPS = [
     "weekly_wins",
     "checks",
     "interpretation",
+    "benchmark",
+    "two_stage",
 ]
 
 
@@ -155,6 +164,24 @@ def build_advanced_outputs(project_root: str | Path | None = None) -> dict[str, 
     return build_advanced_modeling_outputs(project_root=root, save_outputs=True)
 
 
+def build_decomposition_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild efficiency/opportunity value decomposition and stability report."""
+    root = _resolve_project_root(project_root)
+    return build_value_decomposition_outputs(project_root=root, save_outputs=True)
+
+
+def build_benchmark_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild baseline/skill-score benchmark tables and conformal intervals."""
+    root = _resolve_project_root(project_root)
+    return build_model_benchmark_outputs(project_root=root, save_outputs=True)
+
+
+def build_two_stage_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild two-stage value model outputs (Stage 1: opportunity)."""
+    root = _resolve_project_root(project_root)
+    return build_two_stage_value_outputs(project_root=root, save_outputs=True)
+
+
 def run_pipeline(
     steps: list[str] | None = None,
     project_root: str | Path | None = None,
@@ -177,6 +204,8 @@ def run_pipeline(
             results[step] = build_cleaned_data(root)
         elif step == "value":
             results[step] = build_value_scores(root)
+        elif step == "decompose":
+            results[step] = build_decomposition_outputs(root)
         elif step == "predictions":
             results[step] = build_prediction_outputs(root)
         elif step == "salary":
@@ -195,6 +224,10 @@ def run_pipeline(
             results[step] = build_check_outputs(root)
         elif step == "interpretation":
             results[step] = build_interpretation_outputs(root)
+        elif step == "benchmark":
+            results[step] = build_benchmark_outputs(root)
+        elif step == "two_stage":
+            results[step] = build_two_stage_outputs(root)
         elif step == "advanced_modeling":
             results[step] = build_advanced_outputs(root)
 
