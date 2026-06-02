@@ -955,6 +955,141 @@ def interval_rolling_validation(
 
 
 # ---------------------------------------------------------------------------
+# 2026 deliverable: two-stage projections with asymmetric intervals
+# ---------------------------------------------------------------------------
+def _driver_label(efficiency_share: float) -> str:
+    """Label whether a player's value uncertainty is role- or efficiency-driven."""
+    if pd.isna(efficiency_share):
+        return "unknown"
+    if efficiency_share >= 0.66:
+        return "efficiency-driven"
+    if efficiency_share <= 0.34:
+        return "role-driven"
+    return "mixed"
+
+
+def build_two_stage_2026_projection(
+    project_root: Path,
+    input_season: int = config.CURRENT_INPUT_SEASON,
+    target_season: int = config.PREDICTION_TARGET_SEASON,
+) -> pd.DataFrame:
+    """Project next-season value for ``input_season`` players via the two stages.
+
+    Trains both stages on all available history (seasons strictly before
+    ``input_season`` have a known next-season target), predicts opportunity and
+    efficiency for every ``input_season`` player-season, recombines them into a
+    per-game value, standardizes to a value_score using frozen training group
+    stats, and attaches an asymmetric prediction interval plus a per-player
+    driver label (role-driven vs efficiency-driven).
+
+    Efficiency is only reliably modeled for efficiency-qualified players; for the
+    rest the efficiency stage still predicts (the imputer fills missing rates),
+    but the row is flagged ``efficiency_qualified=False`` and carries the wider
+    positional efficiency sigma, so its interval honestly reflects lower
+    confidence.
+    """
+    value_scores_path = project_root / "data" / "processed" / "player_value_scores_2016_2025.csv"
+    ps = pd.read_csv(value_scores_path)
+    ps = add_opportunity_and_efficiency(ps)
+    ps = add_talent_rate_features(ps)
+    ps = add_opportunity_history_features(ps)
+    ps = add_efficiency_history_features(ps)
+    ps = add_next_season_opportunity_target(ps)
+    ps = add_next_season_efficiency_target(ps)
+    if "value_epa_per_game" not in ps.columns:
+        ps["value_epa_per_game"] = ps["efficiency_per_opportunity"] * ps["opportunity_per_game"]
+
+    opp_feats = [c for c in OPPORTUNITY_FEATURES if c in ps.columns]
+    eff_feats = [c for c in EFFICIENCY_FEATURES if c in ps.columns]
+
+    # Training rows: known next-season targets (i.e. seasons before input_season).
+    opp_train = ps.dropna(subset=[OPPORTUNITY_TARGET])
+    opp_train = opp_train[opp_train["season"].lt(input_season)]
+    eff_train = ps.dropna(subset=[EFFICIENCY_TARGET])
+    eff_train = eff_train[eff_train["season"].lt(input_season)]
+
+    predict_input = ps[ps["season"].eq(input_season)].copy()
+    if predict_input.empty:
+        return pd.DataFrame()
+
+    opp_pipe = _make_opportunity_pipeline(opp_feats, "gradient_boosting")
+    opp_pipe.fit(opp_train[opp_feats], opp_train[OPPORTUNITY_TARGET])
+    eff_pipe = _make_opportunity_pipeline(eff_feats, "gradient_boosting")
+    eff_pipe.fit(eff_train[eff_feats], eff_train[EFFICIENCY_TARGET])
+
+    # Per-position stage sigmas from a held-out calibration season.
+    calib_season = int(opp_train["season"].max())
+    opp_calib = opp_train[opp_train["season"].eq(calib_season)].copy()
+    opp_calib["resid"] = opp_calib[OPPORTUNITY_TARGET].to_numpy() - opp_pipe.predict(
+        opp_calib[opp_feats]
+    )
+    opp_sigma_pos, opp_sigma_all = _per_position_residual_sigma(opp_calib, "resid")
+    eff_calib_season = int(eff_train["season"].max())
+    eff_calib = eff_train[eff_train["season"].eq(eff_calib_season)].copy()
+    eff_calib["resid"] = eff_calib[EFFICIENCY_TARGET].to_numpy() - eff_pipe.predict(
+        eff_calib[eff_feats]
+    )
+    eff_sigma_pos, eff_sigma_all = _per_position_residual_sigma(eff_calib, "resid")
+
+    # Frozen per-position value_epa_per_game stats for standardization.
+    group_stats = (
+        opp_train.dropna(subset=["value_epa_per_game"])  # training-distribution only
+        .groupby("position")["value_epa_per_game"]
+        .agg(["mean", "std"])
+    )
+
+    pos = predict_input["position"].astype(str)
+    opp_hat = opp_pipe.predict(predict_input[opp_feats])
+    eff_hat = eff_pipe.predict(predict_input[eff_feats])
+    so = pos.map(opp_sigma_pos).fillna(opp_sigma_all).to_numpy()
+    se = pos.map(eff_sigma_pos).fillna(eff_sigma_all).to_numpy()
+
+    prop = propagate_product_interval(eff_hat, opp_hat, se, so)
+
+    name_col = "player_display_name" if "player_display_name" in predict_input.columns else "player_name"
+    out = pd.DataFrame(
+        {
+            "player_id": predict_input["player_id"].to_numpy(),
+            "player": predict_input[name_col].to_numpy(),
+            "position": pos.to_numpy(),
+            "team": predict_input["team"].to_numpy() if "team" in predict_input.columns else "",
+            "input_season": input_season,
+            "target_season": target_season,
+            "predicted_opportunity_per_game": opp_hat,
+            "predicted_efficiency_per_opportunity": eff_hat,
+            "efficiency_qualified": predict_input["efficiency_qualified"].to_numpy(),
+        }
+    )
+    out["predicted_value_per_game"] = prop["value_pred"]
+    out["value_sigma"] = prop["sigma"]
+    out["value_interval_low"] = prop["interval_low"]
+    out["value_interval_high"] = prop["interval_high"]
+    out["efficiency_variance_share"] = prop["efficiency_variance_share"]
+    out["uncertainty_driver"] = [
+        _driver_label(s) for s in prop["efficiency_variance_share"]
+    ]
+
+    # Standardize to a value_score comparable to the project metric.
+    out["predicted_value_score"] = standardize_to_value_score(
+        out["predicted_value_per_game"], out["position"], group_stats
+    )
+    low_z = standardize_to_value_score(
+        pd.Series(prop["interval_low"]), out["position"], group_stats
+    )
+    high_z = standardize_to_value_score(
+        pd.Series(prop["interval_high"]), out["position"], group_stats
+    )
+    out["value_score_interval_low"] = low_z
+    out["value_score_interval_high"] = high_z
+
+    out = out.sort_values("predicted_value_score", ascending=False).reset_index(drop=True)
+    out["position_rank"] = out.groupby("position")["predicted_value_score"].rank(
+        ascending=False, method="min"
+    )
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Report + orchestration
 # ---------------------------------------------------------------------------
 def _fmt_pct(x: float) -> str:
@@ -983,6 +1118,7 @@ def build_two_stage_report_markdown(
     combined_summary: pd.DataFrame,
     interval_coverage: pd.DataFrame | None = None,
     variance_share: pd.DataFrame | None = None,
+    projection_2026: pd.DataFrame | None = None,
 ) -> str:
     lines: list[str] = []
     lines.append("# Two-Stage Value Model: Opportunity × Efficiency")
@@ -1115,6 +1251,39 @@ def build_two_stage_report_markdown(
                 "the practical payoff of modeling the two factors separately."
             )
             lines.append("")
+    if projection_2026 is not None and not projection_2026.empty:
+        tgt = int(projection_2026["target_season"].iloc[0])
+        lines.append(f"## {tgt} projections (top 15 by predicted value)")
+        lines.append("")
+        lines.append(
+            "Both stages are trained on all prior history and applied to the most "
+            "recent season's players. Each projection carries an asymmetric "
+            "interval and a driver label: *efficiency-driven* means most of the "
+            "uncertainty is in per-play quality (typical of WR/TE), *role-driven* "
+            "means it is in usage (typical of QB/RB)."
+        )
+        lines.append("")
+        lines.append(
+            "| Player | Pos | Team | Pred. value score | Approx. 80% interval | Driver |"
+        )
+        lines.append("| --- | --- | --- | ---: | ---: | --- |")
+        for _, r in projection_2026.head(15).iterrows():
+            lines.append(
+                f"| {r['player']} | {r['position']} | {r['team']} | "
+                f"{r['predicted_value_score']:.2f} | "
+                f"{r['value_score_interval_low']:.2f} to {r['value_score_interval_high']:.2f} | "
+                f"{r['uncertainty_driver']} |"
+            )
+        lines.append("")
+        n_qual = int(projection_2026["efficiency_qualified"].sum())
+        lines.append(
+            f"Of {len(projection_2026)} projected players, {n_qual} are "
+            "efficiency-qualified (enough opportunity for a reliable efficiency "
+            "signal); the rest lean on the positional efficiency prior and carry "
+            "wider intervals, which the driver label and interval width make "
+            "explicit."
+        )
+        lines.append("")
     lines.append("## Interpretation")
     lines.append("")
     lines.append(
@@ -1176,6 +1345,7 @@ def build_two_stage_value_outputs(
         interval_preds, interval_coverage, variance_share = interval_rolling_validation(
             project_root, validation_years
         )
+        projection_2026 = build_two_stage_2026_projection(project_root)
     else:
         combined_preds, combined_summary = pd.DataFrame(), pd.DataFrame()
         interval_preds, interval_coverage, variance_share = (
@@ -1183,6 +1353,7 @@ def build_two_stage_value_outputs(
             pd.DataFrame(),
             pd.DataFrame(),
         )
+        projection_2026 = pd.DataFrame()
 
     report_md = build_two_stage_report_markdown(
         opp_summary,
@@ -1192,6 +1363,7 @@ def build_two_stage_value_outputs(
         combined_summary,
         interval_coverage,
         variance_share,
+        projection_2026,
     )
 
     outputs = {
@@ -1206,6 +1378,7 @@ def build_two_stage_value_outputs(
         "interval_predictions": interval_preds,
         "interval_coverage": interval_coverage,
         "variance_share": variance_share,
+        "projection_2026": projection_2026,
         "report_markdown": report_md,
         "opportunity_features": opp_feats,
         "efficiency_features": eff_feats,
@@ -1230,6 +1403,12 @@ def build_two_stage_value_outputs(
             )
             variance_share.to_csv(
                 tables_dir / "two_stage_variance_share.csv", index=False
+            )
+        if not projection_2026.empty:
+            projection_2026.to_csv(
+                tables_dir / "two_stage_2026_projection.csv",
+                index=False,
+                float_format=config.CSV_FLOAT_FORMAT,
             )
         (report_dir / "two_stage_value.md").write_text(report_md)
 

@@ -179,6 +179,15 @@ def test_propagate_zero_variance_guard():
     assert np.isnan(out["efficiency_variance_share"][0])
 
 
+def test_driver_label_thresholds():
+    assert ts._driver_label(0.90) == "efficiency-driven"
+    assert ts._driver_label(0.66) == "efficiency-driven"
+    assert ts._driver_label(0.10) == "role-driven"
+    assert ts._driver_label(0.34) == "role-driven"
+    assert ts._driver_label(0.50) == "mixed"
+    assert ts._driver_label(float("nan")) == "unknown"
+
+
 def test_per_position_residual_sigma_uses_overall_fallback():
     # A position with a single calibration row has undefined std -> fallback.
     df = pd.DataFrame(

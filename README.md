@@ -262,6 +262,7 @@ directly. All metrics use rolling-origin validation with skill scores.
 - [View recombined vs single-model comparison](outputs/tables/two_stage_combined_summary.csv)
 - [View asymmetric interval coverage](outputs/tables/two_stage_interval_coverage.csv)
 - [View value-uncertainty variance share by axis](outputs/tables/two_stage_variance_share.csv)
+- [View 2026 two-stage player projections](outputs/tables/two_stage_2026_projection.csv)
 
 ```bash
 python scripts/run_pipeline.py --steps two_stage
