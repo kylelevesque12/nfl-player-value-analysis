@@ -1,357 +1,351 @@
-# Measuring NFL Player Value and Salary Efficiency
+# Measuring and Predicting NFL Offensive Player Value
 
-## Executive Summary
+## Executive summary
 
-This project builds an end-to-end NFL analytics workflow for measuring offensive player value, predicting next-season value, and evaluating salary efficiency. The analysis focuses on quarterbacks, running backs, wide receivers, and tight ends from 2016 through 2025.
+This project measures the value of NFL offensive players, predicts how that value
+will carry into the next season, and compares value to contract cost. It covers
+quarterbacks, running backs, wide receivers, and tight ends from 2016 through 2025.
 
-The main value metric is position-season standardized total EPA. In the code, this column is named `value_score`, but the plain-English meaning is standardized EPA relative to players at the same position in the same season. For quarterbacks, value is based on passing plus rushing EPA. For running backs, wide receivers, and tight ends, value is based on rushing plus receiving EPA.
+The work began with a conventional approach — score each player-season by
+standardized EPA, then train a model to predict next season's score — and then
+interrogated that approach honestly. Three findings, in order, shaped the project:
 
-The project also builds a next-season prediction model and a first-pass salary-efficiency analysis using historical contract data. The final outputs include cleaned datasets, notebooks, reusable Python source code, a 2026 Excel prediction report, salary-efficiency findings, and a reproducible command-line pipeline.
+1. **A simple baseline is hard to beat.** When the prediction target is
+   standardized within each season-position group, its standard deviation is
+   about 1.0, so predicting the group mean already yields an RMSE near 1.0.
+   Measured against a properly shrunken persistence baseline rather than against
+   zero, a tuned Random Forest improves RMSE by only about 4.3% (and conformal
+   intervals hit 81.1% coverage against an 80% target). That is the honest size
+   of the signal, and it pointed toward understanding *what* in value is even
+   predictable.
 
-## Project Question
+2. **Value is two different things wearing one number.** Player value factors
+   exactly into *efficiency* (production per opportunity) times *opportunity*
+   (how much a player is used). These factors behave completely differently over
+   time: opportunity is highly persistent year to year, while efficiency — for
+   skill positions — is close to noise. This decomposition is the project's
+   central analytical insight.
 
-The central question is:
+3. **But separating the axes did not improve prediction.** A natural hypothesis
+   followed from finding 2: model the two factors separately and recombine them.
+   It was built, validated honestly head-to-head, and **it lost.** On identical
+   rows, a single model predicting value directly scored RMSE 2.318 (R² 0.203)
+   while the two-stage recombination scored 2.417 (R² 0.134) — about 4% worse.
+   The reason is coherent with the decomposition itself: the efficiency stage
+   adds almost nothing over a shrink-to-mean baseline, and multiplying a noisy
+   efficiency estimate into the product injects error the single model avoids. The
+   decomposition was *diagnostically right about the world* and *wrong as a bet
+   that separation improves accuracy.* Reporting that plainly is the point.
 
-How can NFL offensive player value be measured, predicted, and compared to salary in a way that is transparent, position-aware, and useful for football decision-making?
+So the project ships two complementary things rather than one. **The single
+model is the accuracy engine** for point predictions. **The two-stage
+decomposition is an interpretability and uncertainty layer**: it produces a
+calibrated, *asymmetric* prediction interval (validated at 80.9% coverage) that is
+wide along the axis the model genuinely cannot predict, and it labels each player
+as role-driven or efficiency-driven — distinguishing "we are unsure about this
+player's role" from "we are unsure about his per-play quality." That distinction
+is real, validated, and useful even though it did not lower RMSE.
 
-The project answers this in three stages:
+The repository delivers cleaned datasets, reusable `src/` modules, a reproducible
+command-line pipeline, validation and interpretation reports, a salary-efficiency
+analysis, and player-value projections with calibrated, axis-aware uncertainty.
 
-1. Build a production-based player value score.
-2. Predict next-season player value using current and historical features.
-3. Compare value to contract cost to identify salary-efficient and salary-inefficient player-seasons.
+## The question
 
-## Data Sources
+How can NFL offensive player value be measured, predicted, and compared to salary
+in a way that is transparent, position-aware, and useful for football decisions?
 
-The project uses nflverse data loaded with `nflreadpy`:
+The answer is built in layers: define a defensible value metric, understand what
+in that metric is actually predictable, model the predictable parts well, and
+attach uncertainty that a decision-maker can act on.
 
-- weekly player statistics
-- roster data
-- schedule data
+## Data
 
-The salary-efficiency section uses nflverse historical contract data sourced from OverTheCap. The current cost variable is `inflated_apy`, which adjusts contract average annual value across seasons. This is useful for first-pass contract-cost comparisons, but it is not the same as exact cap hit or cash paid.
+The project uses nflverse data loaded with `nflreadpy`: weekly player statistics,
+rosters, and schedules, from 2016 to 2025. The salary-efficiency section adds
+nflverse historical contract data sourced from OverTheCap, using `inflated_apy`
+(an inflation-adjusted average annual value) as a first-pass contract-cost metric.
+Raw and processed data are excluded from version control; lightweight output
+tables and reports are committed so the project can be reviewed without large
+files.
 
-Raw and processed data are intentionally excluded from GitHub. Final lightweight output tables and reports are included so the project can be reviewed without committing large raw files.
+Weekly rows are filtered to regular-season QB/RB/WR/TE and aggregated to
+player-season rows. Multi-team stints are collapsed to a single player-season
+before scoring, so a traded player is not split into misleading partial samples.
+Position-specific production is kept separate throughout: quarterbacks are
+measured by passing-plus-rushing production, while running backs, receivers, and
+tight ends are measured by rushing-plus-receiving production.
 
-## Data Cleaning
+## The value metric, and its hidden flaw
 
-The raw weekly player data is filtered to regular-season offensive skill players:
+The headline metric, `value_score`, is total value EPA standardized within each
+season-position group:
 
-- QB
-- RB
-- WR
-- TE
+- QB value EPA = passing EPA + rushing EPA
+- RB/WR/TE value EPA = rushing EPA + receiving EPA
+- `value_score` = z-score of value EPA within (season, position)
 
-Weekly rows are aggregated to player-season data. The project collapses multi-team stints to one player-season row before value scoring so traded players are not split into misleading partial samples.
+So `0.0` is positional average for that season, `+1.0` is one standard deviation
+above peers, and players at different positions become comparable only after each
+is first judged against their own group. This is a reasonable, position-aware
+comparison metric, and it remains the project's reference scale.
 
-The cleaned dataset includes production totals, per-game rates, roster context, age, years of experience, and draft information. It also keeps position-specific features separate. For example, the project avoids using a universal yards-per-touch metric because passing yards and scrimmage touches are not compatible. Instead:
+But it has a flaw that matters for talent evaluation: **total EPA rewards
+opportunity as much as quality.** A high-volume, average-efficiency player can
+out-score a low-volume, highly efficient one. For a front office, that conflates
+two distinct questions — *how good is this player per play?* and *how much is this
+player used?* — into a single number. The rest of the project is, in large part,
+about pulling those two questions apart.
 
-- QBs use QB-specific play and EPA features.
-- RBs, WRs, and TEs use scrimmage production and scrimmage EPA features.
+## Decomposing value: what is actually predictable
 
-## Value Score Methodology
+Because value EPA per game equals efficiency per opportunity times opportunities
+per game, each player-season can be split into two standardized axes:
 
-The primary value metric is `value_score`, which can be read as position-season standardized total EPA.
+- **efficiency** = value EPA per opportunity (per dropback for QBs, per
+  carry-or-target for skill players)
+- **opportunity** = opportunities per game (usage / role)
 
-For quarterbacks:
+The decisive question is how *repeatable* each axis is from one season to the
+next, because a repeatable signal is more likely to reflect stable ability than
+luck or a one-year role. Measuring lag-1 year-over-year correlation on the real
+data gives a clear answer:
 
-`value_epa_total = passing_epa + rushing_epa`
+| Segment | Total value | Efficiency | Opportunity |
+| --- | ---: | ---: | ---: |
+| Overall | 0.42 | 0.26 | 0.76 |
+| QB | 0.49 | 0.47 | 0.53 |
+| RB | 0.21 | 0.22 | 0.78 |
+| WR | 0.49 | 0.18 | 0.79 |
+| TE | 0.50 | 0.25 | 0.77 |
 
-For running backs, wide receivers, and tight ends:
+(Efficiency is measured only on player-seasons with enough volume to be
+meaningful — a position-specific minimum opportunity load — so a one-target
+receiver's noise does not pollute the signal.)
 
-`value_epa_total = rushing_epa + receiving_epa`
+The pattern is stark and is the analytical heart of the project. **Opportunity
+persists strongly (~0.76); efficiency, for skill positions, barely persists at
+all (0.18–0.25). Quarterbacks are the exception — their efficiency is genuinely
+sticky (0.47).** Much of what the total-value score appears to "predict" from
+season to season is therefore role stability, not per-play ability. That insight
+motivated the next experiment — and survives it even though the experiment itself
+did not pan out as a prediction improvement.
 
-Then, within each season-position group:
+## The two-stage experiment, and its honest result
 
-`value_score = z-score(value_epa_total)`
+The decomposition suggested a hypothesis: predict each axis with the tool suited
+to its signal, recombine them, and beat the blended single model. The hypothesis
+was implemented in full, validated head-to-head, and **did not hold.** It is
+reported here because a negative result, honestly shown, is more valuable than a
+flattering one — and because the reasoning behind it is itself the insight.
 
-This means:
+**Stage 1 — opportunity.** Predict next-season opportunity per game (Random Forest
+and Histogram Gradient Boosting, against a persistence baseline). This is the
+high-signal half: a persistence baseline alone explains about 83% of next-season
+opportunity variance for skill positions. The instructive exception is
+quarterbacks, where persistence explains almost nothing (R² ≈ 0.03) because QB
+"opportunity" — dropbacks — swings violently with starter-versus-backup status.
+That is precisely where role information (depth chart, contract) has the most to
+add.
 
-- `0.0` is average for that position in that season.
-- `1.0` is one standard deviation above that position-season average.
-- `-1.0` is one standard deviation below that position-season average.
-- A `2024 WR` and a `2024 RB` can be compared after standardization, but each was first judged against their own position group.
-
-Calling this metric `standardized EPA` would be reasonable. I keep `value_score` as the code column because it is short and works cleanly across the prediction and salary-efficiency pipeline, but the report treats it as standardized EPA. The most precise label is position-season standardized total EPA because it states both the grouping and the EPA version.
-
-The project also keeps `value_epa_total` and `value_epa_per_game` as supporting interpretation columns. These are useful because they show the raw EPA scale behind the standardized score.
-
-## Why Not Only Model Raw EPA?
-
-Directly modeling raw EPA is tempting because EPA is already a football value metric. The issue is that raw EPA is not always the best comparison target by itself.
-
-Raw EPA has several interpretation problems:
-
-- It is heavily affected by opportunity and playing time.
-- QBs naturally accumulate much more EPA than most non-QBs because they touch the ball on nearly every offensive play.
-- Raw totals can reward volume as much as efficiency.
-- Per-game EPA can overrate smaller samples if a player was highly efficient in fewer games.
-- Offensive environment matters: scheme, quarterback quality, offensive line, teammates, and play-calling all affect EPA.
-- Salary comparisons become less fair if players are not first compared within position.
-
-The standardized EPA value score solves a different problem. It asks:
-
-How much better or worse was this player than other players at the same position in the same season?
-
-That is more useful for ranking, modeling, and salary-efficiency analysis. Raw EPA is still important, but in this project it is treated as the underlying production signal, while `value_score` is the comparison metric.
-
-A reasonable future extension would be to model both:
-
-- raw `value_epa_total` to estimate actual production volume
-- standardized `value_score` to estimate relative player value
-
-For this project, the standardized score is the better primary target because it is more position-aware and easier to compare across player types.
-
-## Exploratory Analysis
-
-The exploratory notebooks examine value by:
-
-- position
-- season
-- player age
-- years of experience
-- total EPA
-- per-game EPA
-- salary tier
-
-One important finding is that high-end value is concentrated among a small number of elite player-seasons. This is expected in NFL offensive data because a few players drive a large share of passing and receiving efficiency.
-
-Another important finding is that `value_epa_per_game` and total value do not always tell the same story. Per-game production is useful context, but total EPA better reflects a full-season contribution. The project keeps both views and uses the gap between them as a diagnostic.
-
-## Predictive Modeling
-
-The modeling target is next-season value score. This is more useful than predicting current-season value because it asks whether past production, age, usage, and experience can predict future performance.
-
-The final value model is an enhanced-history Random Forest regression model. It uses:
-
-- current-season production
-- age
-- years of experience
-- draft information
-- current EPA production
-- prior value score
-- rolling value averages
-- value trend
-- recent games played
-
-The project also includes an availability model. This model estimates whether a player is likely to have a qualifying next-season row. This helps separate player value from the risk that a player may not have enough future playing time to qualify.
-
-## Model Validation
-
-The value model is evaluated with rolling validation rather than a random split. This is important because NFL forecasting is time-based: future seasons should be predicted from past seasons, not from randomly mixed data.
-
-Current validation results:
-
-| Metric | Result |
+| Position | Persistence R² (next-season opportunity) |
 | --- | ---: |
-| Rolling-validation RMSE | 0.92 |
-| Rolling-validation MAE | 0.68 |
-| Approximate 80% interval coverage | 83.9% |
-| Availability model ROC AUC | 0.79 |
+| Overall | 0.83 |
+| TE | 0.62 |
+| RB | 0.59 |
+| WR | 0.58 |
+| QB | 0.03 |
 
-Position-level RMSE:
+**Stage 2 — efficiency.** Predict next-season efficiency on efficiency-qualified
+seasons only, against a shrink-to-mean baseline (predict the positional mean) —
+the correct null when efficiency barely autocorrelates. The talent-isolating rate
+features (catch rate, yards per target, air yards per target, YAC per reception,
+RACR, yards per carry, completion percentage, yards per attempt, passing aDOT,
+PACR) feed this stage. The result confirms the decomposition's thesis: efficiency
+is learnable for quarterbacks and almost pure regression to the mean for everyone
+else.
 
-| Position | RMSE |
+| Position | Efficiency skill over the positional mean |
 | --- | ---: |
-| QB | 0.88 |
-| RB | 1.02 |
-| TE | 0.91 |
-| WR | 0.89 |
+| QB | +12.7% |
+| TE | +1.8% |
+| WR | +1.7% |
+| RB | +1.6% |
 
-The model is not precise enough to treat individual rankings as guarantees. That is normal for sports forecasting. The strongest use case is tiering and screening: identifying players who project well, players with wide uncertainty, and players whose future value is harder to trust.
+This is itself a front-office insight, not a disappointment: for skill positions,
+the honest forecast of next-year efficiency is "close to the positional average,"
+and confidently projecting otherwise is usually overfitting.
 
-## Model Interpretation
+**Recombination — the verdict.** The two stages multiply back into a per-game
+value projection (standardized to the `value_score` scale with *frozen*
+training-season statistics, so the future cross-section is never used) and are
+compared head-to-head, on identical rows, against a single model predicting value
+directly from the same feature union:
 
-The model interpretation report adds a more direct explanation of what drives the prediction model. In the 2024 validation fold, the strongest permutation signal is `value_epa_total`, followed by recent multi-year value features such as `value_score_last3_avg` and `value_score_last2_avg`.
+| Method | RMSE | R² | Skill vs single model |
+| --- | ---: | ---: | ---: |
+| single model | 2.318 | 0.203 | — |
+| two-stage | 2.417 | 0.134 | −4.2% |
+| persistence | 2.482 | 0.087 | −7.1% |
 
-This is a useful result because it matches the football intuition behind the project: recent production matters, but multi-year history helps stabilize noisy one-season outcomes.
+**The single model wins.** The two-stage recombination is about 4% worse on RMSE,
+and the reason traces directly to the decomposition: Stage 2 efficiency barely
+beats a shrink-to-mean baseline (and trails shrunken persistence), so multiplying
+that near-noise estimate into the product adds error the single model sidesteps.
+Stage 1 opportunity only beats persistence at quarterback; for RB/WR/TE,
+persistence is already so strong (R² ≈ 0.58–0.62) that the model mostly adds
+noise. The conclusion is therefore clean and was decided by the data: **use the
+single model for point predictions.** The decomposition's payoff is not accuracy —
+it is the uncertainty layer below.
 
-The project also compares pooled and position-specific models. Position-specific models slightly improve RMSE for RBs and WRs, but the differences are small. The pooled model remains the preferred production model because it is simpler, uses more training data, and performs similarly across positions.
+## Asymmetric, axis-aware uncertainty — the part that worked
 
-## Advanced Modeling Methodology
+The two-stage structure did not win on accuracy, but it earns its place by
+producing something a blended model structurally cannot: an interval that knows
+*which axis* it is uncertain about. Because value is a product, independent stage
+errors propagate as:
 
-The project now includes an optional advanced modeling step in `src/advanced_modeling.py`. This step uses Optuna, SHAP, Polars, and MLflow as methodology tools rather than as decoration.
+`Var(E·O) = O²·σ_E² + E²·σ_O² + σ_E²·σ_O²`
 
-Optuna searches Random Forest hyperparameters across the same rolling-validation folds used elsewhere in the project. In the current run, the Optuna-tuned model improves average rolling RMSE from about 0.925 to about 0.921. That is a real improvement, but it is small. I would treat it as evidence that tuning was checked, not as proof that the more complex model should automatically replace the current production model.
+The first term is the uncertainty contributed by the efficiency axis, the second
+by opportunity. This both sets the interval width and *decomposes* each player's
+uncertainty into an efficiency share and an opportunity share, which becomes a
+plain-language label — **efficiency-driven** or **role-driven** — telling a scout
+*why* a projection is uncertain, not just how much.
 
-SHAP is used on the 2024 validation fold to explain the tree model. The strongest SHAP signals are current EPA production and recent value history, which is consistent with the rest of the project. Polars is used for a fast data profile of the cleaned player-season file, and MLflow logs the advanced run locally while the CSV and Markdown outputs remain the reviewer-facing artifacts.
+This was validated with rolling origin (train both stages on a proper-training
+set, set per-position sigmas from a held-out calibration season, check coverage of
+the resulting interval), and it holds up:
 
-## Context Feature Impact
+| Segment | Coverage (target 80%) | Efficiency share of uncertainty |
+| --- | ---: | ---: |
+| Overall | 80.9% | 95% |
+| QB | 80.0% | 98% |
+| RB | 84.5% | 93% |
+| TE | 80.8% | 83% |
+| WR | 78.4% | 80% |
 
-The project now tests whether additional football context actually improves the model instead of simply adding more variables. The context-feature workflow creates usage, team-environment, and schedule-context features, then compares each group with rolling validation.
+Coverage lands essentially on target, and the variance attribution is the
+genuinely novel output: for skill positions, 80–98% of a player's value
+uncertainty comes from the efficiency axis the model cannot pin down. A front
+office reading "this projection is wide because we can't predict his efficiency,
+not his role" is getting information a single point estimate — or a single
+symmetric error bar — cannot convey. The independent benchmark stage corroborates
+the calibration story: distribution-free conformal intervals on the single model
+hit 81.1% coverage against the same 80% target.
 
-The best context feature set in the current test is `baseline_plus_team_context`. It slightly improves average rolling-validation RMSE from 0.925 to 0.922 and improves Spearman rank correlation from 0.417 to 0.429. This is directionally useful, but small enough to treat as roughly neutral rather than a major breakthrough.
+## The player-value deliverable
 
-This finding is still valuable. It shows that team context and role-share variables may add signal, while also keeping the project honest about the fact that more features do not automatically create a better model. The current production prediction report remains conservative, and the context results are documented separately in `report/context_feature_impact.md`.
+The project ships two complementary deliverables, with a clear division of labor
+decided by the validation results.
 
-## Methodology Checks
+The **single-model Excel workbook**
+(`outputs/tables/2026_player_value_predictions.xlsx`, 505 players with
+plain-English drivers, confidence levels, and availability risk) is the **primary
+point-prediction deliverable** — it is the more accurate model and the polished
+presentation layer.
 
-The project now includes a methodology-check report that audits common project-quality risks. The current local run has 26 passing checks and no failing checks.
+The **two-stage projection table**
+(`outputs/tables/two_stage_2026_projection.csv`, also 505 players) is the
+**uncertainty and interpretability layer**. Each row carries the asymmetric
+interval and the role-driven-versus-efficiency-driven label. Of the 505 players,
+261 are efficiency-qualified (enough volume for a reliable efficiency signal); the
+rest lean on the positional efficiency prior and carry visibly wider intervals,
+with the driver label making that lower confidence explicit rather than hiding it.
+Read together, the workbook answers "how good?" and the two-stage table answers
+"how sure, and why?"
 
-The checks verify that:
+## Honest model evaluation
 
-- raw and processed data are not tracked in Git
-- local raw and processed files exist for reproduction
-- cleaned player-season-team rows are unique after aggregation
-- value scores are standardized correctly within season-position groups
-- the final value-score data has one row per player-season
-- prediction intervals are ordered correctly
-- model features do not include next-season target columns
-- salary merge quality is reported
-- Markdown notebook mirrors exist as a GitHub-friendly fallback
+A recurring theme deserves to be stated plainly, because it is the most important
+methodological point in the project: **on a within-group standardized target,
+RMSE alone overstates model quality.** A benchmark stage
+(`src/model_benchmark.py`) reports a *skill score* — percentage RMSE reduction
+versus strong baselines (season mean, raw persistence, shrunken persistence, age
+curve) — for both Random Forest and Histogram Gradient Boosting under rolling
+validation, plus distribution-free conformal intervals. The takeaway is that a
+one-line shrunken-persistence baseline is genuinely competitive on the blended
+target, which is exactly what motivated the decomposition. Reporting that honestly
+is more valuable than a headline number that flatters the model.
 
-This does not prove the model is perfect, but it makes the pipeline easier to audit and helps catch avoidable methodology mistakes.
+Supporting analyses reinforce rather than inflate this view. Position-specific
+models offer only small gains over the pooled model and do not justify the added
+complexity. Adding contextual football features (usage, team environment,
+schedule) moves rolling-validation error only marginally, so context is treated as
+roughly neutral rather than a breakthrough. An optional advanced-modeling track
+(Optuna tuning, SHAP explanation, Polars profiling, MLflow tracking) tightens
+RMSE by a small amount and confirms that current production and recent value
+history are the dominant signals — useful as methodological diligence, not as a
+reason to ship a more complex model.
 
-## 2026 Prediction Report
+## Reproducibility and quality control
 
-The project generates a recruiter-facing Excel workbook:
-
-`outputs/tables/2026_player_value_predictions.xlsx`
-
-The report contains 505 player projections. It includes:
-
-- predicted 2026 value score
-- approximate prediction interval
-- confidence level
-- availability risk level
-- position percentile
-- plain-English prediction drivers
-- validation summaries
-
-Top projected 2026 player values in the current report:
-
-| Player | Pos | 2025 Team | Predicted 2026 Value | Approx. 80% Interval | Qualifying Probability |
-| --- | --- | --- | ---: | ---: | ---: |
-| Amon-Ra St. Brown | WR | DET | 2.35 | 1.02 to 3.67 | 94.9% |
-| George Kittle | TE | SF | 2.30 | 0.95 to 3.65 | 67.9% |
-| Josh Allen | QB | BUF | 2.07 | 0.67 to 3.48 | 92.4% |
-| Ja'Marr Chase | WR | CIN | 1.92 | 0.47 to 3.38 | 93.6% |
-| Puka Nacua | WR | LA | 1.63 | 0.20 to 3.06 | 95.7% |
-
-## Salary Efficiency
-
-The salary-efficiency analysis merges player value scores with historical contract data. The current salary variable is `inflated_apy`, which is an inflation-adjusted average annual contract value.
-
-The merge matched 4,569 of 4,753 value-score rows, for a 96.1% match rate.
-
-The main salary-efficiency metric is:
-
-`value_above_expected_salary = actual value_score - expected value_score`
-
-Expected value is estimated with a regression model using:
-
-- salary
-- position
-- age
-- years of experience
-- draft slot
-- games played
-
-Positive residuals identify players who produced more value than expected given their cost and context. Negative residuals identify players who produced less value than expected.
-
-## Salary Efficiency Findings
-
-The salary findings use a cleaner sample of 3,531 matched player-seasons with at least 8 games played.
-
-Key findings:
-
-- Median salary in the findings sample is about $2.4 million in inflated APY.
-- The strongest individual surplus season is 2025 Puka Nacua.
-- The strongest rookie-contract proxy season is also 2025 Puka Nacua.
-- The top team-season by total surplus is 2018 Kansas City.
-- Across all seasons, Kansas City has the highest total surplus in the filtered skill-position sample.
-- High-cost RB seasons show negative average salary-efficiency residuals, which suggests RB contract timing and decline risk are important.
-
-Top surplus player-seasons:
-
-| Season | Player | Pos | Team | Salary Millions | Value Score | Value Above Expected |
-| --- | --- | --- | --- | ---: | ---: | ---: |
-| 2025 | Puka Nacua | WR | LA | 1.37 | 6.06 | 5.96 |
-| 2017 | Rob Gronkowski | TE | NE | 22.48 | 5.72 | 5.18 |
-| 2017 | Alvin Kamara | RB | NO | 1.74 | 4.95 | 4.75 |
-| 2022 | Travis Kelce | TE | KC | 21.75 | 5.17 | 4.47 |
-| 2023 | CeeDee Lamb | WR | DAL | 5.32 | 4.53 | 4.17 |
-
-Team-season surplus leaders:
-
-| Season | Team | Player-Seasons | Total Salary Millions | Total Surplus |
-| --- | --- | ---: | ---: | ---: |
-| 2018 | KC | 10 | 68.58 | 14.03 |
-| 2020 | GB | 15 | 101.55 | 14.01 |
-| 2022 | KC | 13 | 131.47 | 13.04 |
-| 2024 | BAL | 10 | 127.27 | 11.92 |
-| 2017 | NE | 12 | 117.57 | 11.08 |
-
-## Reproducibility
-
-The main outputs can be rebuilt with:
+Every result is rebuildable from one command:
 
 ```bash
 pip install -r requirements.txt
 python scripts/run_pipeline.py
 ```
 
-This command rebuilds:
+The pipeline runs in dependency order: clean data, build value scores, decompose
+value, generate predictions and the Excel workbook, run salary efficiency and
+findings, fantasy projections, the weekly win backtest, methodology checks, model
+interpretation, the benchmark, and the two-stage model. Individual stages can be
+run with `--steps` (for example `--steps decompose,two_stage`).
 
-- cleaned player-season data
-- value scores
-- 2026 prediction outputs
-- the Excel workbook
-- salary-efficiency tables
-- salary-efficiency findings
-- fantasy-football projection tables
-- weekly win projection backtest tables
-- methodology checks
-- model interpretation diagnostics
+A methodology-check report (`report/methodology_checks.md`) audits the project's
+core assumptions — raw/processed data are untracked, aggregated rows are unique at
+the intended grain, value scores standardize correctly within season-position
+groups, prediction intervals are ordered, and no feature contains a next-season
+target column. A unit-test suite under `tests/` independently verifies the
+leakage-safety of the lag/rolling/target construction, the benchmark and
+two-stage metric math, the interval-propagation formula, and cross-module config
+consistency.
 
-The notebooks remain the narrative layer, while `src/` contains reusable project logic.
+## Salary efficiency
 
-The Streamlit app adds a presentation layer on top of those outputs. It is now
-organized into three user-facing perspectives:
+The salary-efficiency analysis merges value scores with historical contract data
+(96.1% match rate, 4,569 of 4,753 rows) and defines surplus as value above what a
+regression on salary, position, age, experience, draft slot, and games played
+would expect. On a cleaner sample of 3,531 player-seasons with at least eight
+games, the top individual surplus season is 2025 Puka Nacua, and the top
+team-season is 2018 Kansas City. High-cost running-back seasons show negative
+average residuals, consistent with the well-known risk in the timing and decline
+profile of veteran RB contracts.
 
-- Front office: player value projections, player lookup, salary efficiency, and validation.
-- Fantasy football: 2026 season-long PPR projections, fantasy-model comparison, and validation.
-- Weekly win projection: rolling backtest game probabilities and validation.
+These results are framed as contract-efficiency findings, not cap accounting:
+`inflated_apy` is an averaged contract figure, not season-level cap hit or cash
+paid, and the residuals are descriptive rather than causal. The clearest next
+improvement to this section is true season-level cap data.
 
 ## Limitations
 
-The value score is production-based. It does not fully isolate:
+The value metric is production-based and does not fully isolate scheme, offensive
+line, quarterback quality for receivers, play-calling, injuries, coaching changes,
+teammate effects, or defensive attention. Tight ends are hardest, because blocking
+value is not well captured in the available data. The two-stage interval assumes
+the two stages' errors are roughly independent — reasonable given they are modeled
+on different feature sets, and the interaction term is retained rather than dropped
+to stay honest about mild dependence. The salary analysis carries the
+contract-data caveats above.
 
-- offensive scheme
-- quarterback quality for receivers
-- offensive line effects
-- play-calling
-- injuries
-- coaching changes
-- teammate effects
-- defensive attention
-- future depth-chart changes
+## What this project demonstrates
 
-Tight ends are especially difficult because blocking value is not fully captured in the current production data.
+Beyond the football results, the project is meant to show a particular way of
+working: define a metric, then *stress-test the assumption that it is
+predictable*; benchmark against baselines strong enough to be embarrassing rather
+than against zero; form a hypothesis from an empirical finding, test it honestly,
+and *report it even when it loses*; and build uncertainty that communicates
+*where* knowledge runs out.
 
-The salary-efficiency section also has limitations:
-
-- `inflated_apy` is not exact cap hit.
-- It does not capture restructures, incentives, void years, dead cap, or cash timing.
-- Team-level salary findings include only QB/RB/WR/TE rows, not full roster spending.
-- Residuals are descriptive, not causal.
-
-## Future Improvements
-
-The strongest next improvements would be:
-
-1. Add exact season-level cap hit or cash-paid data.
-2. Compare raw EPA and standardized value score as parallel modeling targets.
-3. Decide whether the Optuna-tuned model is stable enough across future runs to replace the current depth-limited Random Forest.
-4. Decide whether to promote team-context features into the production prediction model after reviewing stability by position.
-5. Add richer external context such as offensive line metrics, quarterback situation, injuries, depth-chart changes, and coaching changes.
-6. Add offseason fantasy context such as rookies, depth-chart changes, injuries, and projected team passing/rushing volume.
-7. Add future schedule rows to turn the weekly win projection from a historical backtest into a forward-looking weekly tool.
-8. Extend the salary analysis to team-level cap allocation once better salary data is available.
-
-## Conclusion
-
-This project creates a full NFL player value workflow: raw data collection, cleaning, feature engineering, value scoring, modeling, prediction reporting, salary-efficiency analysis, and dashboard delivery.
-
-The main takeaway is that position-season standardized total EPA is a practical compromise. It preserves EPA as the underlying football production signal, but transforms it into a position-aware comparison metric. That makes it more useful for cross-position ranking, prediction, and salary-efficiency analysis than raw EPA alone.
-
-The prediction model should be used as a screening tool rather than a ranking oracle. The salary-efficiency results should be read as first-pass contract-cost findings rather than final cap accounting. Within those limits, the project is now reproducible, interpretable, and ready to present as a portfolio-quality data science project.
+The two-stage model is the clearest example of that discipline. It was a
+well-motivated bet — the decomposition genuinely showed efficiency and opportunity
+behave differently — and it was beaten head-to-head by a simpler single model.
+Rather than bury that, the project states it plainly and keeps what the experiment
+*did* produce: a validated, calibrated, asymmetric uncertainty layer that no single
+model can replicate. The lasting contributions are therefore three: the
+decomposition as a *diagnostic* insight about what in NFL value is predictable, the
+honest benchmarking discipline that keeps every model claim grounded against strong
+baselines, and the axis-aware uncertainty that makes the output usable by someone
+making real decisions. The point prediction comes from the single model; the
+understanding of it comes from everything built around it.

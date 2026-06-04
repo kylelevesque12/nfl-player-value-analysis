@@ -1,0 +1,6 @@
+segment,segment_value,n,coverage,mean_width,target_coverage,coverage_gap,method
+overall,all,1773,0.8110547095318669,2.2999658345896785,0.8,0.011054709531866824,split_conformal_gradient_boosting
+position,QB,208,0.7548076923076923,2.3033727482667015,0.8,-0.045192307692307754,split_conformal_gradient_boosting
+position,RB,444,0.7747747747747747,2.3014965111588688,0.8,-0.0252252252252253,split_conformal_gradient_boosting
+position,TE,392,0.8290816326530612,2.299695961901327,0.8,0.029081632653061185,split_conformal_gradient_boosting
+position,WR,729,0.8395061728395061,2.298206618749202,0.8,0.03950617283950608,split_conformal_gradient_boosting

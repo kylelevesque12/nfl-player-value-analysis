@@ -1127,9 +1127,12 @@ def build_two_stage_report_markdown(
         "Player value factors exactly as `value_epa_per_game = "
         "efficiency_per_opportunity × opportunity_per_game`. The decomposition "
         "analysis showed the two factors behave very differently year over year, "
-        "so this model predicts each separately and recombines them rather than "
-        "predicting blended value with one model. All metrics use rolling-origin "
-        "validation."
+        "which motivated a hypothesis: predict each separately and recombine, and "
+        "beat a single blended model. This report tests that hypothesis honestly. "
+        "The headline result (see *Recombined value vs single-model baseline*) is "
+        "that **the single model wins on accuracy** — the recombination's lasting "
+        "value is the calibrated, axis-aware uncertainty layer, not a lower RMSE. "
+        "All metrics use rolling-origin validation."
     )
     lines.append("")
     lines.append("## Stage 1 — Opportunity (usage per game)")
@@ -1287,14 +1290,15 @@ def build_two_stage_report_markdown(
     lines.append("## Interpretation")
     lines.append("")
     lines.append(
-        "Separating the axes lets the model speak the language a front office "
-        "uses — \"role should hold, expect efficiency regression\" — and "
-        "concentrate confidence where the signal actually is (opportunity, and "
-        "QB efficiency) while shrinking hard where it is not (skill-position "
-        "efficiency). Whether the recombined value beats a single blended model "
-        "on raw RMSE is reported above honestly; even when the gain is modest, "
-        "the decomposition's value is in interpretability and calibrated, "
-        "axis-aware uncertainty."
+        "The honest verdict: the single blended model is more accurate, so it is "
+        "the right choice for point predictions. The two-stage decomposition lost "
+        "that head-to-head because efficiency is nearly unpredictable and "
+        "multiplying a noisy efficiency estimate into the product adds error. What "
+        "survives — and what a single model cannot produce — is the ability to "
+        "speak a front office's language (\"role should hold, expect efficiency "
+        "regression\") and to attach a calibrated, axis-aware interval that is wide "
+        "along exactly the axis the model cannot predict. Accuracy comes from the "
+        "single model; legible uncertainty comes from this decomposition."
     )
     lines.append("")
     return "\n".join(lines)

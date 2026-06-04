@@ -2,6 +2,8 @@
 
 This report turns the modeling pipeline into a recruiter-facing analytics artifact. It uses 2025 player-season data to project 2026 offensive player value for QBs, RBs, WRs, and TEs.
 
+> This Excel workbook is the project's **primary point-prediction deliverable**: in head-to-head rolling validation the single model was more accurate than the two-stage alternative. It is best read alongside the [two-stage value model](two_stage_value.md), which lost on accuracy but supplies the project's uncertainty layer — calibrated, role-driven vs efficiency-driven prediction intervals. See the [final project report](final_project_report.md) for how the two relate, and note the evaluation caveat below.
+
 ## Report Files
 
 - [2026 Player Value Predictions Excel report](../outputs/tables/2026_player_value_predictions.xlsx)
@@ -54,6 +56,8 @@ Player value scores are rebuilt from the cleaned player-season-team data by coll
 - value model rolling-validation RMSE: about 0.92
 - central 80% prediction interval rolling-validation coverage: about 83.9%
 - availability model rolling-validation mean ROC AUC: about 0.79
+
+An RMSE of ~0.92 should be read in context: because the target is standardized within each season-position group (standard deviation ≈ 1.0), predicting the group mean already scores near 1.0. The honest measure of model skill is therefore the RMSE reduction versus a strong baseline (see the benchmark stage and the [final project report](final_project_report.md)), which is modest on this blended target — the motivation for the two-stage model.
 
 ## How To Interpret It
 

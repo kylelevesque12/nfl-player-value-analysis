@@ -1,0 +1,16 @@
+segment,segment_value,axis,yoy_correlation,n_pairs
+overall,all,total_value,0.421623543827,3086
+overall,all,efficiency,0.258485668619,1587
+overall,all,opportunity,0.759473122745,3086
+position,QB,total_value,0.494622553994,348
+position,QB,efficiency,0.473498469601,283
+position,QB,opportunity,0.530785852051,348
+position,RB,total_value,0.207194734742,784
+position,RB,efficiency,0.220869742239,472
+position,RB,opportunity,0.78241510181,784
+position,TE,total_value,0.495073171647,691
+position,TE,efficiency,0.254679793335,279
+position,TE,opportunity,0.769781374176,691
+position,WR,total_value,0.485228175015,1263
+position,WR,efficiency,0.182543311594,553
+position,WR,opportunity,0.786649252964,1263

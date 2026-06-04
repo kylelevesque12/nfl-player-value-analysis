@@ -63,6 +63,21 @@ outputs/tables/*
 !outputs/tables/advanced_modeling_polars_data_profile.csv
 !outputs/tables/advanced_modeling_best_params.json
 
+# Value decomposition, model benchmark, and two-stage model outputs
+!outputs/tables/value_decomposition_stability.csv
+!outputs/tables/model_benchmark_summary.csv
+!outputs/tables/model_benchmark_by_position.csv
+!outputs/tables/model_benchmark_by_fold.csv
+!outputs/tables/model_benchmark_conformal_coverage.csv
+!outputs/tables/two_stage_opportunity_summary.csv
+!outputs/tables/two_stage_opportunity_by_position.csv
+!outputs/tables/two_stage_efficiency_summary.csv
+!outputs/tables/two_stage_efficiency_by_position.csv
+!outputs/tables/two_stage_combined_summary.csv
+!outputs/tables/two_stage_interval_coverage.csv
+!outputs/tables/two_stage_variance_share.csv
+!outputs/tables/two_stage_2026_projection.csv
+
 # Local experiment tracking
 mlruns/
 
