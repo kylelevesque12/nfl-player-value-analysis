@@ -23,6 +23,8 @@ work lives.
 | Honest evaluation vs baselines | [Model benchmark](report/model_benchmark.md) |
 | Primary prediction deliverable (single model) | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
 | Weekly fantasy projection (player-game) | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md) |
+| External benchmark vs FantasyPros / DK (scaffolded) | [External benchmark](report/external_benchmark.md) |
+| Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
 | Interactive dashboard | [Streamlit app source](app/streamlit_app.py) |
@@ -445,6 +447,57 @@ Player value scores are rebuilt from the cleaned player-season-team data by coll
 The 2026 report includes approximate central 80% prediction intervals and checks their rolling-validation coverage. These intervals are meant to make uncertainty visible; the model is better suited for tiering and screening than exact player ranking.
 
 This helps avoid hiding survivorship risk inside the value prediction. The report should be interpreted as a screening tool for deeper football analysis, not as a guarantee of future player performance.
+
+## Replacement-Level Salary Surplus (Front-Office Framing)
+
+The salary track now includes a replacement-level analysis layered on top of
+the existing efficiency residual. For each `(season, position)` we estimate a
+replacement-level cap cost (median of bottom-quartile salaries) and a
+replacement-level value, then express each player-season's surplus as dollars
+of above-replacement value minus the cap premium paid.
+
+- [View replacement-level baselines](outputs/tables/salary_findings_replacement_baselines.csv)
+- [View top replacement-level surplus player-seasons](outputs/tables/salary_findings_replacement_top_surplus.csv)
+- [View team-season totals](outputs/tables/salary_findings_replacement_team_season.csv)
+- [View by-position snapshot](outputs/tables/salary_findings_replacement_by_position.csv)
+
+Headline observations: Brock Purdy's 2023 season produced about $37M of
+above-replacement surplus on a rookie deal. Running back is the only position
+where the implicit market price of one z-unit of value is occasionally
+negative, consistent with the well-documented RB-market irrationality. Honesty
+caveat: the cost variable is still `inflated_apy`, not year-by-year cap hit;
+replacing that is Tier 1 item #3 of `PORTFOLIO_ROADMAP.md`.
+
+## External Benchmark (Scaffolded)
+
+The [external benchmark module](src/external_benchmark.py) compares the weekly
+fantasy model head-to-head against an external projector (FantasyPros consensus
+or DraftKings closing-line implied projection). The CSV schema is documented at
+[`data/raw/external_projections.example.csv`](data/raw/external_projections.example.csv).
+Until that file is populated, the benchmark step writes a stub report
+explaining how to populate it. This is intentional: the goal is for the README's
+*first* deliverable a reviewer reads to be an external-benchmark table once the
+data exists.
+
+```bash
+python scripts/run_pipeline.py --steps external_benchmark
+```
+
+## Optional Weekly Signals (Snap Counts, Injuries, Depth Charts)
+
+The weekly fantasy model gracefully consumes nflverse supplementary feeds when
+they are present locally. Fetch them with:
+
+```bash
+pip install nfl_data_py
+python scripts/fetch_nflverse_data.py --years 2016-2025
+```
+
+That writes `data/raw/snap_counts_*.csv`, `data/raw/injuries_*.csv`, and
+`data/raw/depth_charts_*.csv`. The next pipeline run auto-detects them and adds
+snap-share, depth-chart-rank, and practice-status features to the weekly model.
+When absent, the model still trains with the documented (modest) loss of
+accuracy.
 
 ## Limitations
 

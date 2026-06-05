@@ -94,6 +94,53 @@ This table is limited to players at or above the 75th salary percentile within t
 | WR | Above Median Cost | 395 | 3.10 | 0.16 | 0.06 |
 | WR | High Cost | 440 | 16.36 | 0.68 | 0.20 |
 
+## Replacement-Level Surplus (Front-Office Framing)
+
+Front offices do not think about contracts in absolute dollars. They think about *surplus over a freely available alternative*: a player only earns their cap hit if they out-produce the player a team could sign at the veteran minimum. This section computes, for each (season, position), a replacement-level cap cost (median of bottom-quartile salaries) and a replacement-level value (median value-score of those players). The surplus per player-season converts above-replacement value into dollars via the within-(position, season) slope of salary on value, then subtracts the cap premium paid. Positive surplus means the player out-earned their contract; the higher, the bigger the deal for the team.
+
+### Top 10 Replacement-Level Surplus Player-Seasons
+
+| season | player_display_name | position | team | games_played | salary_millions | value_score | cap_over_replacement_millions | value_over_replacement | dollar_surplus_millions |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2023 | Brock Purdy | QB | SF | 16 | 1.35 | 2.75 | 0.00 | 3.59 | 37.41 |
+| 2024 | Brock Purdy | QB | SF | 15 | 1.35 | 1.28 | -0.08 | 1.74 | 29.28 |
+| 2024 | Jayden Daniels | QB | WAS | 17 | 11.13 | 1.65 | 9.70 | 2.11 | 25.63 |
+| 2025 | Puka Nacua | WR | LA | 16 | 1.37 | 6.06 | 0.26 | 6.48 | 17.45 |
+| 2023 | Jake Browning | QB | CIN | 9 | 1.00 | 0.57 | -0.35 | 1.42 | 15.09 |
+| 2019 | Chris Godwin Jr. | WR | TB | 14 | 1.48 | 3.76 | 0.54 | 4.30 | 15.06 |
+| 2023 | CeeDee Lamb | WR | DAL | 17 | 5.32 | 4.53 | 4.01 | 4.87 | 14.50 |
+| 2024 | Bo Nix | QB | DEN | 17 | 5.49 | 0.62 | 4.06 | 1.08 | 14.04 |
+| 2023 | Tua Tagovailoa | QB | MIA | 17 | 11.50 | 1.45 | 10.15 | 2.30 | 13.80 |
+| 2018 | Tyreek Hill | WR | KC | 16 | 1.25 | 3.37 | 0.25 | 3.74 | 13.10 |
+
+### Replacement-Level Snapshot by Position
+
+The price-per-value-unit column is the implicit market rate of one z-unit of value at that position. RB occasionally shows a negative slope, reflecting the well-documented running-back-market irrationality: paying RBs more is not consistently associated with getting more production.
+
+| position | player_seasons | median_replacement_salary_millions | median_replacement_value_score | median_price_per_value_unit_millions | median_dollar_surplus_millions | share_positive_surplus |
+| --- | --- | --- | --- | --- | --- | --- |
+| QB | 340 | 1.35 | -0.85 | 8.99 | -14.20 | 0.09 |
+| RB | 926 | 1.15 | 0.23 | -0.36 | -0.54 | 0.20 |
+| TE | 767 | 1.12 | -0.31 | 2.42 | -1.62 | 0.25 |
+| WR | 1,498 | 1.11 | -0.42 | 3.57 | -1.23 | 0.33 |
+
+### Top Team-Seasons by Total Replacement-Level Surplus
+
+| season | team | player_seasons | total_cap_over_replacement_millions | total_value_over_replacement | total_dollar_surplus_millions |
+| --- | --- | --- | --- | --- | --- |
+| 2022 | NYG | 9 | 1.44 | 2.92 | 9.18 |
+| 2023 | HOU | 13 | 38.57 | 5.09 | 6.91 |
+| 2019 | JAX | 7 | 15.63 | 2.03 | 4.12 |
+| 2023 | GB | 13 | 37.32 | 7.26 | 4.11 |
+| 2024 | WAS | 11 | 54.38 | 9.35 | 4.03 |
+| 2024 | DEN | 13 | 29.84 | 1.70 | 2.32 |
+| 2018 | NO | 9 | 16.44 | 7.73 | 2.31 |
+| 2023 | DET | 9 | 27.60 | 8.37 | 2.04 |
+| 2020 | WAS | 9 | 7.56 | 0.58 | 1.06 |
+| 2020 | GB | 15 | 29.92 | 12.76 | 0.30 |
+
+Honesty caveat: the cost variable is still `inflated_apy`, not year-by-year cap hit. Replacing APY with true cap hit is Tier 1 item #3 of `PORTFOLIO_ROADMAP.md` and the next upgrade for this analysis.
+
 ## Method Notes
 
 - Salary is measured using `inflated_apy`, so this is contract-cost efficiency rather than exact salary-cap accounting.

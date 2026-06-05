@@ -9,6 +9,11 @@ import numpy as np
 import pandas as pd
 
 from src.load_data import find_project_root, load_csv
+from src.replacement_level import (
+    compute_replacement_level_surplus,
+    summarize_replacement_level_by_position,
+    summarize_replacement_level_by_team_season,
+)
 from src.salary_efficiency import CSV_FLOAT_FORMAT
 
 
@@ -23,7 +28,29 @@ FINDING_OUTPUTS = {
     "team_summary": "salary_findings_team_summary.csv",
     "position_salary_tiers": "salary_findings_position_salary_tiers.csv",
     "season_trends": "salary_findings_season_trends.csv",
+    "replacement_baselines": "salary_findings_replacement_baselines.csv",
+    "replacement_top_surplus": "salary_findings_replacement_top_surplus.csv",
+    "replacement_team_season": "salary_findings_replacement_team_season.csv",
+    "replacement_by_position": "salary_findings_replacement_by_position.csv",
 }
+
+REPLACEMENT_PLAYER_COLUMNS = [
+    "season",
+    "player_display_name",
+    "position",
+    "team",
+    "games_played",
+    "years_exp",
+    "value_score",
+    "salary_millions",
+    "replacement_salary_millions",
+    "replacement_value_score",
+    "cap_over_replacement_millions",
+    "value_over_replacement",
+    "price_per_value_unit_millions",
+    "value_over_replacement_dollar_equivalent_millions",
+    "dollar_surplus_millions",
+]
 
 
 PLAYER_COLUMNS = [
@@ -269,6 +296,26 @@ def build_salary_finding_tables(
         ]
     )
 
+    # ------------------------------------------------------------------
+    # Replacement-level surplus (front-office framing)
+    # ------------------------------------------------------------------
+    enriched_base, replacement_baselines, _price_table = (
+        compute_replacement_level_surplus(finding_base)
+    )
+    replacement_top_surplus = (
+        enriched_base.dropna(subset=["dollar_surplus_millions"])
+        [REPLACEMENT_PLAYER_COLUMNS]
+        .sort_values("dollar_surplus_millions", ascending=False)
+        .head(25)
+        .copy()
+    )
+    replacement_team_season = summarize_replacement_level_by_team_season(
+        enriched_base
+    )
+    replacement_by_position = summarize_replacement_level_by_position(
+        enriched_base
+    )
+
     tables = {
         "summary_metrics": summary_metrics,
         "top_surplus": top_surplus,
@@ -279,6 +326,10 @@ def build_salary_finding_tables(
         "team_summary": team_summary,
         "position_salary_tiers": position_salary_tiers,
         "season_trends": season_trends,
+        "replacement_baselines": replacement_baselines,
+        "replacement_top_surplus": replacement_top_surplus,
+        "replacement_team_season": replacement_team_season,
+        "replacement_by_position": replacement_by_position,
         "finding_base": finding_base,
     }
 
@@ -447,6 +498,74 @@ def build_salary_findings_report(
                     "mean_value_above_expected_salary",
                 ],
                 rows=16,
+            ),
+            "## Replacement-Level Surplus (Front-Office Framing)",
+            (
+                "Front offices do not think about contracts in absolute dollars. "
+                "They think about *surplus over a freely available alternative*: "
+                "a player only earns their cap hit if they out-produce the player a team "
+                "could sign at the veteran minimum. This section computes, for each "
+                "(season, position), a replacement-level cap cost (median of bottom-quartile "
+                "salaries) and a replacement-level value (median value-score of those players). "
+                "The surplus per player-season converts above-replacement value into dollars "
+                "via the within-(position, season) slope of salary on value, then subtracts the "
+                "cap premium paid. Positive surplus means the player out-earned their contract; "
+                "the higher, the bigger the deal for the team."
+            ),
+            "### Top 10 Replacement-Level Surplus Player-Seasons",
+            _markdown_table(
+                tables["replacement_top_surplus"],
+                [
+                    "season",
+                    "player_display_name",
+                    "position",
+                    "team",
+                    "games_played",
+                    "salary_millions",
+                    "value_score",
+                    "cap_over_replacement_millions",
+                    "value_over_replacement",
+                    "dollar_surplus_millions",
+                ],
+                rows=10,
+            ),
+            "### Replacement-Level Snapshot by Position",
+            (
+                "The price-per-value-unit column is the implicit market rate of one "
+                "z-unit of value at that position. RB occasionally shows a negative slope, "
+                "reflecting the well-documented running-back-market irrationality: paying RBs "
+                "more is not consistently associated with getting more production."
+            ),
+            _markdown_table(
+                tables["replacement_by_position"],
+                [
+                    "position",
+                    "player_seasons",
+                    "median_replacement_salary_millions",
+                    "median_replacement_value_score",
+                    "median_price_per_value_unit_millions",
+                    "median_dollar_surplus_millions",
+                    "share_positive_surplus",
+                ],
+                rows=8,
+            ),
+            "### Top Team-Seasons by Total Replacement-Level Surplus",
+            _markdown_table(
+                tables["replacement_team_season"],
+                [
+                    "season",
+                    "team",
+                    "player_seasons",
+                    "total_cap_over_replacement_millions",
+                    "total_value_over_replacement",
+                    "total_dollar_surplus_millions",
+                ],
+                rows=10,
+            ),
+            (
+                "Honesty caveat: the cost variable is still `inflated_apy`, not "
+                "year-by-year cap hit. Replacing APY with true cap hit is Tier 1 item #3 "
+                "of `PORTFOLIO_ROADMAP.md` and the next upgrade for this analysis."
             ),
             "## Method Notes",
             "\n".join(

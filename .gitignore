@@ -50,6 +50,10 @@ outputs/tables/*
 !outputs/tables/weekly_fantasy_by_fold.csv
 !outputs/tables/weekly_fantasy_conformal_coverage.csv
 !outputs/tables/weekly_fantasy_validation_predictions.csv
+!outputs/tables/salary_findings_replacement_baselines.csv
+!outputs/tables/salary_findings_replacement_top_surplus.csv
+!outputs/tables/salary_findings_replacement_team_season.csv
+!outputs/tables/salary_findings_replacement_by_position.csv
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv

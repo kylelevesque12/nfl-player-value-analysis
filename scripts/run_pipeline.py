@@ -18,12 +18,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--steps",
-        default="clean,value,decompose,predictions,salary,findings,fantasy,weekly_fantasy,weekly_wins,checks,interpretation,benchmark,two_stage",
+        default="clean,value,decompose,predictions,salary,findings,fantasy,weekly_fantasy,external_benchmark,weekly_wins,checks,interpretation,benchmark,two_stage",
         help=(
             "Comma-separated pipeline steps to run. "
             "Options: clean,value,decompose,predictions,salary,findings,context,"
-            "fantasy,weekly_fantasy,weekly_wins,feature_impact,checks,interpretation,"
-            "benchmark,two_stage,advanced_modeling"
+            "fantasy,weekly_fantasy,external_benchmark,weekly_wins,feature_impact,"
+            "checks,interpretation,benchmark,two_stage,advanced_modeling"
         ),
     )
     return parser.parse_args()

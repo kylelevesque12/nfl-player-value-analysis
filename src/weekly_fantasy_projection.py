@@ -530,8 +530,17 @@ def build_modeling_frame(
     player_stats: pd.DataFrame,
     schedules: pd.DataFrame,
     rosters: pd.DataFrame,
+    project_root: Path | None = None,
 ) -> pd.DataFrame:
-    """Build the supervised player-week modeling frame."""
+    """Build the supervised player-week modeling frame.
+
+    ``project_root`` is used to look for optional nflverse files (snap counts,
+    depth charts, injuries). It defaults to the auto-discovered project root
+    when not supplied; the supplementary attach is a no-op when the files are
+    absent so the pipeline keeps working pre-fetch.
+    """
+    root = find_project_root() if project_root is None else Path(project_root).resolve()
+
     weekly = prepare_weekly_player_games(player_stats, schedules, rosters)
     opp_allowed = build_opponent_ppr_allowed(weekly)
 
@@ -544,6 +553,7 @@ def build_modeling_frame(
     ).drop(columns=["def_team"])
 
     featured = add_availability_features(featured, player_stats, schedules)
+    featured = attach_supplementary_signals(featured, root)
     featured = add_market_interactions(featured)
     featured = add_target(featured)
     return featured
@@ -1110,7 +1120,9 @@ def build_weekly_fantasy_outputs(
     schedules = load_csv("data/raw/schedules_2016_2025.csv", root, low_memory=False)
     rosters = load_csv("data/raw/rosters_2016_2025.csv", root, low_memory=False)
 
-    modeling_df = build_modeling_frame(player_stats, schedules, rosters)
+    modeling_df = build_modeling_frame(
+        player_stats, schedules, rosters, project_root=root
+    )
     feature_cols = _available(modeling_df, WEEKLY_FANTASY_FEATURES)
 
     predictions, fold_conformal = collect_rolling_predictions(
