@@ -20,12 +20,11 @@ These are the non-negotiables. Until all three land, the project reads as "well-
 **Why it matters.** Beating an internal baseline is the floor. The ceiling reference is: do we beat what a fantasy player could read for free? Without that comparison, every skill score in the project is a number without a market.
 
 **What to build.**
-- [~] Scaffolding: `src/external_benchmark.py` that loads a CSV of external projections and runs head-to-head vs the weekly fantasy model on matched (player, season, week) rows. Outputs MAE / RMSE / Spearman / win-rate-by-position. Code in place but needs data.
-- [ ] Acquire external projections. Two viable sources, ordered by impressiveness:
-  1. **DraftKings closing-line implied projections (best).** DK salary / (DK salary-to-points conversion factor for the position) ≈ market-implied projection. Closing salaries are scraped from RotoGrinders, FantasyData, or DK's own download. Beating the market is the strongest possible claim.
-  2. **FantasyPros consensus projections (easier).** Public weekly projections at fantasypros.com/nfl/projections/. Historical archives require scraping; the `fpros` Python package wraps this. Less impressive than beating DK but enough to be credible.
-- [ ] Run head-to-head on 2022–2025. Expect to lose initially. **Report exactly where you lose** (which positions, which player tiers, which weeks) — that diagnostic is the most useful single output the project can produce right now.
-- [ ] Add `report/external_benchmark.md` at the *top* of the README. This becomes the headline section.
+- [x] Scaffolding: `src/external_benchmark.py` loads `data/raw/external_projections.csv` and runs head-to-head vs the weekly fantasy model with MAE / RMSE / win-rate / by-position output.
+- [x] Acquire DraftKings closing-line implied projections via RotoGuru. `scripts/fetch_rotoguru_salaries.py` downloads the SCSV archives; `scripts/build_external_projections_from_dk.py` fuzzy-matches names to nflverse gsis_ids and fits per-(season, position) salary→points conversions. RotoGuru's free archive covers **through 2021 only**.
+- [x] Run head-to-head on the 2020-2021 overlap. **Current result: +1.1% RMSE skill vs market overall; +1.7% QB, +1.4% RB, +1.2% WR, −0.4% TE (honest negative); 52-55% win rate by position.** Documented in `report/external_benchmark.md`.
+- [x] Add the benchmark table to README. Now in the main results section near the top of the document.
+- [ ] **Extend coverage to 2022-2025.** Requires a paid source: Stokastic (~$50/mo), FantasyData (API pricing), or scraping FantasyPros archives (MVP ~$8/mo gets historical access). Or use the `ffanalytics` R package (free, multi-source). The scaffolding accepts any CSV matching the documented schema, so this is purely a data-acquisition step.
 
 **Effort:** 1–2 weeks once data is available. Data acquisition is the bottleneck.
 

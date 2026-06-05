@@ -1,0 +1,2 @@
+segment,segment_value,n_player_weeks,model_rmse,external_rmse,model_mae,external_mae,model_spearman,external_spearman,skill_vs_external
+overall,all,11191,6.41948762343,6.49308141515,4.82732472377,4.97895780061,0.651481360317,0.611172859211,0.0113341858845

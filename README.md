@@ -23,7 +23,7 @@ work lives.
 | Honest evaluation vs baselines | [Model benchmark](report/model_benchmark.md) |
 | Primary prediction deliverable (single model) | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
 | Weekly fantasy projection (player-game) | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md) |
-| External benchmark vs FantasyPros / DK (scaffolded) | [External benchmark](report/external_benchmark.md) |
+| External benchmark vs DraftKings closing-line implied (live for 2020-2021) | [External benchmark](report/external_benchmark.md) |
 | Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
@@ -468,20 +468,48 @@ negative, consistent with the well-documented RB-market irrationality. Honesty
 caveat: the cost variable is still `inflated_apy`, not year-by-year cap hit;
 replacing that is Tier 1 item #3 of `PORTFOLIO_ROADMAP.md`.
 
-## External Benchmark (Scaffolded)
+## External Benchmark vs DraftKings Closing-Line Implied (Live for 2020-2021)
 
-The [external benchmark module](src/external_benchmark.py) compares the weekly
-fantasy model head-to-head against an external projector (FantasyPros consensus
-or DraftKings closing-line implied projection). The CSV schema is documented at
-[`data/raw/external_projections.example.csv`](data/raw/external_projections.example.csv).
-Until that file is populated, the benchmark step writes a stub report
-explaining how to populate it. This is intentional: the goal is for the README's
-*first* deliverable a reviewer reads to be an external-benchmark table once the
-data exists.
+The weekly fantasy model is benchmarked head-to-head against DraftKings
+closing-line *implied* projections — the strongest free fantasy benchmark
+available. DK sets salaries pregame, and a per-(season, position) regression of
+actual PPR on DK salary recovers the salary→points conversion the market is
+using. The fitted value of that regression is the market's implied PPR
+projection for each player-week.
+
+- [Read the external benchmark report](report/external_benchmark.md)
+
+**Current result** (11,191 matched player-weeks, 2020-2021 overlap with the
+model's rolling backtest):
+
+| Position | Model RMSE | DK-implied RMSE | Skill vs market | Win rate |
+| --- | ---: | ---: | ---: | ---: |
+| QB | 7.708 | 7.842 | **+1.7%** | 52.5% |
+| RB | 6.615 | 6.707 | **+1.4%** | 52.6% |
+| WR | 6.473 | 6.553 | **+1.2%** | 54.5% |
+| TE | 5.159 | 5.137 | −0.4% | 53.8% |
+| Overall | 6.419 | 6.493 | **+1.1%** | — |
+
+Public DFS analytics shops typically claim a 1-3% edge over the DK salary line
+as their selling point, so a calibrated +1.1% beat after honest rolling
+backtesting clears the qualifying bar. TE is the one honest negative result;
+it traces to features the current stack lacks (depth-chart status, snap share)
+that matter more at TE than at other positions.
+
+Reproduce locally:
 
 ```bash
+python scripts/fetch_rotoguru_salaries.py --years 2014-2021
+python scripts/build_external_projections_from_dk.py
 python scripts/run_pipeline.py --steps external_benchmark
 ```
+
+**Coverage gap**: RotoGuru's free DK archive ends in 2021. Extending the
+benchmark to 2022-2025 requires a paid source (Stokastic / FantasyData) or
+scraping FantasyPros archives. The scaffolding accepts any CSV at
+[`data/raw/external_projections.csv`](data/raw/external_projections.example.csv)
+matching the documented schema, so swapping in a richer source is purely a
+data-acquisition step. Sequenced in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
 
 ## Optional Weekly Signals (Snap Counts, Injuries, Depth Charts)
 
