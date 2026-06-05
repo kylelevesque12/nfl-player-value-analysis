@@ -1,0 +1,20 @@
+# Dedicated environment for the Bayesian rookie model (src/rookie_bayes.py).
+#
+# PyMC's numpy >= 2 requirement conflicts with the rest of the project's pins.
+# Build this in a separate venv:
+#
+#     python -m venv .venv-bayes
+#     source .venv-bayes/bin/activate
+#     pip install -r requirements-bayes.txt
+#
+# Then run the model from the project root with the bayes venv active:
+#
+#     python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"
+
+numpy>=2.0
+pandas>=2.1
+pymc>=5.10
+arviz>=0.18
+scipy>=1.11
+# nutpie is optional; PyMC's default sampler works fine for a model this size.
+# nutpie>=0.13

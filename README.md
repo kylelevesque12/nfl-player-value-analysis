@@ -24,6 +24,7 @@ work lives.
 | Primary prediction deliverable (single model) | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
 | Weekly fantasy projection (player-game) | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md) |
 | External benchmark vs DraftKings closing-line implied (live for 2020-2021) | [External benchmark](report/external_benchmark.md) |
+| Bayesian rookie projection (scaffolded; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
 | Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
@@ -526,6 +527,42 @@ That writes `data/raw/snap_counts_*.csv`, `data/raw/injuries_*.csv`, and
 snap-share, depth-chart-rank, and practice-status features to the weekly model.
 When absent, the model still trains with the documented (modest) loss of
 accuracy.
+
+## Bayesian Rookie Projection (Scaffolded)
+
+[`src/rookie_bayes.py`](src/rookie_bayes.py) implements a hierarchical Bayesian
+model for projecting a rookie's PPR per game *before* they have played an NFL
+snap — the cold-start problem the HGB stack cannot solve. The model is partial-
+pooled across the four skill positions on intercept and slopes, with features
+for log draft pick, age at draft, height, weight, and an optional college-
+production score.
+
+- [Read the report stub](report/rookie_bayes_projection.md)
+- [Browse the rookie modeling frame (2,265 player-seasons)](outputs/tables/rookie_modeling_frame.csv)
+- [Tests for the non-PyMC data-prep pieces](tests/test_rookie_bayes.py)
+
+PyMC's ABI conflicts with the rest of the project's pins, so PyMC is imported
+inside `fit_rookie_model` only and the sampling step is run from a dedicated
+venv:
+
+```bash
+python -m venv .venv-bayes
+source .venv-bayes/bin/activate
+pip install -r requirements-bayes.txt
+python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"
+```
+
+The non-PyMC pieces (modeling-frame construction, age/height parsing, training-
+fold standardization) run in the project's normal venv and are covered by
+[`tests/test_rookie_bayes.py`](tests/test_rookie_bayes.py). College production
+features are wired to consume an optional CSV at
+`data/raw/college_production.csv`; the acquisition stub at
+[`scripts/fetch_college_production.py`](scripts/fetch_college_production.py)
+documents the cfbd-py integration path.
+
+This is the Tier 2 #4 piece in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
+Doing the PyMC sampling pass and adding the college score moves it from
+scaffolded to live.
 
 ## Limitations
 

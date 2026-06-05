@@ -22,6 +22,7 @@ from src.fantasy_projection import build_fantasy_projection_outputs
 from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
 from src.external_benchmark import build_external_benchmark_outputs
+from src.rookie_bayes import build_rookie_modeling_frame
 from src.weekly_fantasy_projection import build_weekly_fantasy_outputs
 from src.weekly_win_projection import build_weekly_win_projection_outputs
 from src.advanced_modeling import build_advanced_modeling_outputs
@@ -40,6 +41,7 @@ PIPELINE_STEPS = [
     "fantasy",
     "weekly_fantasy",
     "external_benchmark",
+    "rookie_bayes",
     "weekly_wins",
     "context",
     "feature_impact",
@@ -59,6 +61,7 @@ DEFAULT_PIPELINE_STEPS = [
     "fantasy",
     "weekly_fantasy",
     "external_benchmark",
+    "rookie_bayes",
     "weekly_wins",
     "checks",
     "interpretation",
@@ -153,6 +156,46 @@ def build_external_benchmark_step(
     return build_external_benchmark_outputs(project_root=root, save_outputs=True)
 
 
+def build_rookie_bayes_step(
+    project_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Rebuild the rookie modeling frame.
+
+    The Bayesian sampling step requires a dedicated PyMC venv (see
+    requirements-bayes.txt). This pipeline hook builds the modeling frame
+    (always available, no PyMC dependency) and writes a report stub.
+    Validation tables are only produced when PyMC is available; until then
+    the stub explains the venv setup.
+    """
+    import pandas as pd
+
+    root = _resolve_project_root(project_root)
+    rosters = pd.read_csv(
+        root / "data" / "raw" / "rosters_2016_2025.csv", low_memory=False
+    )
+    player_stats = pd.read_csv(
+        root / "data" / "raw" / "player_stats_2016_2025.csv", low_memory=False
+    )
+    modeling_df = build_rookie_modeling_frame(
+        rosters, player_stats, project_root=root
+    )
+    output_dir = root / "outputs" / "tables"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    modeling_df.to_csv(
+        output_dir / "rookie_modeling_frame.csv",
+        index=False,
+        float_format="%.12g",
+    )
+
+    from src.rookie_bayes import _build_summary_text
+
+    summary_text = _build_summary_text(modeling_df, pd.DataFrame(), pd.DataFrame())
+    report_path = root / "report" / "rookie_bayes_projection.md"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(summary_text)
+    return {"modeling_frame": modeling_df, "summary_text": summary_text}
+
+
 def build_context_features(project_root: str | Path | None = None) -> pd.DataFrame:
     """Rebuild player-season contextual football features from raw local data."""
     root = _resolve_project_root(project_root)
@@ -244,6 +287,8 @@ def run_pipeline(
             results[step] = build_weekly_fantasy_outputs_step(root)
         elif step == "external_benchmark":
             results[step] = build_external_benchmark_step(root)
+        elif step == "rookie_bayes":
+            results[step] = build_rookie_bayes_step(root)
         elif step == "weekly_wins":
             results[step] = build_weekly_win_outputs(root)
         elif step == "context":
