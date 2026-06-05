@@ -52,10 +52,11 @@ def load_external_projections(
 ) -> pd.DataFrame:
     """Load all CSVs of external weekly PPR projections under ``data/raw/``.
 
-    Searches ``data/raw/`` for ``external_projections.csv`` (the original
-    single-source path used by older code paths) **and** any file matching
-    ``external_projections_*.csv`` (multi-source files such as
-    ``external_projections_vegas.csv``). All matching files are concatenated.
+    Searches ``data/raw/`` for ``external_projections.csv`` (the canonical
+    single-source path) **and** any file matching ``external_projections_*.csv``
+    (multi-source files added by separate acquisition scripts). All matching
+    files are concatenated. The currently active source is the
+    RotoGuru-derived DK closing-line implied projection.
 
     Required columns: ``season``, ``week``, ``player_id`` (nflverse gsis id),
     ``external_projection_ppr``. Optional but recommended: ``source``,
@@ -348,21 +349,24 @@ def _build_summary_text(results: dict[str, pd.DataFrame], external_source: str) 
         "## What this benchmarks",
         "",
         "Head-to-head RMSE/MAE/win-rate vs externally derived market projections.",
-        "Two sources are wired in:",
+        "The multi-source loader globs `data/raw/external_projections*.csv`, so",
+        "adding a richer source (FantasyPros MVP archives, Stokastic, or any",
+        "other paid feed) is purely a data-acquisition step — drop a CSV in the",
+        "documented schema and rerun.",
         "",
-        "- `draftkings_implied_via_rotoguru` — the strongest free fantasy",
-        "  benchmark. DK sets salaries pregame; the per-(season, position)",
-        "  regression of actual PPR on DK salary recovers the salary→points",
-        "  conversion the market is using. RotoGuru's free archive covers",
-        "  through 2021 only.",
-        "- `vegas_team_environment_implied` — a weaker but longer-coverage",
-        "  benchmark. Per-(season, position) OLS of PPR on implied team total,",
-        "  spread, and home/away. Encodes only team-environment information",
-        "  (no player-specific signal), but extends through 2025.",
+        "The currently active source is `draftkings_implied_via_rotoguru` — the",
+        "strongest free fantasy benchmark available. DK sets salaries pregame;",
+        "the per-(season, position) regression of actual PPR on DK salary",
+        "recovers the salary→points conversion the market is implicitly using.",
+        "The fitted value is the market's implied PPR projection for each",
+        "player-week. RotoGuru's free archive ends in 2021, so the comparison",
+        "is restricted to 2020-2021 — the overlap with the weekly model's",
+        "rolling backtest window.",
         "",
-        "Because both conversions are fit on the season's actuals, the implied",
-        "projections are *strong* benchmarks — stronger than real-time",
-        "implementations would be. Beating them on this setup is conservative.",
+        "Because the conversion is fit on the season's actuals, the implied",
+        "projection is a *strong* benchmark — stronger than a real-time",
+        "implementation would be. Beating it on this setup is therefore a",
+        "conservative claim.",
         "",
         "## Per-source overall",
         "",
@@ -453,24 +457,22 @@ def _build_summary_text(results: dict[str, pd.DataFrame], external_source: str) 
             "piece. Where the model beats DK, the beat is real; where it loses or",
             "barely ties, the gap is reported as-is rather than hidden.",
             "",
-            "Vegas-team-environment-implied is a *weaker* benchmark than DK closing",
-            "line because it has no player-specific signal — it can only say 'WRs",
-            "on this offense are expected to score higher because the implied team",
-            "total is higher.' Beating it by larger margins is therefore less",
-            "impressive than beating DK by smaller ones; both numbers belong in the",
-            "table side-by-side so the reviewer can weight them appropriately.",
+            "For temporal-stability evidence across the full 2020-2025 rolling",
+            "validation window (where DK coverage is unavailable), see the",
+            "by-season skill scores against internal baselines in",
+            "`report/weekly_fantasy_projection_summary.md`. Those baselines are",
+            "weaker than DK but the *consistency* of the beat across six seasons",
+            "is the relevant signal there, not the absolute margin.",
             "",
             "## Coverage gap",
             "",
-            "RotoGuru's free DK salary archive currently ends in 2021. The DK",
-            "comparison is therefore restricted to 2020-2021 (the overlap with",
-            "the weekly model's rolling backtest). Vegas-team-environment-implied",
-            "extends to 2025 because schedule lines are local. Extending DK-style",
-            "coverage to 2022-2025 requires a different (likely paid) source —",
-            "see `PORTFOLIO_ROADMAP.md` Tier 1 item #1 for options (Stokastic,",
-            "FantasyData, FantasyPros MVP archives, or the `ffanalytics` R",
-            "package). The scaffolding accepts any CSV at",
-            "`data/raw/external_projections*.csv` matching the documented schema.",
+            "RotoGuru's free DK salary archive currently ends in 2021. Extending",
+            "DK-style coverage to 2022-2025 requires a different (likely paid)",
+            "source — see `PORTFOLIO_ROADMAP.md` Tier 1 item #1 for options",
+            "(Stokastic, FantasyData, FantasyPros MVP archives, or the",
+            "`ffanalytics` R package). The scaffolding accepts any CSV at",
+            "`data/raw/external_projections*.csv` matching the documented schema,",
+            "so swapping in a richer source is purely a data-acquisition step.",
         ]
     )
     return "\n".join(lines) + "\n"

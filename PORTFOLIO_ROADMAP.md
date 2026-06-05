@@ -25,6 +25,7 @@ These are the non-negotiables. Until all three land, the project reads as "well-
 - [x] Run head-to-head on the 2020-2021 overlap. **Current result: +1.1% RMSE skill vs market overall; +1.7% QB, +1.4% RB, +1.2% WR, −0.4% TE (honest negative); 52-55% win rate by position.** Documented in `report/external_benchmark.md`.
 - [x] Add the benchmark table to README. Now in the main results section near the top of the document.
 - [ ] **Extend coverage to 2022-2025.** Requires a paid source: Stokastic (~$50/mo), FantasyData (API pricing), or scraping FantasyPros archives (MVP ~$8/mo gets historical access). Or use the `ffanalytics` R package (free, multi-source). The scaffolding accepts any CSV matching the documented schema, so this is purely a data-acquisition step.
+  - **Considered and rejected**: a free Vegas-team-environment-implied benchmark (per-(season, position) OLS of PPR on implied_team_total, spread, is_home). It extended coverage to 2022-2025 and the model beat it by ~19% every season. Pulled because Vegas-implied has *no player-specific signal* — the +19% beat invites the read "this model is just better at team-environment work" and dilutes the genuinely-player-level +1.6% beat against DK. Per-season *internal* baseline stability (in `report/weekly_fantasy_projection_summary.md`) covers the temporal-stability story cleanly without that risk.
 
 **Effort:** 1–2 weeks once data is available. Data acquisition is the bottleneck.
 

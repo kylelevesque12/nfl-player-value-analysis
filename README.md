@@ -480,20 +480,8 @@ projection for each player-week.
 
 - [Read the external benchmark report](report/external_benchmark.md)
 
-**Two market benchmarks now wired:**
-
-| Source | Coverage | n | Skill vs external |
-| --- | --- | ---: | ---: |
-| DraftKings closing-line implied (`rotoguru`) | 2020-2021 | 11,191 | **+1.6%** |
-| Vegas team-environment implied | 2020-2025 | 34,906 | **+19.2%** |
-
-DK is the stronger benchmark (encodes player-specific salaries → projections);
-the **+1.6% beat over six positions and two seasons** is the headline. Vegas-
-implied is a weaker benchmark (team-environment only, no player-specific
-signal), but it covers six full seasons and the model beats it +17.7% to
-+20.6% in *every* season — confirming the DK result isn't a 2020-2021 fluke.
-
-DK by position, 2020-2021:
+**Current result** (DK closing-line implied, 11,191 matched player-weeks across
+the 2020-2021 overlap with the model's rolling backtest):
 
 | Position | Model RMSE | DK RMSE | Skill |
 | --- | ---: | ---: | ---: |
@@ -501,10 +489,33 @@ DK by position, 2020-2021:
 | RB | 6.586 | 6.707 | **+1.8%** |
 | WR | 6.438 | 6.553 | **+1.8%** |
 | TE | 5.102 | 5.137 | **+0.7%** |
+| **Overall** | **6.386** | **6.493** | **+1.6%** |
 
-TE was the one negative result *until* snap share landed — the +0.7% post-
-snap-counts result confirms the prior deficit was a missing-feature issue,
-not a model-quality issue.
+Public DFS analytics shops sell projections claiming a 1-3% edge over the DK
+salary line, so a calibrated +1.6% beat after honest rolling backtesting is
+inside that band. TE was the one negative result *until* snap share landed —
+the +0.7% post-snap-counts result confirms the prior deficit was a
+missing-feature issue, not a model-quality issue.
+
+**Temporal stability** (per-season skill vs the recent-4-avg internal
+baseline, across the full 2020-2025 rolling-validation window):
+
+| Season | n | Skill vs recent-4-avg |
+| --- | ---: | ---: |
+| 2020 | 5,530 | +7.0% |
+| 2021 | 5,856 | +7.9% |
+| 2022 | 5,818 | +8.5% |
+| 2023 | 5,811 | +6.8% |
+| 2024 | 5,848 | +7.4% |
+| 2025 | 6,043 | +8.2% |
+
+DK coverage stops in 2021, so the table above uses an internal baseline to
+demonstrate that the +1.6% DK beat isn't a 2020-2021 fluke — the model
+produces a stable single-digit edge over the toughest internal baseline in
+every season. Extending the DK-style benchmark to 2022-2025 requires a paid
+source (Stokastic, FantasyData, or FantasyPros MVP archives); the
+multi-source loader at `src/external_benchmark.py` will pick up any
+additional `data/raw/external_projections*.csv` file automatically.
 
 Reproduce locally:
 

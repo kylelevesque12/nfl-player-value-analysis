@@ -1157,6 +1157,7 @@ def build_weekly_fantasy_outputs(
         feature_cols=feature_cols,
         predictions=predictions,
         method_summary=method_summary,
+        by_fold=by_fold,
         conformal=conformal,
         fold_conformal=fold_conformal,
     )
@@ -1209,6 +1210,7 @@ def _build_summary_text(
     feature_cols: list[str],
     predictions: pd.DataFrame,
     method_summary: pd.DataFrame,
+    by_fold: pd.DataFrame,
     conformal: pd.DataFrame,
     fold_conformal: dict[int, dict[str, float]],
 ) -> str:
@@ -1275,6 +1277,49 @@ def _build_summary_text(
             "matches the season-level model-interpretation finding that small",
             "per-position gains do not justify replacing the pooled model.",
             "",
+            "## Temporal stability (per-season skill vs recent-4-avg baseline)",
+            "",
+            "An external DK closing-line benchmark is only available for 2020-2021",
+            "(see `report/external_benchmark.md`). To show the model's edge is not",
+            "season-specific, the table below reports per-season skill vs the",
+            "recent-4-week rolling average baseline across the full validation",
+            "window. The recent-4-avg is the toughest internal baseline (it",
+            "already captures most of the rolling-PPR signal), so a steady",
+            "single-digit skill score here is the relevant evidence of temporal",
+            "stability — not the absolute margin.",
+            "",
+        ]
+    )
+    if not by_fold.empty:
+        model_folds = by_fold[by_fold["method"].eq("hist_gradient_boosting")][
+            ["validation_season", "rmse", "mae", "n"]
+        ].rename(
+            columns={
+                "rmse": "model_rmse",
+                "mae": "model_mae",
+                "n": "n_player_weeks",
+            }
+        )
+        baseline_folds = by_fold[by_fold["method"].eq("recent_4_avg")][
+            ["validation_season", "rmse"]
+        ].rename(columns={"rmse": "baseline_rmse"})
+        stability = model_folds.merge(baseline_folds, on="validation_season", how="inner")
+        stability["skill_vs_recent_4_avg"] = 1.0 - stability["model_rmse"] / stability["baseline_rmse"]
+        stability = stability.sort_values("validation_season")
+        lines.append(
+            "| Season | n | Model RMSE | Recent-4-avg RMSE | Skill |"
+        )
+        lines.append("| --- | ---: | ---: | ---: | ---: |")
+        for _, row in stability.iterrows():
+            lines.append(
+                f"| {int(row['validation_season'])} | "
+                f"{int(row['n_player_weeks']):,} | "
+                f"{row['model_rmse']:.3f} | {row['baseline_rmse']:.3f} | "
+                f"{row['skill_vs_recent_4_avg']:+.3%} |"
+            )
+        lines.append("")
+    lines.extend(
+        [
             "## Conformal interval coverage",
             "",
         ]

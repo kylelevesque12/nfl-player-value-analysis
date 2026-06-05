@@ -55,6 +55,26 @@ smaller training sets than they gain from specialization. This
 matches the season-level model-interpretation finding that small
 per-position gains do not justify replacing the pooled model.
 
+## Temporal stability (per-season skill vs recent-4-avg baseline)
+
+An external DK closing-line benchmark is only available for 2020-2021
+(see `report/external_benchmark.md`). To show the model's edge is not
+season-specific, the table below reports per-season skill vs the
+recent-4-week rolling average baseline across the full validation
+window. The recent-4-avg is the toughest internal baseline (it
+already captures most of the rolling-PPR signal), so a steady
+single-digit skill score here is the relevant evidence of temporal
+stability — not the absolute margin.
+
+| Season | n | Model RMSE | Recent-4-avg RMSE | Skill |
+| --- | ---: | ---: | ---: | ---: |
+| 2020 | 5,530 | 6.504 | 6.990 | +6.958% |
+| 2021 | 5,856 | 6.236 | 6.769 | +7.881% |
+| 2022 | 5,818 | 6.087 | 6.654 | +8.519% |
+| 2023 | 5,811 | 6.016 | 6.457 | +6.843% |
+| 2024 | 5,848 | 6.079 | 6.562 | +7.356% |
+| 2025 | 6,043 | 5.967 | 6.502 | +8.238% |
+
 ## Conformal interval coverage
 
 | Target coverage | Empirical coverage | Mean width | n |
