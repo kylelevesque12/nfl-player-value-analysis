@@ -105,12 +105,17 @@ Tier 1 makes you credible. Tier 2 makes you stand out. Don't start any of these 
 
 **Why it matters.** You've lost this fight twice now because you were multiplying noisy components. The next attempt has to be structurally different — not just "two HGBs in sequence."
 
-**What to build.**
-- [ ] Stage 1: `target_share | snap_share, depth_chart_position, opponent_pass_rate` — modeled with a **Dirichlet** likelihood so target shares sum to 1.0 within a team-week. This is the structural constraint that prevents the model from over-allocating targets across a team's receivers.
-- [ ] Stage 2: `PPR_per_target | depth_chart, qb_quality, weather, opponent_secondary_quality`.
-- [ ] Recombine via the constraint `expected_PPR = expected_targets × expected_PPR_per_target`.
-- [ ] Honest comparison: this two-stage vs the single pooled model on the same rows. Report the win/loss with detail on which player-weeks each wins on.
-- [ ] Variance decomposition: for each prediction, what share of the interval width comes from target-share uncertainty vs efficiency uncertainty? This is the *actual* opportunity-vs-efficiency interval decomposition — and it's the analysis the project has been gesturing at for two iterations now.
+**What was built and the result.**
+- [x] Stage 1: target-share predictor with **team-week renormalization** (the lighter version of the Dirichlet constraint — same structural property, no PyMC dependency for the headline run). HGB on rolling features.
+- [x] Stage 2: team-week expected pass attempts (HGB on team-environment features).
+- [x] Stage 3: per-target PPR efficiency (HGB on rolling efficiency features).
+- [x] Heavy-shrinkage variant of stage 3 (replace with position-season mean) to test the documented prescription.
+- [x] Honest head-to-head on identical WR/TE player-weeks vs the pooled HGB across all six rolling-validation seasons. **Result: pooled HGB wins in every fold. Two-stage loses by 9.8%; shrunk-efficiency variant loses by 7.6%.**
+- [x] **Per-stage quality diagnostic.** Stage 1 (target share renormalized) beats predict-the-mean by +34.3% — the structural constraint genuinely works. Stages 2 and 3 are essentially noise (≈0% skill over mean). The shrunk variant outperforming the full learned variant *confirms* the diagnosis: unshrunk stage 3 was actively adding error.
+
+**Portfolio-level takeaway.** This is the fourth decomposition attempt in the project. The cumulative evidence is now a *finding*: for weekly fantasy point projection, tree-based pooled models on engineered rolling features extract the team-attempts and per-target-efficiency signals more efficiently than any explicit multiplicative decomposition we have tried. A Dirichlet stage-1 upgrade would not help here — stage 1 is not the problem; stages 2-3 are noise. The actionable next move is not another decomposition variant.
+
+**Open path forward (not Tier 2 #5 anymore).** Either (a) a different pooled model class — gradient-boosted *quantile* regression for proper per-prediction interval shapes — or (b) better features, specifically depth-chart rank and projected snap share, currently blocked on nflverse-supplementary schema cleanup.
 
 **Effort:** 3–5 weeks.
 

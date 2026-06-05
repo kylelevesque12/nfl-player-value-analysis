@@ -23,6 +23,7 @@ from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
 from src.external_benchmark import build_external_benchmark_outputs
 from src.rookie_bayes import build_rookie_modeling_frame
+from src.two_stage_weekly import build_two_stage_weekly_outputs
 from src.weekly_fantasy_projection import build_weekly_fantasy_outputs
 from src.weekly_win_projection import build_weekly_win_projection_outputs
 from src.advanced_modeling import build_advanced_modeling_outputs
@@ -42,6 +43,7 @@ PIPELINE_STEPS = [
     "weekly_fantasy",
     "external_benchmark",
     "rookie_bayes",
+    "two_stage_weekly",
     "weekly_wins",
     "context",
     "feature_impact",
@@ -62,6 +64,7 @@ DEFAULT_PIPELINE_STEPS = [
     "weekly_fantasy",
     "external_benchmark",
     "rookie_bayes",
+    "two_stage_weekly",
     "weekly_wins",
     "checks",
     "interpretation",
@@ -154,6 +157,14 @@ def build_external_benchmark_step(
     """
     root = _resolve_project_root(project_root)
     return build_external_benchmark_outputs(project_root=root, save_outputs=True)
+
+
+def build_two_stage_weekly_step(
+    project_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Rebuild the structurally-constrained two-stage weekly outputs."""
+    root = _resolve_project_root(project_root)
+    return build_two_stage_weekly_outputs(project_root=root, save_outputs=True)
 
 
 def build_rookie_bayes_step(
@@ -289,6 +300,8 @@ def run_pipeline(
             results[step] = build_external_benchmark_step(root)
         elif step == "rookie_bayes":
             results[step] = build_rookie_bayes_step(root)
+        elif step == "two_stage_weekly":
+            results[step] = build_two_stage_weekly_step(root)
         elif step == "weekly_wins":
             results[step] = build_weekly_win_outputs(root)
         elif step == "context":

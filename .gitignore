@@ -62,6 +62,10 @@ outputs/tables/*
 !outputs/tables/rookie_modeling_frame.csv
 !outputs/tables/rookie_bayes_validation_metrics.csv
 !outputs/tables/rookie_bayes_validation_predictions.csv
+!outputs/tables/two_stage_weekly_method_summary.csv
+!outputs/tables/two_stage_weekly_by_fold.csv
+!outputs/tables/two_stage_weekly_per_stage_quality.csv
+!outputs/tables/two_stage_weekly_predictions.csv
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv

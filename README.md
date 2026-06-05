@@ -25,6 +25,7 @@ work lives.
 | Weekly fantasy projection (player-game) | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md) |
 | External benchmark vs DraftKings closing-line implied (live for 2020-2021) | [External benchmark](report/external_benchmark.md) |
 | Bayesian rookie projection (LIVE; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
+| Two-stage WR/TE decomposition (honest negative result with diagnostic) | [Two-stage weekly](report/two_stage_weekly.md) |
 | Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
@@ -607,6 +608,47 @@ python3.12 -m venv .venv-bayes
 This is the Tier 2 #4 piece in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
 Adding the college-production score (`scripts/fetch_college_production.py` is
 the stub) is the next refinement.
+
+## Two-Stage WR/TE Decomposition — Negative Result With Diagnostic
+
+Tier 2 #5 of [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md). Tests whether
+decomposing weekly WR/TE PPR into
+`team_pass_attempts × target_share × PPR_per_target` (with target shares
+renormalized within each team-week — the structural constraint) beats the
+pooled HGB on identical player-weeks. Built specifically because the
+project's prior three decomposition attempts all lost, and the roadmap's
+hypothesis was that explicit structural constraints would change that.
+
+- [Read the report](report/two_stage_weekly.md)
+- [Head-to-head table](outputs/tables/two_stage_weekly_method_summary.csv)
+- [By validation year](outputs/tables/two_stage_weekly_by_fold.csv)
+- [Per-stage quality diagnostic](outputs/tables/two_stage_weekly_per_stage_quality.csv)
+
+**Result**: both two-stage variants lose to pooled HGB in every fold. The
+diagnostic table tells the structural story:
+
+| Method | RMSE | Skill vs pooled HGB |
+| --- | ---: | ---: |
+| Two-stage (full learned) | 6.41 | **-9.8%** |
+| Two-stage (stage 3 shrunk to position mean) | 6.28 | **-7.6%** |
+| Pooled HGB (WR/TE-only) | 5.84 | 0.0% |
+
+| Stage | Skill vs predict-the-mean |
+| --- | ---: |
+| Target share (renormalized) | **+34.3%** ← genuinely informative |
+| Team pass attempts | -3.2% ← noise |
+| PPR per target | -0.2% ← noise |
+
+The shrunk-stage-3 variant outperforming the full-learned variant by ~2
+points in every fold *confirms* the diagnosis: the unshrunk efficiency
+stage was actively adding error rather than information. The cumulative
+evidence across four decomposition attempts in this project is now a real
+finding — tree-based pooled models on engineered rolling features extract
+team-attempts and per-target-efficiency signals more efficiently than any
+explicit multiplicative decomposition. The actionable next bet is not
+another decomposition variant; it is better features (depth-chart rank,
+snap projection) or a different pooled model class (quantile gradient
+boosting for proper per-prediction intervals).
 
 ## Limitations
 
