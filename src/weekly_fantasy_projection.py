@@ -83,6 +83,20 @@ WEEKLY_FANTASY_FEATURES = [
     "spread_line_team_perspective",
     "total_line",
     "implied_team_total",
+    # Interaction features: implied team total matters very differently by
+    # position (QBs and WR1s scale strongly with team scoring environment;
+    # backup TEs and RB2s benefit much less). One-hot expansion of `position`
+    # inside the pipeline gives the model a categorical signal but cannot
+    # *multiply* a continuous feature against position without explicit
+    # interaction columns. These features fix that.
+    "implied_total_x_qb",
+    "implied_total_x_rb",
+    "implied_total_x_wr",
+    "implied_total_x_te",
+    "spread_x_qb",
+    "spread_x_rb",
+    "spread_x_wr",
+    "spread_x_te",
     "div_game",
     # Availability / injury proxy. A player who didn't play week N has no row in
     # player_stats for week N. Crossed against the team's actual game schedule
@@ -92,6 +106,17 @@ WEEKLY_FANTASY_FEATURES = [
     "active_games_last4",
     "weeks_missed_last4",
     "consecutive_games_active",
+    # Optional supplementary nflverse signals. Present only after running
+    # `scripts/fetch_nflverse_data.py`. `_available(df, ...)` at model-fit
+    # time drops any column missing from the dataframe, so the pipeline still
+    # runs (with reduced accuracy) when these files have not been fetched.
+    "offense_snap_pct_last1",
+    "offense_snap_pct_last4_avg",
+    "depth_chart_rank",
+    "practice_status_full",
+    "practice_status_limited",
+    "practice_status_dnp",
+    "practice_status_questionable_or_worse",
 ]
 
 INTERVAL_QUANTILES = {
@@ -519,8 +544,228 @@ def build_modeling_frame(
     ).drop(columns=["def_team"])
 
     featured = add_availability_features(featured, player_stats, schedules)
+    featured = add_market_interactions(featured)
     featured = add_target(featured)
     return featured
+
+
+def _find_supplementary_file(project_root: Path, stem: str) -> Path | None:
+    """Look for a nflverse-style file with a year-range suffix.
+
+    The fetch script writes files like `snap_counts_2016_2025.csv`. We don't
+    pin the year range here because the user may pull a different span and we
+    want the wiring to keep working.
+    """
+    raw_dir = project_root / "data" / "raw"
+    if not raw_dir.exists():
+        return None
+    matches = sorted(raw_dir.glob(f"{stem}_*.csv"))
+    return matches[0] if matches else None
+
+
+def _attach_snap_counts(featured: pd.DataFrame, project_root: Path) -> pd.DataFrame:
+    path = _find_supplementary_file(project_root, "snap_counts")
+    if path is None:
+        return featured
+    snaps = pd.read_csv(path, low_memory=False)
+    snaps = snaps.rename(columns={"pfr_player_id": "pfr_id"})
+
+    # nflverse exposes both `offense_snaps` (count) and `offense_pct` (share).
+    # Share is the right scale-free feature.
+    if "offense_pct" not in snaps.columns:
+        return featured
+
+    snaps = _to_numeric(snaps, ["season", "week", "offense_pct"])
+    snaps = snaps.dropna(subset=["season", "week"])
+    snaps["season"] = snaps["season"].astype(int)
+    snaps["week"] = snaps["week"].astype(int)
+
+    # Try gsis_id first (most reliable join). Fall back to player+team+season.
+    if "gsis_id" in snaps.columns:
+        join_keys_left = ["player_id", "season", "week"]
+        join_keys_right = ["gsis_id", "season", "week"]
+        slim = snaps[["gsis_id", "season", "week", "offense_pct"]].dropna(
+            subset=["gsis_id"]
+        )
+    else:
+        return featured  # without a stable id we can't join reliably
+
+    slim = slim.sort_values(["gsis_id", "season", "week"])
+    grp = slim.groupby(["gsis_id", "season"], group_keys=False)
+    slim["offense_snap_pct_last1"] = grp["offense_pct"].shift(1)
+    slim["offense_snap_pct_last4_avg"] = grp["offense_pct"].transform(
+        lambda s: s.shift(1).rolling(4, min_periods=1).mean()
+    )
+
+    return featured.merge(
+        slim[
+            [
+                "gsis_id",
+                "season",
+                "week",
+                "offense_snap_pct_last1",
+                "offense_snap_pct_last4_avg",
+            ]
+        ],
+        left_on=join_keys_left,
+        right_on=join_keys_right,
+        how="left",
+    ).drop(columns=["gsis_id"], errors="ignore")
+
+
+def _attach_depth_charts(featured: pd.DataFrame, project_root: Path) -> pd.DataFrame:
+    path = _find_supplementary_file(project_root, "depth_charts")
+    if path is None:
+        return featured
+    depth = pd.read_csv(path, low_memory=False)
+    needed = {"season", "week", "gsis_id"}
+    if not needed.issubset(depth.columns):
+        return featured
+    rank_col = "depth_position" if "depth_position" in depth.columns else (
+        "list_rank" if "list_rank" in depth.columns else None
+    )
+    if rank_col is None:
+        return featured
+
+    depth = _to_numeric(depth, ["season", "week", rank_col]).dropna(
+        subset=["season", "week", "gsis_id", rank_col]
+    )
+    depth["season"] = depth["season"].astype(int)
+    depth["week"] = depth["week"].astype(int)
+
+    # Take the player's minimum depth-chart rank in the week (best position
+    # they're listed at, across formations / packages).
+    depth = (
+        depth.groupby(["gsis_id", "season", "week"], as_index=False)[rank_col]
+        .min()
+        .rename(columns={rank_col: "depth_chart_rank"})
+    )
+    depth = depth.sort_values(["gsis_id", "season", "week"])
+
+    # Use last-known depth-chart rank (shift(1) so this week's listing does
+    # not leak into the model for this week).
+    grp = depth.groupby(["gsis_id", "season"], group_keys=False)
+    depth["depth_chart_rank"] = grp["depth_chart_rank"].shift(1)
+
+    return featured.merge(
+        depth[["gsis_id", "season", "week", "depth_chart_rank"]],
+        left_on=["player_id", "season", "week"],
+        right_on=["gsis_id", "season", "week"],
+        how="left",
+    ).drop(columns=["gsis_id"], errors="ignore")
+
+
+def _attach_injury_status(featured: pd.DataFrame, project_root: Path) -> pd.DataFrame:
+    path = _find_supplementary_file(project_root, "injuries")
+    if path is None:
+        return featured
+    inj = pd.read_csv(path, low_memory=False)
+    needed = {"season", "week", "gsis_id"}
+    if not needed.issubset(inj.columns):
+        return featured
+
+    inj = _to_numeric(inj, ["season", "week"]).dropna(
+        subset=["season", "week", "gsis_id"]
+    )
+    inj["season"] = inj["season"].astype(int)
+    inj["week"] = inj["week"].astype(int)
+
+    # Friday practice status is the most predictive. Schema varies; try a few.
+    candidate_cols = [
+        c
+        for c in ["practice_status", "report_status", "practice_primary_injury"]
+        if c in inj.columns
+    ]
+    if not candidate_cols:
+        return featured
+    status_col = candidate_cols[0]
+
+    inj_clean = inj.copy()
+    inj_clean["practice_status_clean"] = (
+        inj_clean[status_col].astype(str).str.strip().str.lower()
+    )
+
+    # Reduce to one row per (player, season, week) — take the most severe
+    # reported status if multiple rows exist (Wed/Thu/Fri reports).
+    severity_order = {
+        "out": 4,
+        "doubtful": 3,
+        "questionable": 2,
+        "did not participate": 1,
+        "dnp": 1,
+        "limited": 0,
+        "full": -1,
+    }
+    inj_clean["severity"] = inj_clean["practice_status_clean"].map(
+        severity_order
+    ).fillna(-2)
+    idx = inj_clean.groupby(["gsis_id", "season", "week"])["severity"].idxmax()
+    weekly_status = inj_clean.loc[
+        idx, ["gsis_id", "season", "week", "practice_status_clean"]
+    ]
+
+    # One-hot four categories of interest.
+    is_full = weekly_status["practice_status_clean"].eq("full")
+    is_limited = weekly_status["practice_status_clean"].eq("limited")
+    is_dnp = weekly_status["practice_status_clean"].isin(
+        ["dnp", "did not participate"]
+    )
+    is_questionable_or_worse = weekly_status["practice_status_clean"].isin(
+        ["questionable", "doubtful", "out"]
+    )
+
+    weekly_status["practice_status_full"] = is_full.astype("float64")
+    weekly_status["practice_status_limited"] = is_limited.astype("float64")
+    weekly_status["practice_status_dnp"] = is_dnp.astype("float64")
+    weekly_status["practice_status_questionable_or_worse"] = (
+        is_questionable_or_worse.astype("float64")
+    )
+
+    return featured.merge(
+        weekly_status[
+            [
+                "gsis_id",
+                "season",
+                "week",
+                "practice_status_full",
+                "practice_status_limited",
+                "practice_status_dnp",
+                "practice_status_questionable_or_worse",
+            ]
+        ],
+        left_on=["player_id", "season", "week"],
+        right_on=["gsis_id", "season", "week"],
+        how="left",
+    ).drop(columns=["gsis_id"], errors="ignore")
+
+
+def attach_supplementary_signals(
+    featured: pd.DataFrame, project_root: Path
+) -> pd.DataFrame:
+    """Optionally attach snap counts, depth charts, and injury status.
+
+    Each attach function is a no-op if its raw file is absent. The pipeline
+    therefore keeps working before the user fetches the supplementary feeds;
+    after they run `scripts/fetch_nflverse_data.py` the features appear and
+    `_available()` picks them up automatically.
+    """
+    out = _attach_snap_counts(featured, project_root)
+    out = _attach_depth_charts(out, project_root)
+    out = _attach_injury_status(out, project_root)
+    return out
+
+
+def add_market_interactions(featured: pd.DataFrame) -> pd.DataFrame:
+    """Position-specific interactions with the Vegas market features."""
+    df = featured.copy()
+    implied = pd.to_numeric(df.get("implied_team_total"), errors="coerce")
+    spread = pd.to_numeric(df.get("spread_line_team_perspective"), errors="coerce")
+    position = df.get("position").astype(str)
+    for pos in SKILL_POSITIONS:
+        mask = (position == pos).astype("float64")
+        df[f"implied_total_x_{pos.lower()}"] = implied * mask
+        df[f"spread_x_{pos.lower()}"] = spread * mask
+    return df
 
 
 # ---------------------------------------------------------------------------
