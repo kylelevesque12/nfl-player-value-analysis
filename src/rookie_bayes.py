@@ -299,22 +299,18 @@ def fit_rookie_model(
         # Hyperpriors on the position-level intercept and slope means.
         alpha_mu = pm.Normal("alpha_mu", mu=8.0, sigma=5.0)
         alpha_tau = pm.HalfNormal("alpha_tau", sigma=3.0)
-        alpha = pm.Normal(
-            "alpha",
-            mu=alpha_mu,
-            sigma=alpha_tau,
-            shape=n_positions,
-        )
+        # Non-centered parameterization for alpha: prevents the funnel
+        # geometry that causes divergences when alpha_tau is small.
+        alpha_offset = pm.Normal("alpha_offset", mu=0.0, sigma=1.0, shape=n_positions)
+        alpha = pm.Deterministic("alpha", alpha_mu + alpha_tau * alpha_offset)
 
         beta_mu = pm.Normal("beta_mu", mu=0.0, sigma=2.0, shape=n_features)
         beta_tau = pm.HalfNormal("beta_tau", sigma=1.5, shape=n_features)
-        # Shape: (positions, features). Partial pooling per feature across positions.
-        beta = pm.Normal(
-            "beta",
-            mu=beta_mu,
-            sigma=beta_tau,
-            shape=(n_positions, n_features),
+        # Non-centered for beta too. Shape (positions, features).
+        beta_offset = pm.Normal(
+            "beta_offset", mu=0.0, sigma=1.0, shape=(n_positions, n_features)
         )
+        beta = pm.Deterministic("beta", beta_mu + beta_tau * beta_offset)
 
         sigma = pm.HalfNormal("sigma", sigma=3.0, shape=n_positions)
 

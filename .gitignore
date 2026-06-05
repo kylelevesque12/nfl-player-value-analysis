@@ -60,6 +60,8 @@ outputs/tables/*
 !outputs/tables/external_benchmark_by_season.csv
 !outputs/tables/external_benchmark_win_rate.csv
 !outputs/tables/rookie_modeling_frame.csv
+!outputs/tables/rookie_bayes_validation_metrics.csv
+!outputs/tables/rookie_bayes_validation_predictions.csv
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv

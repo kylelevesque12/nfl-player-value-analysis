@@ -13,12 +13,16 @@ dedicated venv built from `requirements-bayes.txt`.
 
 Rookie modeling rows: 2,265
 
-## Validation
+## Validation (rolling-origin by rookie class)
 
-Rolling-origin validation has not been executed yet — install PyMC
-via `requirements-bayes.txt` and run
-`python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"`.
-
+| Rookie class | n | RMSE | MAE | Bias | 50% coverage | 80% coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2020 | 105 | 4.143 | 3.194 | +0.639 | 0.448 | 0.810 |
+| 2021 | 91 | 3.743 | 2.960 | +1.517 | 0.451 | 0.857 |
+| 2022 | 101 | 3.227 | 2.646 | +0.779 | 0.525 | 0.881 |
+| 2023 | 94 | 3.756 | 2.939 | +0.200 | 0.479 | 0.872 |
+| 2024 | 93 | 3.804 | 3.092 | +0.795 | 0.473 | 0.763 |
+| 2025 | 101 | 3.325 | 2.702 | +0.795 | 0.545 | 0.871 |
 
 ## Honest caveats
 

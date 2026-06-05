@@ -1,2 +1,3 @@
-segment,segment_value,n_player_weeks,model_rmse,external_rmse,model_mae,external_mae,model_spearman,external_spearman,skill_vs_external
-overall,all,11191,6.38595148314,6.49308141515,4.77715174475,4.97895780061,0.658263916184,0.611172859211,0.0164990895943
+segment,segment_value,n_player_weeks,model_rmse,external_rmse,model_mae,external_mae,model_spearman,external_spearman,skill_vs_external,source
+overall,all,11191,6.38595148314,6.49308141515,4.77715174475,4.97895780061,0.658263916184,0.611172859211,0.0164990895943,draftkings_implied_via_rotoguru
+overall,all,34906,6.1465781131,7.61179115429,4.55172139936,5.94722153068,0.676405603993,0.234157830697,0.192492543672,vegas_team_environment_implied

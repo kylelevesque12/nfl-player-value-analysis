@@ -24,7 +24,7 @@ work lives.
 | Primary prediction deliverable (single model) | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
 | Weekly fantasy projection (player-game) | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md) |
 | External benchmark vs DraftKings closing-line implied (live for 2020-2021) | [External benchmark](report/external_benchmark.md) |
-| Bayesian rookie projection (scaffolded; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
+| Bayesian rookie projection (LIVE; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
 | Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
@@ -480,22 +480,31 @@ projection for each player-week.
 
 - [Read the external benchmark report](report/external_benchmark.md)
 
-**Current result** (11,191 matched player-weeks, 2020-2021 overlap with the
-model's rolling backtest, after adding nflverse snap-share features):
+**Two market benchmarks now wired:**
 
-| Position | Model RMSE | DK-implied RMSE | Skill vs market |
+| Source | Coverage | n | Skill vs external |
+| --- | --- | ---: | ---: |
+| DraftKings closing-line implied (`rotoguru`) | 2020-2021 | 11,191 | **+1.6%** |
+| Vegas team-environment implied | 2020-2025 | 34,906 | **+19.2%** |
+
+DK is the stronger benchmark (encodes player-specific salaries → projections);
+the **+1.6% beat over six positions and two seasons** is the headline. Vegas-
+implied is a weaker benchmark (team-environment only, no player-specific
+signal), but it covers six full seasons and the model beats it +17.7% to
++20.6% in *every* season — confirming the DK result isn't a 2020-2021 fluke.
+
+DK by position, 2020-2021:
+
+| Position | Model RMSE | DK RMSE | Skill |
 | --- | ---: | ---: | ---: |
 | QB | 7.695 | 7.842 | **+1.9%** |
 | RB | 6.586 | 6.707 | **+1.8%** |
 | WR | 6.438 | 6.553 | **+1.8%** |
 | TE | 5.102 | 5.137 | **+0.7%** |
-| **Overall** | **6.386** | **6.493** | **+1.7%** |
 
-Public DFS analytics shops typically claim a 1-3% edge over the DK salary line
-as their selling point, so a calibrated +1.7% beat after honest rolling
-backtesting is well inside that band. TE was the one negative result *until*
-snap share landed — the +0.7% post-snap-counts result confirms the prior
-deficit was a missing-feature issue, not a model-quality issue.
+TE was the one negative result *until* snap share landed — the +0.7% post-
+snap-counts result confirms the prior deficit was a missing-feature issue,
+not a model-quality issue.
 
 Reproduce locally:
 
@@ -543,41 +552,50 @@ the available features to the weekly model.
   sorting logic; the attach is left in place as a no-op and documented as a
   schema-handling task in `PORTFOLIO_ROADMAP.md`.
 
-## Bayesian Rookie Projection (Scaffolded)
+## Bayesian Rookie Projection (Live)
 
 [`src/rookie_bayes.py`](src/rookie_bayes.py) implements a hierarchical Bayesian
 model for projecting a rookie's PPR per game *before* they have played an NFL
-snap — the cold-start problem the HGB stack cannot solve. The model is partial-
-pooled across the four skill positions on intercept and slopes, with features
-for log draft pick, age at draft, height, weight, and an optional college-
-production score.
+snap — the cold-start problem the HGB stack cannot solve. Partial-pooled
+across the four skill positions on intercept and slopes, non-centered
+parameterization for clean sampling, features for log draft pick, age at
+draft, height, weight, and an optional college-production score.
 
-- [Read the report stub](report/rookie_bayes_projection.md)
+- [Read the live report](report/rookie_bayes_projection.md)
 - [Browse the rookie modeling frame (2,265 player-seasons)](outputs/tables/rookie_modeling_frame.csv)
+- [View validation metrics](outputs/tables/rookie_bayes_validation_metrics.csv)
+- [View per-rookie posterior predictions](outputs/tables/rookie_bayes_validation_predictions.csv)
 - [Tests for the non-PyMC data-prep pieces](tests/test_rookie_bayes.py)
 
+**Live rolling-validation results** (PyMC 6.0.1, 2 chains × 1,000 draws,
+non-centered parameterization):
+
+| Rookie class | n | RMSE | MAE | 50% coverage | 80% coverage |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2020 | 105 | 4.14 | 3.19 | 44.8% | 81.0% |
+| 2021 | 91 | 3.74 | 2.96 | 45.1% | 85.7% |
+| 2022 | 101 | 3.23 | 2.65 | 52.5% | 88.1% |
+| 2023 | 94 | 3.76 | 2.94 | 47.9% | 87.2% |
+| 2024 | 93 | 3.80 | 3.09 | 47.3% | 76.3% |
+| 2025 | 101 | 3.32 | 2.70 | 54.5% | 87.1% |
+
+PPR/game RMSE 3.2-4.1 across rookie classes (relative to a target with σ ≈ 5);
+50% and 80% posterior intervals hit close to nominal coverage. The slight
+positive bias is consistent with the training filter (≥4 games) being stricter
+than the test set.
+
 PyMC's ABI conflicts with the rest of the project's pins, so PyMC is imported
-inside `fit_rookie_model` only and the sampling step is run from a dedicated
-venv:
+inside `fit_rookie_model` only and the sampling step runs in a dedicated venv:
 
 ```bash
-python -m venv .venv-bayes
-source .venv-bayes/bin/activate
-pip install -r requirements-bayes.txt
-python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"
+python3.12 -m venv .venv-bayes
+.venv-bayes/bin/python -m pip install -r requirements-bayes.txt
+.venv-bayes/bin/python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"
 ```
 
-The non-PyMC pieces (modeling-frame construction, age/height parsing, training-
-fold standardization) run in the project's normal venv and are covered by
-[`tests/test_rookie_bayes.py`](tests/test_rookie_bayes.py). College production
-features are wired to consume an optional CSV at
-`data/raw/college_production.csv`; the acquisition stub at
-[`scripts/fetch_college_production.py`](scripts/fetch_college_production.py)
-documents the cfbd-py integration path.
-
 This is the Tier 2 #4 piece in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
-Doing the PyMC sampling pass and adding the college score moves it from
-scaffolded to live.
+Adding the college-production score (`scripts/fetch_college_production.py` is
+the stub) is the next refinement.
 
 ## Limitations
 

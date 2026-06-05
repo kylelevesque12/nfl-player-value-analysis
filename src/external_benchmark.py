@@ -50,34 +50,59 @@ def load_external_projections(
     project_root: str | Path | None = None,
     relative_path: str | None = None,
 ) -> pd.DataFrame:
-    """Load a user-provided CSV of external weekly PPR projections.
+    """Load all CSVs of external weekly PPR projections under ``data/raw/``.
+
+    Searches ``data/raw/`` for ``external_projections.csv`` (the original
+    single-source path used by older code paths) **and** any file matching
+    ``external_projections_*.csv`` (multi-source files such as
+    ``external_projections_vegas.csv``). All matching files are concatenated.
 
     Required columns: ``season``, ``week``, ``player_id`` (nflverse gsis id),
     ``external_projection_ppr``. Optional but recommended: ``source``,
-    ``player_display_name``, ``position``, ``team``.
+    ``player_display_name``, ``position``, ``team``. If ``source`` is missing
+    we infer it from the filename so the benchmark can still group per-source.
 
-    Returns an empty DataFrame if the file is absent so the pipeline keeps
-    working pre-acquisition.
+    Returns an empty DataFrame if no matching files are present so the
+    pipeline keeps working pre-acquisition.
     """
     root = find_project_root() if project_root is None else Path(project_root).resolve()
-    rel = relative_path or EXTERNAL_CSV_DEFAULT_PATH
-    path = root / rel
-    if not path.exists():
-        return pd.DataFrame()
+    if relative_path is not None:
+        candidate_paths = [root / relative_path]
+    else:
+        raw_dir = root / "data" / "raw"
+        candidate_paths = []
+        canonical = raw_dir / "external_projections.csv"
+        if canonical.exists():
+            candidate_paths.append(canonical)
+        candidate_paths.extend(sorted(raw_dir.glob("external_projections_*.csv")))
 
-    df = pd.read_csv(path, low_memory=False)
-    missing = REQUIRED_COLUMNS - set(df.columns)
-    if missing:
-        raise ValueError(
-            f"External projections at {path} missing required columns: "
-            f"{sorted(missing)}"
+    frames: list[pd.DataFrame] = []
+    for path in candidate_paths:
+        if not path.exists():
+            continue
+        df = pd.read_csv(path, low_memory=False)
+        missing = REQUIRED_COLUMNS - set(df.columns)
+        if missing:
+            raise ValueError(
+                f"External projections at {path} missing required columns: "
+                f"{sorted(missing)}"
+            )
+        if "source" not in df.columns:
+            df["source"] = path.stem  # e.g. external_projections_vegas
+        df["season"] = pd.to_numeric(df["season"], errors="coerce").astype("Int64")
+        df["week"] = pd.to_numeric(df["week"], errors="coerce").astype("Int64")
+        df["external_projection_ppr"] = pd.to_numeric(
+            df["external_projection_ppr"], errors="coerce"
         )
-    df["season"] = pd.to_numeric(df["season"], errors="coerce").astype("Int64")
-    df["week"] = pd.to_numeric(df["week"], errors="coerce").astype("Int64")
-    df["external_projection_ppr"] = pd.to_numeric(
-        df["external_projection_ppr"], errors="coerce"
-    )
-    return df.dropna(subset=["season", "week", "player_id", "external_projection_ppr"])
+        frames.append(
+            df.dropna(
+                subset=["season", "week", "player_id", "external_projection_ppr"]
+            )
+        )
+
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
 
 
 def _rmse(y: np.ndarray, p: np.ndarray) -> float:
@@ -95,7 +120,7 @@ def _spearman(y: pd.Series, p: pd.Series) -> float:
     return float(frame["y"].corr(frame["p"], method="spearman"))
 
 
-def compare(
+def compare_single_source(
     model_predictions: pd.DataFrame,
     external_projections: pd.DataFrame,
 ) -> dict[str, pd.DataFrame]:
@@ -225,6 +250,78 @@ def compare(
     }
 
 
+def compare(
+    model_predictions: pd.DataFrame,
+    external_projections: pd.DataFrame,
+) -> dict[str, pd.DataFrame]:
+    """Multi-source compare. Groups by ``source`` and runs the single-source
+    comparison on each group, then concatenates the per-source tables.
+
+    Returns the same dict shape as ``compare_single_source`` plus a
+    ``per_source_overall`` table that lists each source's overall metrics
+    side-by-side.
+    """
+    if model_predictions.empty or external_projections.empty:
+        return compare_single_source(model_predictions, external_projections)
+
+    if "source" not in external_projections.columns:
+        external_projections = external_projections.assign(source="external")
+
+    per_source_overall_rows: list[pd.DataFrame] = []
+    per_source_by_position: list[pd.DataFrame] = []
+    per_source_by_season: list[pd.DataFrame] = []
+    per_source_win_rate: list[pd.DataFrame] = []
+    joined_frames: list[pd.DataFrame] = []
+
+    for source, ext_subset in external_projections.groupby("source"):
+        results = compare_single_source(model_predictions, ext_subset)
+        if not results["overall"].empty:
+            tagged = results["overall"].assign(source=source)
+            per_source_overall_rows.append(tagged)
+        if not results["by_position"].empty:
+            per_source_by_position.append(results["by_position"].assign(source=source))
+        if not results["by_season"].empty:
+            per_source_by_season.append(results["by_season"].assign(source=source))
+        if not results["win_rate"].empty:
+            per_source_win_rate.append(results["win_rate"].assign(source=source))
+        if not results["joined"].empty:
+            joined_frames.append(results["joined"].assign(source=source))
+
+    overall = (
+        pd.concat(per_source_overall_rows, ignore_index=True)
+        if per_source_overall_rows
+        else pd.DataFrame()
+    )
+    by_position = (
+        pd.concat(per_source_by_position, ignore_index=True)
+        if per_source_by_position
+        else pd.DataFrame()
+    )
+    by_season = (
+        pd.concat(per_source_by_season, ignore_index=True)
+        if per_source_by_season
+        else pd.DataFrame()
+    )
+    win_rate = (
+        pd.concat(per_source_win_rate, ignore_index=True)
+        if per_source_win_rate
+        else pd.DataFrame()
+    )
+    joined = (
+        pd.concat(joined_frames, ignore_index=True)
+        if joined_frames
+        else pd.DataFrame()
+    )
+
+    return {
+        "overall": overall,
+        "by_position": by_position,
+        "by_season": by_season,
+        "joined": joined,
+        "win_rate": win_rate,
+    }
+
+
 def _build_summary_text(results: dict[str, pd.DataFrame], external_source: str) -> str:
     if results["joined"].empty:
         return (
@@ -236,101 +333,144 @@ def _build_summary_text(results: dict[str, pd.DataFrame], external_source: str) 
             "`python scripts/run_pipeline.py --steps external_benchmark`.\n"
         )
 
-    overall = results["overall"].iloc[0]
-    seasons_covered = results["by_season"] if "by_season" in results else pd.DataFrame()
-    season_str = (
-        f"{int(seasons_covered['season'].min())}-{int(seasons_covered['season'].max())}"
-        if not seasons_covered.empty
-        else "n/a"
+    overall_table = results["overall"]
+    sources = (
+        sorted(overall_table["source"].unique())
+        if "source" in overall_table.columns
+        else [external_source]
     )
+
     lines = [
         "# External Benchmark",
         "",
-        f"**Source**: `{external_source}`",
-        f"**Player-weeks matched**: {int(overall['n_player_weeks']):,}",
-        f"**Seasons covered**: {season_str}",
+        f"**Sources**: {', '.join(f'`{s}`' for s in sources)}",
         "",
         "## What this benchmarks",
         "",
-        "This compares the weekly fantasy projection model head-to-head against",
-        "DraftKings closing-line implied projections — the strongest free fantasy",
-        "benchmark available. DK sets salaries pregame based on its own projection",
-        "algorithm; the per-(season, position) regression of actual PPR on DK",
-        "salary recovers the salary→points conversion the market is implicitly",
-        "using. The fitted value of that regression *is* the market's implied",
-        "PPR projection for each player-week.",
+        "Head-to-head RMSE/MAE/win-rate vs externally derived market projections.",
+        "Two sources are wired in:",
         "",
-        "Because the conversion is fit on the season's actuals, the implied",
-        "projection is a *strong* benchmark — stronger than a real-time",
-        "implementation would be. Beating it on this setup is therefore a",
-        "conservative claim.",
+        "- `draftkings_implied_via_rotoguru` — the strongest free fantasy",
+        "  benchmark. DK sets salaries pregame; the per-(season, position)",
+        "  regression of actual PPR on DK salary recovers the salary→points",
+        "  conversion the market is using. RotoGuru's free archive covers",
+        "  through 2021 only.",
+        "- `vegas_team_environment_implied` — a weaker but longer-coverage",
+        "  benchmark. Per-(season, position) OLS of PPR on implied team total,",
+        "  spread, and home/away. Encodes only team-environment information",
+        "  (no player-specific signal), but extends through 2025.",
         "",
-        "## Overall",
+        "Because both conversions are fit on the season's actuals, the implied",
+        "projections are *strong* benchmarks — stronger than real-time",
+        "implementations would be. Beating them on this setup is conservative.",
         "",
-        "| Projector | RMSE | MAE |",
-        "| --- | ---: | ---: |",
-        f"| Weekly fantasy model | {overall['model_rmse']:.3f} | {overall['model_mae']:.3f} |",
-        f"| External ({external_source}) | {overall['external_rmse']:.3f} | {overall['external_mae']:.3f} |",
+        "## Per-source overall",
         "",
-        f"**Skill vs external**: {overall['skill_vs_external']:+.3%}",
-        "",
-        "## By position",
-        "",
-        "| Position | n | Model RMSE | External RMSE | Skill vs external |",
+        "| Source | n | Model RMSE | External RMSE | Skill vs external |",
         "| --- | ---: | ---: | ---: | ---: |",
     ]
-    for _, row in results["by_position"].iterrows():
+    for _, row in overall_table.iterrows():
+        src = row.get("source", external_source)
         lines.append(
-            f"| {row['segment_value']} | {int(row['n_player_weeks']):,} | "
+            f"| `{src}` | {int(row['n_player_weeks']):,} | "
             f"{row['model_rmse']:.3f} | {row['external_rmse']:.3f} | "
             f"{row['skill_vs_external']:+.3%} |"
         )
 
-    if not results["win_rate"].empty:
+    lines.extend(["", "## By position (per source)", ""])
+    if "source" in results["by_position"].columns:
+        for src, group in results["by_position"].groupby("source"):
+            lines.append(f"### `{src}`")
+            lines.append("")
+            lines.append(
+                "| Position | n | Model RMSE | External RMSE | Skill vs external |"
+            )
+            lines.append("| --- | ---: | ---: | ---: | ---: |")
+            for _, row in group.iterrows():
+                lines.append(
+                    f"| {row['segment_value']} | {int(row['n_player_weeks']):,} | "
+                    f"{row['model_rmse']:.3f} | {row['external_rmse']:.3f} | "
+                    f"{row['skill_vs_external']:+.3%} |"
+                )
+            lines.append("")
+    elif not results["by_position"].empty:
+        lines.append(
+            "| Position | n | Model RMSE | External RMSE | Skill vs external |"
+        )
+        lines.append("| --- | ---: | ---: | ---: | ---: |")
+        for _, row in results["by_position"].iterrows():
+            lines.append(
+                f"| {row['segment_value']} | {int(row['n_player_weeks']):,} | "
+                f"{row['model_rmse']:.3f} | {row['external_rmse']:.3f} | "
+                f"{row['skill_vs_external']:+.3%} |"
+            )
+
+    if not results["by_season"].empty and "source" in results["by_season"].columns:
+        lines.extend(["", "## By season (per source)", ""])
+        for src, group in results["by_season"].groupby("source"):
+            lines.append(f"### `{src}`")
+            lines.append("")
+            lines.append("| Season | n | Model RMSE | External RMSE | Skill |")
+            lines.append("| --- | ---: | ---: | ---: | ---: |")
+            for _, row in group.sort_values("season").iterrows():
+                lines.append(
+                    f"| {int(row['season'])} | {int(row['n_player_weeks']):,} | "
+                    f"{row['model_rmse']:.3f} | {row['external_rmse']:.3f} | "
+                    f"{row['skill_vs_external']:+.3%} |"
+                )
+            lines.append("")
+
+    # Per-player-week win rate, per source.
+    if not results["win_rate"].empty and "source" in results["win_rate"].columns:
         lines.extend(
             [
+                "## Per-player-week win rate (per source)",
                 "",
-                "## Per-player-week win rate",
+                "Share of player-weeks where the model's projection landed closer",
+                "to the actual PPR than the external projection did.",
                 "",
-                "Share of player-weeks where the weekly model's projection landed "
-                "closer to the actual PPR than the external projection did.",
-                "",
-                "| Position | n | Model win rate |",
-                "| --- | ---: | ---: |",
             ]
         )
-        for _, row in results["win_rate"].iterrows():
-            lines.append(
-                f"| {row['position']} | {int(row['n_player_weeks']):,} | "
-                f"{row['model_win_rate']:.3f} |"
-            )
+        for src, group in results["win_rate"].groupby("source"):
+            lines.append(f"### `{src}`")
+            lines.append("")
+            lines.append("| Position | n | Model win rate |")
+            lines.append("| --- | ---: | ---: |")
+            for _, row in group.iterrows():
+                lines.append(
+                    f"| {row['position']} | {int(row['n_player_weeks']):,} | "
+                    f"{row['model_win_rate']:.3f} |"
+                )
+            lines.append("")
+
     lines.extend(
         [
-            "",
             "## Honest reading of this result",
             "",
-            "A skill score around +1% over the market is small in absolute terms but",
-            "real. Public DFS analytics shops sell projections for non-trivial money",
-            "and the typical edge they claim over the DK salary line is in the 1-3%",
-            "range. A consistent positive edge after honest backtesting is the",
-            "qualifying bar for a fantasy-projection portfolio piece. A negative",
-            "edge at a position (TE here) is reported as-is rather than hidden;",
-            "it usually traces back to features the current stack lacks (depth-",
-            "chart status, snap share) that matter more at TE than other",
-            "positions.",
+            "Public DFS analytics shops sell projections claiming a 1-3% edge over",
+            "the DK salary line. A calibrated positive edge after honest rolling",
+            "backtesting is the qualifying bar for a fantasy-projection portfolio",
+            "piece. Where the model beats DK, the beat is real; where it loses or",
+            "barely ties, the gap is reported as-is rather than hidden.",
+            "",
+            "Vegas-team-environment-implied is a *weaker* benchmark than DK closing",
+            "line because it has no player-specific signal — it can only say 'WRs",
+            "on this offense are expected to score higher because the implied team",
+            "total is higher.' Beating it by larger margins is therefore less",
+            "impressive than beating DK by smaller ones; both numbers belong in the",
+            "table side-by-side so the reviewer can weight them appropriately.",
             "",
             "## Coverage gap",
             "",
-            "RotoGuru's free DK salary archive currently ends in 2021. The matched",
-            "comparison above is therefore restricted to the seasons in which the",
-            "weekly model's rolling backtest overlaps RotoGuru coverage (2020 and",
-            "2021). Years 2022-2025 are not yet benchmarked externally; extending",
-            "coverage there requires a different (likely paid) data source — see",
-            "`PORTFOLIO_ROADMAP.md` Tier 1 item #1 for options (Stokastic,",
-            "FantasyData, scraping FantasyPros archives, or the `ffanalytics` R",
+            "RotoGuru's free DK salary archive currently ends in 2021. The DK",
+            "comparison is therefore restricted to 2020-2021 (the overlap with",
+            "the weekly model's rolling backtest). Vegas-team-environment-implied",
+            "extends to 2025 because schedule lines are local. Extending DK-style",
+            "coverage to 2022-2025 requires a different (likely paid) source —",
+            "see `PORTFOLIO_ROADMAP.md` Tier 1 item #1 for options (Stokastic,",
+            "FantasyData, FantasyPros MVP archives, or the `ffanalytics` R",
             "package). The scaffolding accepts any CSV at",
-            "`data/raw/external_projections.csv` matching the documented schema,",
-            "so swapping in a richer source is purely a data-acquisition step.",
+            "`data/raw/external_projections*.csv` matching the documented schema.",
         ]
     )
     return "\n".join(lines) + "\n"
