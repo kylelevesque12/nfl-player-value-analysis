@@ -1,0 +1,3 @@
+target_coverage_pct,empirical_coverage,mean_interval_width,n
+50,0.50002864837,6.628691083,34906
+80,0.793760385034,12.6927104932,34906

@@ -242,6 +242,10 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "fantasy_model_comparison": "fantasy_model_comparison.csv",
         "weekly_wins": "weekly_win_projection_games.csv",
         "weekly_win_validation": "weekly_win_projection_validation.csv",
+        "weekly_fantasy": "weekly_fantasy_validation_predictions.csv",
+        "weekly_fantasy_summary": "weekly_fantasy_method_summary.csv",
+        "weekly_fantasy_by_position": "weekly_fantasy_by_position.csv",
+        "weekly_fantasy_conformal": "weekly_fantasy_conformal_coverage.csv",
     }
     return {
         name: load_csv(filename, file_mtime(TABLE_DIR / filename))
@@ -1438,6 +1442,232 @@ def weekly_win_projection_page(data: dict[str, pd.DataFrame]) -> None:
     )
 
 
+def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
+    weekly = data["weekly_fantasy"]
+    method_summary = data["weekly_fantasy_summary"]
+    by_position = data["weekly_fantasy_by_position"]
+    conformal = data["weekly_fantasy_conformal"]
+
+    st.title("Weekly Fantasy Projection")
+    st.caption(
+        "Player-week PPR projections built from strictly pregame information: "
+        "rolling production and usage, opponent PPR allowed to position, "
+        "availability proxy, and schedule/market context. The current table is "
+        "a rolling historical backtest, so each held-out season is predicted "
+        "using only earlier seasons."
+    )
+    with st.expander("How to read weekly fantasy projections", expanded=True):
+        st.markdown(
+            "- `prediction` is the model's expected PPR points for the player's "
+            "next regular-season game.\n"
+            "- `interval_low_50`/`interval_high_50` is a calibrated 50% prediction "
+            "band (a 1-in-2 floor and ceiling), and the 80% band is a wider "
+            "1-in-5 tail interval. Both are split-conformal, calibrated on the "
+            "held-out 20% of each training fold.\n"
+            "- `target_fantasy_points_ppr` is the actual PPR points scored "
+            "the following game — only present because this table is a "
+            "historical backtest.\n"
+            "- `residual` is `actual - prediction`. The model is honestly modest: "
+            "weekly PPR has a low ceiling on R^2.\n"
+            "- The primary point predictor is a pooled HistGradientBoosting "
+            "model. A position-specific variant is included in the method "
+            "comparison; it is honestly worse, which the project reports rather "
+            "than hides."
+        )
+
+    if weekly.empty:
+        st.info(
+            "Weekly fantasy projection table is missing. Run "
+            "`python scripts/run_pipeline.py --steps weekly_fantasy`."
+        )
+        return
+
+    main_method = "hist_gradient_boosting"
+    model_only = weekly[weekly["method"].eq(main_method)].copy()
+
+    with st.sidebar:
+        st.subheader("Player-Week Filters")
+        season_options = sorted(model_only["season"].dropna().unique(), reverse=True)
+        seasons = st.multiselect(
+            "Season",
+            season_options,
+            default=[season_options[0]] if season_options else [],
+        )
+        if seasons:
+            week_options = sorted(
+                model_only[model_only["season"].isin(seasons)]["week"]
+                .dropna()
+                .astype(int)
+                .unique()
+            )
+        else:
+            week_options = sorted(
+                model_only["week"].dropna().astype(int).unique()
+            )
+        weeks = st.multiselect("Week", week_options, default=[])
+        positions = multiselect_filter(model_only, "position", "Position")
+        teams = sorted(model_only["team"].dropna().astype(str).unique())
+        selected_teams = st.multiselect("Team", teams)
+
+    filtered = model_only.copy()
+    if seasons:
+        filtered = filtered[filtered["season"].isin(seasons)].copy()
+    if weeks:
+        filtered = filtered[filtered["week"].isin(weeks)].copy()
+    filtered = apply_filter(filtered, "position", positions)
+    if selected_teams:
+        filtered = filtered[filtered["team"].astype(str).isin(selected_teams)].copy()
+
+    if filtered.empty:
+        st.warning("No player-weeks match the selected filters.")
+        return
+
+    pooled_row = method_summary[method_summary["method"].eq(main_method)]
+    skill_vs_recent = (
+        float(pooled_row["skill_vs_recent_4_avg"].iloc[0])
+        if not pooled_row.empty and "skill_vs_recent_4_avg" in pooled_row.columns
+        else np.nan
+    )
+    pooled_rmse = (
+        float(pooled_row["rmse"].iloc[0]) if not pooled_row.empty else np.nan
+    )
+    cov_80 = (
+        float(
+            conformal.loc[conformal["target_coverage_pct"] == 80, "empirical_coverage"]
+            .iloc[0]
+        )
+        if not conformal.empty and (conformal["target_coverage_pct"] == 80).any()
+        else np.nan
+    )
+    cov_50 = (
+        float(
+            conformal.loc[conformal["target_coverage_pct"] == 50, "empirical_coverage"]
+            .iloc[0]
+        )
+        if not conformal.empty and (conformal["target_coverage_pct"] == 50).any()
+        else np.nan
+    )
+
+    card_row(
+        [
+            ("Filtered player-weeks", f"{len(filtered):,}", None),
+            (
+                "Pooled rolling RMSE",
+                fmt_number(pooled_rmse),
+                "RMSE of the main HGB model across all backtest folds (PPR points).",
+            ),
+            (
+                "Skill vs recent-4-avg",
+                fmt_percent(skill_vs_recent),
+                "Percent RMSE reduction over a rolling 4-week average baseline.",
+            ),
+            (
+                "80% interval coverage",
+                fmt_percent(cov_80),
+                "Empirical share of actuals that landed inside the conformal 80% band.",
+            ),
+        ]
+    )
+
+    left, right = st.columns([1.15, 1])
+
+    with left:
+        chart_df = filtered.sort_values("prediction", ascending=False).head(25).copy()
+        chart_df["player_label"] = (
+            chart_df["player_display_name"].astype(str)
+            + " ("
+            + chart_df["position"].astype(str)
+            + ")"
+        )
+        fig = px.bar(
+            chart_df,
+            x="prediction",
+            y="player_label",
+            color="position",
+            orientation="h",
+            labels={"prediction": "Projected PPR", "player_label": "Player"},
+            title="Top projections in filtered slice",
+            hover_data={
+                "interval_low_80": ":.1f",
+                "interval_high_80": ":.1f",
+                "target_fantasy_points_ppr": ":.1f",
+                "team": True,
+                "opponent_team": True,
+                "player_label": False,
+            },
+        )
+        fig.update_layout(height=650, yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig, use_container_width=True)
+
+    with right:
+        if not by_position.empty:
+            pos_table = by_position[
+                by_position["method"].eq(main_method)
+            ][["position", "n", "rmse", "mae", "skill_vs_recent_4_avg"]].sort_values(
+                "position"
+            )
+            st.subheader("Skill vs recent-4-avg by position")
+            st.dataframe(pos_table, width="stretch", hide_index=True)
+
+        if "residual" in filtered.columns:
+            fig = px.histogram(
+                filtered,
+                x="residual",
+                nbins=40,
+                labels={"residual": "Actual minus prediction (PPR)"},
+                title="Residual distribution (filtered)",
+            )
+            fig.update_layout(height=320)
+            st.plotly_chart(fig, use_container_width=True)
+
+        if not conformal.empty:
+            st.subheader("Calibrated interval coverage")
+            st.dataframe(conformal, width="stretch", hide_index=True)
+
+    st.subheader("Filtered player-week table")
+    display_cols = [
+        "season",
+        "week",
+        "player_display_name",
+        "position",
+        "team",
+        "opponent_team",
+        "prediction",
+        "interval_low_50",
+        "interval_high_50",
+        "interval_low_80",
+        "interval_high_80",
+        "target_fantasy_points_ppr",
+        "residual",
+    ]
+    sorted_table = filtered.sort_values(
+        ["season", "week", "prediction"], ascending=[False, True, False]
+    )
+    st.dataframe(
+        sorted_table[_available_columns(sorted_table, display_cols)],
+        width="stretch",
+        hide_index=True,
+    )
+    st.download_button(
+        "Download filtered weekly fantasy projections",
+        sorted_table.to_csv(index=False),
+        file_name="filtered_weekly_fantasy_projections.csv",
+        mime="text/csv",
+    )
+
+    st.divider()
+    st.markdown(
+        "**Honest negative result.** A position-specific HGB variant is also "
+        "trained in the same rolling backtest. It is included in the method "
+        "comparison table at "
+        "`outputs/tables/weekly_fantasy_method_summary.csv`. It loses to the "
+        "pooled model at every position — pooling lets the model leverage the "
+        "larger training sample with `position` as an input feature. This is "
+        "reported in the same spirit as the two-stage value finding: the "
+        "negative results stay visible."
+    )
+
+
 def methodology_page(data: dict[str, pd.DataFrame]) -> None:
     methodology = data["methodology"]
     st.title("Methodology Checks")
@@ -1534,6 +1764,8 @@ def main() -> None:
             "fantasy",
             "fantasy_model_comparison",
             "weekly_wins",
+            "weekly_fantasy",
+            "weekly_fantasy_summary",
         }
     ]
     show_missing_data_warning(missing)
@@ -1544,6 +1776,7 @@ def main() -> None:
         [
             "Front Office Perspective",
             "Fantasy Football Perspective",
+            "Weekly Fantasy Projection",
             "Weekly Win Projection",
             "Methodology And Reports",
         ],
@@ -1558,6 +1791,8 @@ def main() -> None:
         front_office_page(data)
     elif page == "Fantasy Football Perspective":
         fantasy_page(data)
+    elif page == "Weekly Fantasy Projection":
+        weekly_fantasy_projection_page(data)
     elif page == "Weekly Win Projection":
         weekly_win_projection_page(data)
     elif page == "Methodology And Reports":

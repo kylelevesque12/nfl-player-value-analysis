@@ -21,6 +21,7 @@ from src.feature_impact import build_context_feature_impact_outputs
 from src.fantasy_projection import build_fantasy_projection_outputs
 from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
+from src.weekly_fantasy_projection import build_weekly_fantasy_outputs
 from src.weekly_win_projection import build_weekly_win_projection_outputs
 from src.advanced_modeling import build_advanced_modeling_outputs
 from src.model_benchmark import build_model_benchmark_outputs
@@ -36,6 +37,7 @@ PIPELINE_STEPS = [
     "salary",
     "findings",
     "fantasy",
+    "weekly_fantasy",
     "weekly_wins",
     "context",
     "feature_impact",
@@ -53,6 +55,7 @@ DEFAULT_PIPELINE_STEPS = [
     "salary",
     "findings",
     "fantasy",
+    "weekly_fantasy",
     "weekly_wins",
     "checks",
     "interpretation",
@@ -125,6 +128,14 @@ def build_weekly_win_outputs(project_root: str | Path | None = None) -> dict[str
     """Rebuild weekly game winner projection tables and report."""
     root = _resolve_project_root(project_root)
     return build_weekly_win_projection_outputs(project_root=root, save_outputs=True)
+
+
+def build_weekly_fantasy_outputs_step(
+    project_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Rebuild weekly fantasy point projection tables and report."""
+    root = _resolve_project_root(project_root)
+    return build_weekly_fantasy_outputs(project_root=root, save_outputs=True)
 
 
 def build_context_features(project_root: str | Path | None = None) -> pd.DataFrame:
@@ -214,6 +225,8 @@ def run_pipeline(
             results[step] = build_salary_findings(root)
         elif step == "fantasy":
             results[step] = build_fantasy_outputs(root)
+        elif step == "weekly_fantasy":
+            results[step] = build_weekly_fantasy_outputs_step(root)
         elif step == "weekly_wins":
             results[step] = build_weekly_win_outputs(root)
         elif step == "context":

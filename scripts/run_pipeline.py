@@ -18,11 +18,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--steps",
-        default="clean,value,decompose,predictions,salary,findings,fantasy,weekly_wins,checks,interpretation,benchmark,two_stage",
+        default="clean,value,decompose,predictions,salary,findings,fantasy,weekly_fantasy,weekly_wins,checks,interpretation,benchmark,two_stage",
         help=(
             "Comma-separated pipeline steps to run. "
             "Options: clean,value,decompose,predictions,salary,findings,context,"
-            "fantasy,weekly_wins,feature_impact,checks,interpretation,"
+            "fantasy,weekly_fantasy,weekly_wins,feature_impact,checks,interpretation,"
             "benchmark,two_stage,advanced_modeling"
         ),
     )
@@ -62,6 +62,9 @@ def main() -> int:
     if "fantasy" in results:
         fantasy_predictions = results["fantasy"]["fantasy_predictions"]
         print("Fantasy projections:", fantasy_predictions.shape)
+    if "weekly_fantasy" in results:
+        weekly_fantasy = results["weekly_fantasy"]["predictions"]
+        print("Weekly fantasy projection rows:", weekly_fantasy.shape)
     if "weekly_wins" in results:
         weekly_games = results["weekly_wins"]["weekly_win_games"]
         print("Weekly win backtest games:", weekly_games.shape)

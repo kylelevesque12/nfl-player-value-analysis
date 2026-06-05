@@ -45,6 +45,11 @@ outputs/tables/*
 !outputs/tables/fantasy_model_comparison.csv
 !outputs/tables/weekly_win_projection_games.csv
 !outputs/tables/weekly_win_projection_validation.csv
+!outputs/tables/weekly_fantasy_method_summary.csv
+!outputs/tables/weekly_fantasy_by_position.csv
+!outputs/tables/weekly_fantasy_by_fold.csv
+!outputs/tables/weekly_fantasy_conformal_coverage.csv
+!outputs/tables/weekly_fantasy_validation_predictions.csv
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv
