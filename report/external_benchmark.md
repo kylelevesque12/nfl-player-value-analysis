@@ -23,19 +23,19 @@ conservative claim.
 
 | Projector | RMSE | MAE |
 | --- | ---: | ---: |
-| Weekly fantasy model | 6.419 | 4.827 |
+| Weekly fantasy model | 6.386 | 4.777 |
 | External (draftkings_implied_via_rotoguru) | 6.493 | 4.979 |
 
-**Skill vs external**: +1.133%
+**Skill vs external**: +1.650%
 
 ## By position
 
 | Position | n | Model RMSE | External RMSE | Skill vs external |
 | --- | ---: | ---: | ---: | ---: |
-| QB | 1,262 | 7.708 | 7.842 | +1.715% |
-| RB | 2,905 | 6.615 | 6.707 | +1.375% |
-| TE | 2,302 | 5.159 | 5.137 | -0.425% |
-| WR | 4,722 | 6.473 | 6.553 | +1.227% |
+| QB | 1,262 | 7.695 | 7.842 | +1.875% |
+| RB | 2,905 | 6.586 | 6.707 | +1.805% |
+| TE | 2,302 | 5.102 | 5.137 | +0.681% |
+| WR | 4,722 | 6.438 | 6.553 | +1.756% |
 
 ## Per-player-week win rate
 
@@ -43,10 +43,10 @@ Share of player-weeks where the weekly model's projection landed closer to the a
 
 | Position | n | Model win rate |
 | --- | ---: | ---: |
-| QB | 1,262 | 0.525 |
-| RB | 2,905 | 0.526 |
-| TE | 2,302 | 0.538 |
-| WR | 4,722 | 0.545 |
+| QB | 1,262 | 0.516 |
+| RB | 2,905 | 0.550 |
+| TE | 2,302 | 0.546 |
+| WR | 4,722 | 0.548 |
 
 ## Honest reading of this result
 

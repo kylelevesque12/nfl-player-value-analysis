@@ -574,41 +574,57 @@ def _find_supplementary_file(project_root: Path, stem: str) -> Path | None:
 
 
 def _attach_snap_counts(featured: pd.DataFrame, project_root: Path) -> pd.DataFrame:
+    """Attach rolling offensive snap share.
+
+    nflverse snap counts use ``pfr_player_id`` as the stable ID, NOT
+    ``gsis_id``. The rosters table carries both, so we hop through it:
+    snaps -> rosters[(pfr_id, season) -> gsis_id] -> featured[player_id].
+
+    Snap share is one of the highest-signal weekly fantasy features for skill
+    positions (it captures opportunity directly), so the join needs to land at
+    high coverage. We track and surface coverage so a future schema break is
+    visible.
+    """
     path = _find_supplementary_file(project_root, "snap_counts")
     if path is None:
         return featured
-    snaps = pd.read_csv(path, low_memory=False)
-    snaps = snaps.rename(columns={"pfr_player_id": "pfr_id"})
 
-    # nflverse exposes both `offense_snaps` (count) and `offense_pct` (share).
-    # Share is the right scale-free feature.
-    if "offense_pct" not in snaps.columns:
+    snaps = pd.read_csv(path, low_memory=False)
+    if "pfr_player_id" not in snaps.columns or "offense_pct" not in snaps.columns:
         return featured
 
+    snaps = snaps.rename(columns={"pfr_player_id": "pfr_id"})
     snaps = _to_numeric(snaps, ["season", "week", "offense_pct"])
-    snaps = snaps.dropna(subset=["season", "week"])
+    snaps = snaps.dropna(subset=["season", "week", "pfr_id"])
     snaps["season"] = snaps["season"].astype(int)
     snaps["week"] = snaps["week"].astype(int)
 
-    # Try gsis_id first (most reliable join). Fall back to player+team+season.
-    if "gsis_id" in snaps.columns:
-        join_keys_left = ["player_id", "season", "week"]
-        join_keys_right = ["gsis_id", "season", "week"]
-        slim = snaps[["gsis_id", "season", "week", "offense_pct"]].dropna(
-            subset=["gsis_id"]
-        )
-    else:
-        return featured  # without a stable id we can't join reliably
+    # Hop through rosters to translate pfr_id -> gsis_id (player_id in the
+    # modeling frame). Rosters can have a player on multiple teams per season
+    # after a trade; we only need the id mapping, so deduplicate.
+    rosters_path = project_root / "data" / "raw" / "rosters_2016_2025.csv"
+    if not rosters_path.exists():
+        return featured
+    rosters = pd.read_csv(
+        rosters_path, usecols=["season", "gsis_id", "pfr_id"], low_memory=False
+    )
+    rosters["season"] = pd.to_numeric(rosters["season"], errors="coerce")
+    rosters = rosters.dropna(subset=["season", "gsis_id", "pfr_id"])
+    rosters["season"] = rosters["season"].astype(int)
+    rosters = rosters.drop_duplicates(subset=["season", "pfr_id"])
 
-    slim = slim.sort_values(["gsis_id", "season", "week"])
-    grp = slim.groupby(["gsis_id", "season"], group_keys=False)
-    slim["offense_snap_pct_last1"] = grp["offense_pct"].shift(1)
-    slim["offense_snap_pct_last4_avg"] = grp["offense_pct"].transform(
+    snaps = snaps.merge(rosters, on=["season", "pfr_id"], how="left")
+    snaps = snaps.dropna(subset=["gsis_id"])
+
+    snaps = snaps.sort_values(["gsis_id", "season", "week"])
+    grp = snaps.groupby(["gsis_id", "season"], group_keys=False)
+    snaps["offense_snap_pct_last1"] = grp["offense_pct"].shift(1)
+    snaps["offense_snap_pct_last4_avg"] = grp["offense_pct"].transform(
         lambda s: s.shift(1).rolling(4, min_periods=1).mean()
     )
 
     return featured.merge(
-        slim[
+        snaps[
             [
                 "gsis_id",
                 "season",
@@ -617,8 +633,8 @@ def _attach_snap_counts(featured: pd.DataFrame, project_root: Path) -> pd.DataFr
                 "offense_snap_pct_last4_avg",
             ]
         ],
-        left_on=join_keys_left,
-        right_on=join_keys_right,
+        left_on=["player_id", "season", "week"],
+        right_on=["gsis_id", "season", "week"],
         how="left",
     ).drop(columns=["gsis_id"], errors="ignore")
 

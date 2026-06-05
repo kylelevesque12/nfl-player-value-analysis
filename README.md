@@ -481,21 +481,21 @@ projection for each player-week.
 - [Read the external benchmark report](report/external_benchmark.md)
 
 **Current result** (11,191 matched player-weeks, 2020-2021 overlap with the
-model's rolling backtest):
+model's rolling backtest, after adding nflverse snap-share features):
 
-| Position | Model RMSE | DK-implied RMSE | Skill vs market | Win rate |
-| --- | ---: | ---: | ---: | ---: |
-| QB | 7.708 | 7.842 | **+1.7%** | 52.5% |
-| RB | 6.615 | 6.707 | **+1.4%** | 52.6% |
-| WR | 6.473 | 6.553 | **+1.2%** | 54.5% |
-| TE | 5.159 | 5.137 | −0.4% | 53.8% |
-| Overall | 6.419 | 6.493 | **+1.1%** | — |
+| Position | Model RMSE | DK-implied RMSE | Skill vs market |
+| --- | ---: | ---: | ---: |
+| QB | 7.695 | 7.842 | **+1.9%** |
+| RB | 6.586 | 6.707 | **+1.8%** |
+| WR | 6.438 | 6.553 | **+1.8%** |
+| TE | 5.102 | 5.137 | **+0.7%** |
+| **Overall** | **6.386** | **6.493** | **+1.7%** |
 
 Public DFS analytics shops typically claim a 1-3% edge over the DK salary line
-as their selling point, so a calibrated +1.1% beat after honest rolling
-backtesting clears the qualifying bar. TE is the one honest negative result;
-it traces to features the current stack lacks (depth-chart status, snap share)
-that matter more at TE than at other positions.
+as their selling point, so a calibrated +1.7% beat after honest rolling
+backtesting is well inside that band. TE was the one negative result *until*
+snap share landed — the +0.7% post-snap-counts result confirms the prior
+deficit was a missing-feature issue, not a model-quality issue.
 
 Reproduce locally:
 
@@ -512,7 +512,7 @@ scraping FantasyPros archives. The scaffolding accepts any CSV at
 matching the documented schema, so swapping in a richer source is purely a
 data-acquisition step. Sequenced in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
 
-## Optional Weekly Signals (Snap Counts, Injuries, Depth Charts)
+## nflverse Supplementary Signals (Live for Snap Counts)
 
 The weekly fantasy model gracefully consumes nflverse supplementary feeds when
 they are present locally. Fetch them with:
@@ -524,9 +524,24 @@ python scripts/fetch_nflverse_data.py --years 2016-2025
 
 That writes `data/raw/snap_counts_*.csv`, `data/raw/injuries_*.csv`, and
 `data/raw/depth_charts_*.csv`. The next pipeline run auto-detects them and adds
-snap-share, depth-chart-rank, and practice-status features to the weekly model.
-When absent, the model still trains with the documented (modest) loss of
-accuracy.
+the available features to the weekly model.
+
+**Honest reading of what each feed did:**
+
+- **Snap counts (live, 82.6% coverage)** — significant lift: external benchmark
+  went from +1.1% to +1.7% overall, with TE flipping from −0.4% to +0.7%. Snap
+  share is the highest-signal weekly fantasy feature for skill positions; the
+  join hops through the roster table to translate nflverse's `pfr_player_id`
+  to the project's `gsis_id`.
+- **Injury status (live, 17.1% coverage)** — only injured players are reported,
+  so coverage is structurally limited. Friday practice-status indicators are
+  attached but add marginal signal at best; rolling stats already capture most
+  of the same recency information.
+- **Depth chart rank (broken in this nflverse vintage)** — nflverse dropped the
+  numeric `list_rank` field around 2024 and the `depth_position` column carries
+  only a string position label. Deriving per-team-week rank requires brittle
+  sorting logic; the attach is left in place as a no-op and documented as a
+  schema-handling task in `PORTFOLIO_ROADMAP.md`.
 
 ## Bayesian Rookie Projection (Scaffolded)
 

@@ -26,14 +26,14 @@ explicit baselines, and the per-position variance-share table is kept
 purely as a diagnostic.
 
 Modeling rows (player-weeks with an observed PPR target): 55,670
-Features used: 36
+Features used: 43
 
 ## Rolling-origin validation
 
 | Method | Type | n | RMSE | MAE | Skill vs recent_4_avg |
 | --- | --- | ---: | ---: | ---: | ---: |
-| hist_gradient_boosting | model | 34,906 | 6.185 | 4.591 | +0.071 |
-| hist_gradient_boosting_per_position | model | 34,906 | 6.381 | 4.741 | +0.041 |
+| hist_gradient_boosting | model | 34,906 | 6.147 | 4.552 | +0.076 |
+| hist_gradient_boosting_per_position | model | 34,906 | 6.346 | 4.704 | +0.046 |
 | recent_4_avg | baseline | 34,906 | 6.655 | 4.835 | +0.000 |
 | season_to_date_avg | baseline | 34,906 | 6.704 | 4.888 | -0.007 |
 | position_mean | baseline | 34,906 | 7.703 | 6.082 | -0.158 |
@@ -59,8 +59,8 @@ per-position gains do not justify replacing the pooled model.
 
 | Target coverage | Empirical coverage | Mean width | n |
 | ---: | ---: | ---: | ---: |
-| 50.0% | 0.498 | 6.61 | 34,906.0 |
-| 80.0% | 0.794 | 12.70 | 34,906.0 |
+| 50.0% | 0.497 | 6.49 | 34,906.0 |
+| 80.0% | 0.796 | 12.63 | 34,906.0 |
 
 Intervals are split-conformal: the most recent 20% of each training
 fold is held out as a calibration set, and the empirical residual

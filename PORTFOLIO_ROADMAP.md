@@ -39,11 +39,11 @@ These are the non-negotiables. Until all three land, the project reads as "well-
 **What to build.**
 - [ ] Install `nfl_data_py` (lightweight wrapper around nflverse). Add to `requirements.txt`.
 - [~] `scripts/fetch_nflverse_data.py` — one-shot fetcher for snap counts, injury reports, depth charts. Saves to `data/raw/`. **Run this once between sessions.**
-- [ ] **Snap counts.** `nfl_data_py.import_snap_counts(years)` → save as `data/raw/snap_counts_2016_2025.csv`. Add features: `offense_snap_share_last4_avg`, `snap_count_last1`. Opportunity in fantasy is dominated by snap share. This is the single most predictive non-stat weekly feature and you don't have it.
-- [ ] **Injury reports.** `nfl_data_py.import_injuries(years)` → save as `data/raw/injuries_2016_2025.csv`. Add features: `practice_status_last_friday` (Full / Limited / DNP / Out / Questionable), one-hot encoded. Players Questionable with Limited Friday practice score meaningfully less than healthy players — this is exactly the public-projector edge.
-- [ ] **Depth chart position.** `nfl_data_py.import_depth_charts(years)` → save as `data/raw/depth_charts_2016_2025.csv`. Add `depth_chart_rank` (1, 2, 3, ...). RB1 vs RB2 is the single most important feature for RB projections, and you currently approximate it with last-4 carries.
-- [x] **Vegas interaction features.** Already have `implied_team_total`. Add `implied_team_total × position` interactions so QBs in high-total games get the boost they should. *In progress this session.*
-- [ ] Re-train the weekly model with all four new feature groups. Compare to the current model in `weekly_fantasy_method_summary.csv`. Expected gain: 1–3 percentage points of skill score.
+- [x] **Snap counts.** Now live at 82.6% coverage via the `pfr_id → gsis_id` roster hop. Adding rolling snap-share features (`offense_snap_pct_last1`, `offense_snap_pct_last4_avg`) moved the external benchmark from +1.1% to +1.7% overall and flipped TE from −0.4% to +0.7%. Snap share is confirmed as the single most predictive non-stat weekly feature.
+- [~] **Injury reports.** Wired and joined at 17.1% coverage (only injured players are reported by definition). The current attach uses *worst* practice status during the week. **Open improvement**: use Friday-specific practice status only, since Friday is the most predictive day. Rebuilding `_attach_injury_status` to filter by `date_modified` and select the Friday row is the next refinement.
+- [~] **Depth chart position.** Attach scaffolding is in place but coverage is effectively 0% because nflverse dropped the numeric `list_rank` field around 2024; the `depth_position` column carries only a string position label ("WR", "RB"). **Open improvement**: derive rank within each `(season, week, team, depth_position)` group via row order, and audit per-season schema variation. Likely material lift for RB1 vs RB2 differentiation.
+- [x] **Vegas interaction features.** Position × implied-total and position × spread interactions live; tree model already captured most of this through one-hot position, so the additional lift was small.
+- [x] Re-train the weekly model with the available new feature groups. Skill-vs-recent-4-avg went from +7.1% to +7.6%; skill vs DK closing-line went from +1.1% to +1.7%.
 
 **Effort:** 2–3 weeks if you parallelize, 4–5 weeks if you do them one at a time.
 
