@@ -18,7 +18,8 @@ data/raw/
 data/processed/
 
 # Outputs that can be regenerated
-outputs/figures/
+outputs/figures/*
+!outputs/figures/.gitkeep
 outputs/tables/*
 !outputs/tables/.gitkeep
 !outputs/tables/2026_player_value_predictions.xlsx
@@ -66,6 +67,12 @@ outputs/tables/*
 !outputs/tables/two_stage_weekly_by_fold.csv
 !outputs/tables/two_stage_weekly_per_stage_quality.csv
 !outputs/tables/two_stage_weekly_predictions.csv
+!outputs/tables/causal_qb_injury_treatment_events.csv
+!outputs/tables/causal_qb_injury_affected_receivers.csv
+!outputs/tables/causal_qb_injury_panel.csv
+!outputs/tables/causal_qb_injury_pre_period_means.csv
+!outputs/tables/causal_qb_injury_pretrend_coefficients.csv
+!outputs/figures/causal_qb_injury_parallel_trends.png
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv

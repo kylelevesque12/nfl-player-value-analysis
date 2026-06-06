@@ -26,6 +26,7 @@ work lives.
 | External benchmark vs DraftKings closing-line implied (live for 2020-2021) | [External benchmark](report/external_benchmark.md) |
 | Bayesian rookie projection (LIVE; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
 | Two-stage WR/TE decomposition (honest negative result with diagnostic) | [Two-stage weekly](report/two_stage_weekly.md) |
+| Causal session 1: QB-injury treatment + parallel-trends check | [Causal session 1](report/causal/qb_injury_session1.md) |
 | Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
@@ -649,6 +650,47 @@ explicit multiplicative decomposition. The actionable next bet is not
 another decomposition variant; it is better features (depth-chart rank,
 snap projection) or a different pooled model class (quantile gradient
 boosting for proper per-prediction intervals).
+
+## Causal Analysis: QB Injury → WR PPR (Session 1)
+
+Tier 2 #6 of [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md). Multi-session
+causal analysis of *how much PPR a WR loses when their starting QB goes down
+to injury*. Session 1 is the data-engineering foundation and the parallel-
+trends check — the assumption that has to hold before a DiD estimate is
+worth running.
+
+- [Read the session 1 report](report/causal/qb_injury_session1.md)
+- [Treatment events (213 across 10 seasons)](outputs/tables/causal_qb_injury_treatment_events.csv)
+- [Affected receivers per event](outputs/tables/causal_qb_injury_affected_receivers.csv)
+- [Treated + control panel](outputs/tables/causal_qb_injury_panel.csv)
+- [Parallel-trends plot](outputs/figures/causal_qb_injury_parallel_trends.png)
+- [Pretrend interaction coefficients](outputs/tables/causal_qb_injury_pretrend_coefficients.csv)
+
+**Result**: 213 QB-injury treatment events identified across 2016-2025 (~21
+per season), with ~3 affected WRs each. Burrow → Browning 2023, Lawrence →
+Mac Jones 2024, and other textbook injury transitions are captured (pinned
+by tests).
+
+**Parallel trends DO NOT cleanly hold**, and that is exactly what session 1
+is designed to surface. Treated WRs were on a declining PPR trajectory
+(~1 PPG drop over the 4-week pre-period) while controls were flat. The
+interaction coefficient at week -3 vs week -1 is statistically distinguishable
+from zero (p ≈ 0.034). The likely cause is endogenous timing: QBs are
+typically formally ruled Out only after several weeks of playing through a
+developing injury, so the offense was already declining before the formal
+"treatment" event.
+
+A naive DiD on this panel would overstate the causal effect. We do not run
+one. Session 2 starts by implementing two mitigations — propensity-score
+matching on pre-period PPR levels, and a TWFE specification with
+differential-trend controls — and re-running the parallel-trends check. If
+either mitigation succeeds, the DiD estimate is defensible. If both fail,
+the design pivots to synthetic control (per-treated-unit counterfactual
+matching).
+
+```bash
+python scripts/run_pipeline.py --steps causal_session1
+```
 
 ## Limitations
 

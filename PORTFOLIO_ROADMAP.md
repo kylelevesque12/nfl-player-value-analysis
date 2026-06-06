@@ -123,7 +123,21 @@ Tier 1 makes you credible. Tier 2 makes you stand out. Don't start any of these 
 
 ---
 
-### 6. A causal analysis with a sharp question
+### 6. A causal analysis with a sharp question (IN PROGRESS, session 1 complete)
+
+**Session 1 status (`report/causal/qb_injury_session1.md`)**: complete.
+Treatment identification module captures 213 QB-injury events across
+2016-2025, validated against hand-checked cases (Burrow 2023, Lawrence
+2024, Wentz 2017). Control panel constructed via same-calendar-week
+matching with stable-QB filter. **Parallel trends fail** (significant
+pretrend at p ≈ 0.034) — exactly the diagnostic finding session 1 is
+designed to surface. The honest read: treated WRs were on a declining
+trajectory before the formal QB injury (likely endogenous-timing
+confounding), so a naive DiD would overstate the effect. Session 2 starts
+with two mitigations (PSM on pre-period level + TWFE with differential
+trends) and re-checks parallel trends before estimating.
+
+
 
 **Why it matters.** NFL analytics departments do causal work — DiD on coordinator changes, synthetic control on rule changes, instrumental variables for player movement effects. A clean causal piece is the kind of analysis that gets shared internally and externally.
 
