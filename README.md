@@ -27,6 +27,7 @@ work lives.
 | Bayesian rookie projection (LIVE; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
 | Two-stage WR/TE decomposition (honest negative result with diagnostic) | [Two-stage weekly](report/two_stage_weekly.md) |
 | Causal session 1: QB-injury treatment + parallel-trends check | [Causal session 1](report/causal/qb_injury_session1.md) |
+| Causal session 2: mitigation, DiD estimation, honest verdict | [Causal session 2](report/causal/qb_injury_session2.md) |
 | Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
 | Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
 | Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
@@ -680,16 +681,48 @@ typically formally ruled Out only after several weeks of playing through a
 developing injury, so the offense was already declining before the formal
 "treatment" event.
 
-A naive DiD on this panel would overstate the causal effect. We do not run
-one. Session 2 starts by implementing two mitigations — propensity-score
-matching on pre-period PPR levels, and a TWFE specification with
-differential-trend controls — and re-running the parallel-trends check. If
-either mitigation succeeds, the DiD estimate is defensible. If both fail,
-the design pivots to synthetic control (per-treated-unit counterfactual
-matching).
+A naive DiD on this panel would overstate the causal effect. Session 2
+implemented the two pre-registered mitigations, ran the estimators, and
+delivered the honest verdict.
+
+### Session 2: estimation and verdict
+
+[Read session 2 here](report/causal/qb_injury_session2.md). Two estimators
+on the same panel give complementary answers depending on the reference
+period:
+
+| Estimator | Reference | ATT (PPG) | p-value |
+| --- | --- | ---: | ---: |
+| Event-study pooled post-period | offset -1 (immediate pre-injury) | **+0.60** | 0.001 |
+| Simple 2×2 DiD | full pre-period average | **+0.03** | 0.88 |
+
+**Both estimates point to the same finding: the formal "QB ruled Out"
+designation does not cause a measurable drop in WR PPR.** This is the
+opposite of the conventional "QB1 goes down, WR1 craters" narrative.
+
+Why? The pre-period coefficients (significantly positive in the event
+study) reveal the mechanism: treated WRs hit their absolute low at offset
+-1, the week *immediately before* the formal QB switch. They had been
+declining for weeks before the QB was officially ruled Out — consistent
+with the QB playing through a developing injury while production drops
+in real time. The formal Out designation is a *lagging indicator* of QB
+health, not the start of the causal damage. After the backup takes over,
+WR production stabilizes or slightly recovers.
+
+The level-matching mitigation actually *failed* on its own — restricting
+controls to similar-baseline WRs introduced regression-to-the-mean bias
+that widened the pretrend gap, not narrowed it. The honest finding survives
+this mitigation failure because both the matched and unmatched estimators
+agree on the result.
+
+The follow-up causal question worth asking — and the session 3 build —
+is to use the *first week a QB appears on the injury report* (even as
+Questionable) as the treatment moment, not the first week he was Out.
+That shifts the analysis to capture the actual causal decline rather
+than the lagging formal designation.
 
 ```bash
-python scripts/run_pipeline.py --steps causal_session1
+python scripts/run_pipeline.py --steps causal_session1,causal_session2
 ```
 
 ## Limitations

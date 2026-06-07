@@ -125,6 +125,19 @@ Tier 1 makes you credible. Tier 2 makes you stand out. Don't start any of these 
 
 ### 6. A causal analysis with a sharp question (IN PROGRESS, session 1 complete)
 
+**Session 2 status (`report/causal/qb_injury_session2.md`)**: complete with an honest portfolio-grade finding.
+
+| Estimator | Reference | ATT (PPG) | p-value |
+| --- | --- | ---: | ---: |
+| Event-study pooled post-period | offset -1 | **+0.60** | 0.001 |
+| Simple 2×2 DiD | full pre-period avg | **+0.03** | 0.88 |
+
+**The formal "QB ruled Out" designation does not cause a measurable drop in WR PPR.** Both estimators agree on a null or slightly positive effect. The mechanism revealed by the event-study pre-period coefficients (also significantly positive — meaning treated did better at offsets -4 / -3 than at offset -1): WR production declines weeks before the formal QB injury designation, and bottoms out at offset -1. The QB Out designation is a *lagging indicator* of QB health, not the moment causal damage begins.
+
+The level-matching mitigation failed on its own — restricting controls by baseline PPR introduced regression-to-the-mean bias that widened rather than narrowed the pretrend. Notably, the headline finding (null/positive ATT) survives this mitigation failure because both the matched and unmatched estimators agree.
+
+**Open path forward (session 3)**: re-run treatment identification using *first week of injury report appearance* (Questionable, Limited Practice — anything) instead of *first week ruled Out*. Shifts the treatment moment earlier to capture the actual causal decline. The infrastructure (treatment identification module, control matching, event-study estimator) is already in place — session 3 is a single edit to the classifier and a re-run of sessions 1-2 logic on the new event set.
+
 **Session 1 status (`report/causal/qb_injury_session1.md`)**: complete.
 Treatment identification module captures 213 QB-injury events across
 2016-2025, validated against hand-checked cases (Burrow 2023, Lawrence

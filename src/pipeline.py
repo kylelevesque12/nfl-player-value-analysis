@@ -22,6 +22,7 @@ from src.fantasy_projection import build_fantasy_projection_outputs
 from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
 from src.causal.session1_driver import build_causal_session1_outputs
+from src.causal.session2_driver import build_causal_session2_outputs
 from src.external_benchmark import build_external_benchmark_outputs
 from src.rookie_bayes import build_rookie_modeling_frame
 from src.two_stage_weekly import build_two_stage_weekly_outputs
@@ -46,6 +47,7 @@ PIPELINE_STEPS = [
     "rookie_bayes",
     "two_stage_weekly",
     "causal_session1",
+    "causal_session2",
     "weekly_wins",
     "context",
     "feature_impact",
@@ -68,6 +70,7 @@ DEFAULT_PIPELINE_STEPS = [
     "rookie_bayes",
     "two_stage_weekly",
     "causal_session1",
+    "causal_session2",
     "weekly_wins",
     "checks",
     "interpretation",
@@ -176,6 +179,14 @@ def build_causal_session1_step(
     """Rebuild the causal session-1 treatment / parallel-trends artifacts."""
     root = _resolve_project_root(project_root)
     return build_causal_session1_outputs(project_root=root, save_outputs=True)
+
+
+def build_causal_session2_step(
+    project_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Rebuild the causal session-2 mitigation + estimation artifacts."""
+    root = _resolve_project_root(project_root)
+    return build_causal_session2_outputs(project_root=root, save_outputs=True)
 
 
 def build_rookie_bayes_step(
@@ -315,6 +326,8 @@ def run_pipeline(
             results[step] = build_two_stage_weekly_step(root)
         elif step == "causal_session1":
             results[step] = build_causal_session1_step(root)
+        elif step == "causal_session2":
+            results[step] = build_causal_session2_step(root)
         elif step == "weekly_wins":
             results[step] = build_weekly_win_outputs(root)
         elif step == "context":

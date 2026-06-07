@@ -1,0 +1,2 @@
+treated_pre_mean,treated_post_mean,treated_change,control_pre_mean,control_post_mean,control_change,att_2x2,se_event_cluster_bootstrap,t_stat,p_value_approx
+9.74836344863,9.21657881137,-0.531784637262,11.4785665122,10.9139609006,-0.564605611574,0.0328209743116,0.211622687184,0.155091945709,0.87674883175

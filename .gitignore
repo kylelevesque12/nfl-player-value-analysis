@@ -73,6 +73,15 @@ outputs/tables/*
 !outputs/tables/causal_qb_injury_pre_period_means.csv
 !outputs/tables/causal_qb_injury_pretrend_coefficients.csv
 !outputs/figures/causal_qb_injury_parallel_trends.png
+!outputs/figures/causal_qb_injury_event_study.png
+!outputs/tables/causal_qb_injury_event_study_unmatched.csv
+!outputs/tables/causal_qb_injury_event_study_matched.csv
+!outputs/tables/causal_qb_injury_att_unmatched.csv
+!outputs/tables/causal_qb_injury_att_matched.csv
+!outputs/tables/causal_qb_injury_2x2_did_unmatched.csv
+!outputs/tables/causal_qb_injury_2x2_did_matched.csv
+!outputs/tables/causal_qb_injury_pretrend_coefficients_matched.csv
+!outputs/tables/causal_qb_injury_level_matching_summary.csv
 !outputs/tables/context_feature_group_comparison.csv
 !outputs/tables/context_feature_group_summary.csv
 !outputs/tables/context_feature_permutation_importance_2024.csv
