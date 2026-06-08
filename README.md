@@ -1,507 +1,85 @@
 # NFL Player Value Analysis
 
-End-to-end NFL analytics project measuring offensive player value, next-season projections, fantasy-football production, weekly win probabilities, and salary efficiency with nflverse data, feature engineering, exploratory analysis, predictive modeling, and contract analysis.
-
-## Project Question
+A comprehensive NFL analytics suite spanning three perspectives on the same underlying data — front-office cap allocation, weekly fantasy projection, and causal-methodology research — built on 10 years of nflverse play-by-play, schedules, rosters, contracts, and supplementary feeds.
 
-How can we measure, predict, and compare NFL offensive player value in a way that is transparent, position-aware, and useful for salary-efficiency analysis, fantasy-football decisions, and weekly matchup analysis?
+The project tests one core question across three frames: **how do we measure, predict, and compare NFL player value in ways that are transparent, position-aware, and useful for real decisions?**
 
-The project currently focuses on QBs, RBs, WRs, and TEs. The main value metric is position-season standardized total EPA, stored in the code as `value_score`, so players are compared against peers at the same position in the same season.
+## Headline findings
 
-## How To Review This Project
+- **Fantasy projection beats DraftKings closing-line implied projections by +1.6% RMSE** on 11,191 matched player-weeks (2020-2021). Public DFS analytics shops claim 1-3% edges as their core selling point. ([External benchmark](report/external_benchmark.md))
+- **Brock Purdy's 2023 season delivered ~$37M of surplus over replacement-level QB cost** on a rookie contract — the largest single-season surplus in the 2016-2025 sample. ([Replacement-level findings](report/salary_efficiency_findings.md))
+- **The formal "QB ruled Out" designation does not cause a measurable drop in WR PPR.** Two-session causal DiD with parallel-trends checks finds a null/positive ATT. Mechanism: the QB plays through a developing injury for weeks before being formally ruled out, so by the time the Out designation hits, the receivers' production has already declined. The Out flag is a lagging indicator, not a leading feature. ([Causal session 1](report/causal/qb_injury_session1.md) / [session 2](report/causal/qb_injury_session2.md))
+- **Bayesian hierarchical rookie projections hit nominal posterior-interval coverage** (PyMC, non-centered, calibrated 80% intervals across six rolling-validation rookie classes). Solves the cold-start problem the headline HGB projector cannot. ([Rookie Bayes](report/rookie_bayes_projection.md))
 
-For a quick review, start with the files below. They are meant to be the
-project's front door so a reviewer does not need to guess where the important
-work lives.
+## Three perspectives
 
-| Purpose | Start Here |
-| --- | --- |
-| Full project narrative | [Final project report](report/final_project_report.md) |
-| Index of all reports | [Project reports index](report/project_summary.md) |
-| Central insight: value decomposition | [Value decomposition](report/value_decomposition.md) |
-| An honest negative result + uncertainty layer | [Two-stage value model](report/two_stage_value.md) |
-| Honest evaluation vs baselines | [Model benchmark](report/model_benchmark.md) |
-| Primary prediction deliverable (single model) | [2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx) |
-| Weekly fantasy projection (player-game) | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md) |
-| External benchmark vs DraftKings closing-line implied (live for 2020-2021) | [External benchmark](report/external_benchmark.md) |
-| Bayesian rookie projection (LIVE; PyMC) | [Rookie Bayes projection](report/rookie_bayes_projection.md) |
-| Two-stage WR/TE decomposition (honest negative result with diagnostic) | [Two-stage weekly](report/two_stage_weekly.md) |
-| Causal session 1: QB-injury treatment + parallel-trends check | [Causal session 1](report/causal/qb_injury_session1.md) |
-| Causal session 2: mitigation, DiD estimation, honest verdict | [Causal session 2](report/causal/qb_injury_session2.md) |
-| Portfolio roadmap (where this is going) | [PORTFOLIO_ROADMAP.md](PORTFOLIO_ROADMAP.md) |
-| Methodology/data-quality audit | [Methodology checks](report/methodology_checks.md) |
-| Salary-efficiency findings | [Salary-efficiency findings](report/salary_efficiency_findings.md) |
-| Interactive dashboard | [Streamlit app source](app/streamlit_app.py) |
-| Notebook narrative if GitHub preview fails | [Markdown notebook mirrors](notebooks_markdown/01_data_collection.md) |
+The project is best read by perspective rather than by module. Each one stands on its own, with its own headline result, its own methodology decisions, and its own honest limitations.
 
-Suggested review order:
+| Perspective | Primary audience | Headline | Where to look |
+| --- | --- | --- | --- |
+| Front office | NFL team analytics, cap analysts | $37M Brock Purdy surplus over replacement | [Final project report](report/final_project_report.md), [salary findings](report/salary_efficiency_findings.md) |
+| Fantasy / DFS | ESPN, DraftKings, FantasyPros | +1.6% RMSE skill score vs DK closing line | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md), [external benchmark](report/external_benchmark.md) |
+| Methodology / research | Research labs, methodology-conscious reviewers | Causal null + structural negative result with diagnostic | [Causal sessions](report/causal/), [two-stage weekly](report/two_stage_weekly.md), [rookie Bayes](report/rookie_bayes_projection.md) |
 
-1. Read the [final project report](report/final_project_report.md) for the whole story.
-2. See the [value decomposition](report/value_decomposition.md) — the insight that efficiency and opportunity must be modeled separately.
-3. See the [two-stage value model](report/two_stage_value.md): a well-motivated bet that was beaten head-to-head by a single model, reported honestly — its lasting contribution is the calibrated, role-driven vs efficiency-driven uncertainty layer.
-4. Check the [model benchmark](report/model_benchmark.md) for how the models are evaluated honestly against strong baselines.
-5. Open the [2026 Excel report](outputs/tables/2026_player_value_predictions.xlsx) — the primary single-model predictions — and read the [salary-efficiency findings](report/salary_efficiency_findings.md).
+## How to review this project
 
-(`report/model_benchmark.md` and several output tables are generated by the pipeline; run it once locally to populate them.)
+Recommended reading order:
 
-## Reproducing The Pipeline
+1. **Start here**: [Final project report](report/final_project_report.md) for the whole story across all three perspectives.
+2. **For NFL team / cap analytics reviewers**: skip to the [front-office section below](#front-office-perspective). Headline is replacement-level surplus.
+3. **For ESPN / fantasy / DFS reviewers**: skip to the [fantasy section below](#fantasy--dfs-perspective). Headline is the DK benchmark beat.
+4. **For methodology-focused reviewers**: skip to the [methodology section below](#methodology--research-perspective). Headline is the causal QB-injury null and the four-attempt decomposition finding.
+5. **For deeper detail on any one piece**: every section links to its own dedicated report under `report/`.
 
-The notebooks are still the narrative version of the project, but the main outputs can now be rebuilt from one command after the local raw data files exist:
+## Front office perspective
 
-```bash
-pip install -r requirements.txt
-python scripts/run_pipeline.py
-```
+> **How do we identify under-priced player-seasons relative to replacement-level cap cost?**
 
-This runs the core project steps in order:
+### Replacement-level surplus framework
 
-1. clean raw weekly player data into player-season data
-2. rebuild player value scores
-3. rebuild 2026 prediction tables and the Excel workbook
-4. rebuild salary-efficiency tables
-5. rebuild salary-efficiency finding tables and report
-6. rebuild fantasy-football projection tables
-7. rebuild weekly win projection backtest tables
-8. rebuild methodology checks
-9. rebuild model interpretation diagnostics
+For each `(season, position)` we estimate two baselines from the data: `replacement_salary_millions` (median bottom-quartile veteran-starter cost — the price of "next man up") and `replacement_value_score` (the value those replacement-level players actually deliver). For each player-season we compute the cap premium paid above replacement, the value delivered above replacement, and the dollar surplus — converting above-replacement value to dollars via the within-(season, position) slope of salary on value.
 
-Context feature tests can also be rebuilt when you want to evaluate whether
-extra football context is actually improving the model:
+**Top 5 replacement-level surplus seasons, 2016-2025**:
 
-```bash
-python scripts/run_pipeline.py --steps context,feature_impact
-```
+| Season | Player | Pos | Team | Cap over replacement ($M) | Surplus ($M) |
+| --- | --- | --- | --- | ---: | ---: |
+| 2023 | Brock Purdy | QB | SF | 0.0 | **+37.4** |
+| 2024 | Brock Purdy | QB | SF | -0.1 | **+29.3** |
+| 2024 | Jayden Daniels | QB | WAS | 9.7 | **+25.6** |
+| 2025 | Puka Nacua | WR | LA | 0.3 | **+17.4** |
+| 2023 | Jake Browning | QB | CIN | -0.3 | **+15.1** |
 
-Quality-control and interpretation reports can also be rebuilt by themselves:
+The framework also surfaces **position-level market irrationality** — running back occasionally shows a negative implicit value-per-dollar slope at the position-season level, consistent with the well-documented RB-market inefficiency.
 
-```bash
-python scripts/run_pipeline.py --steps checks,interpretation
-```
-
-The model benchmark stage compares the prediction model against strong naive
-baselines and reports a skill score, plus calibrated conformal intervals:
+### Value scoring
 
-```bash
-python scripts/run_pipeline.py --steps benchmark
-```
+EPA-based player value scores, z-scored within `(season, position)`, with multi-year history features and an availability sub-model. The headline deliverable is [the 2026 Excel report](outputs/tables/2026_player_value_predictions.xlsx) with 505 player projections, calibrated 80% intervals, plain-English prediction drivers, and team / position summaries.
 
-Optional advanced modeling diagnostics can be rebuilt separately:
+### Salary efficiency
 
-```bash
-python scripts/run_pipeline.py --steps advanced_modeling
-```
+4,569 of 4,753 player-seasons matched to historical contracts (96.1% match rate). Top 25 surplus players, high-cost underperformers, rookie-contract proxy surplus, veteran values, and team-season leaderboards.
 
-That step uses Optuna for rolling-validation hyperparameter search, SHAP for
-tree-model explanation, Polars for a fast data profile, and MLflow for local
-experiment tracking. The MLflow run directory is intentionally ignored by Git;
-the recruiter-friendly results are committed as CSV and Markdown outputs.
+### Methodology audit and limitations
 
-You can also run selected steps:
-
-```bash
-python scripts/run_pipeline.py --steps value,predictions
-```
-
-## Interactive Dashboard
+A 26-check methodology audit covers leakage safety, standardization correctness, interval calibration, and missing-target detection ([methodology checks](report/methodology_checks.md)). The honest limitation: the cost variable is `inflated_apy`, not year-by-year cap hit. The salary track is **contract efficiency, not cap accounting**. Replacing APY with true cap hit (OverTheCap premium or manual reconstruction) is the next data-acquisition step.
 
-The project includes a Streamlit dashboard that reads the committed output
-tables and turns them into an interactive analytics app:
-
-```bash
-pip install -r requirements.txt
-streamlit run app/streamlit_app.py
-```
-
-Dashboard sections include:
-
-- front office perspective: value projections, player lookup, salary efficiency, and model validation
-- fantasy football perspective: 2026 season-long PPR projections, model comparison, and validation
-- weekly win projection: rolling backtest game probabilities and validation
-- methodology and report index
-
-The app is presentation-only: it reads outputs from `outputs/tables/` and does
-not train models directly. Rebuild the data first with `python scripts/run_pipeline.py`
-after major project changes.
-
-The app is currently a draft product layer. The front-office section is the
-most mature part of the project. The fantasy and weekly-win sections are useful
-starting points, but they should be expanded with offseason context, injuries,
-depth-chart changes, and future schedule rows before being treated as finished
-forecasting tools.
-
-Raw files under `data/raw/` and processed files under `data/processed/` are still ignored by Git. The command assumes those local raw files have already been created by Notebook 01 or downloaded separately.
-
-The committed notebooks are kept output-free so GitHub can render them
-reliably. After running notebooks locally, clean them before committing:
-
-```bash
-python scripts/prepare_notebooks_for_github.py
-```
-
-If GitHub's notebook preview is unavailable, use the Markdown mirrors instead:
-
-| Notebook | GitHub-Friendly View |
-| --- | --- |
-| 01 Data Collection | [Markdown](notebooks_markdown/01_data_collection.md) |
-| 02 Data Cleaning | [Markdown](notebooks_markdown/02_data_cleaning.md) |
-| 03 Value Score Engineering | [Markdown](notebooks_markdown/03_value_score_engineering.md) |
-| 04 Exploratory Analysis | [Markdown](notebooks_markdown/04_exploratory_analysis.md) |
-| 05 Predictive Modeling | [Markdown](notebooks_markdown/05_predictive_modeling.md) |
-| 06 2026 Prediction Report | [Markdown](notebooks_markdown/06_2026_prediction_report.md) |
-| 07 Salary Efficiency Analysis | [Markdown](notebooks_markdown/07_salary_efficiency_analysis.md) |
-| 08 Salary Efficiency Findings | [Markdown](notebooks_markdown/08_salary_efficiency_findings.md) |
-
-The Markdown mirrors can be regenerated with:
-
-```bash
-python scripts/export_notebooks_to_markdown.py
-```
-
-## Current Deliverable: 2026 Prediction Report
-
-The project includes a recruiter-facing Excel report built from the predictive modeling pipeline:
-
-- [Download the 2026 Player Value Predictions Excel report](outputs/tables/2026_player_value_predictions.xlsx)
-- [View the player prediction CSV](outputs/tables/2026_player_value_predictions.csv)
-- [View value-model validation by position](outputs/tables/2026_value_validation_by_position.csv)
-- [View prediction interval calibration](outputs/tables/2026_prediction_interval_validation.csv)
-- [Read the report summary](report/2026_prediction_report_summary.md)
-
-The report includes:
-
-- predicted 2026 value score
-- probability of a qualifying 2026 season
-- confidence level
-- availability risk level
-- approximate prediction interval
-- plain-English prediction drivers
-- value-model validation by position
-- team and position summaries
-
-The Excel workbook is organized with a clean front-facing layer first: `Dashboard`, `Player Predictions`, `Team Summary`, `Position Summary`, and `Validation Summary`. More technical columns are preserved in `Full Model Data`, `Data Dictionary`, and `Model Notes` for auditability.
-
-## Dashboard Expansion: Fantasy And Weekly Wins
-
-The Streamlit app now includes two additional draft perspectives:
-
-- [2026 fantasy football projections](outputs/tables/2026_fantasy_football_projections.csv)
-- [Fantasy projection validation](outputs/tables/fantasy_projection_validation_by_position.csv)
-- [Fantasy model comparison](outputs/tables/fantasy_model_comparison.csv)
-- [Weekly win projection backtest](outputs/tables/weekly_win_projection_games.csv)
-- [Weekly win projection validation](outputs/tables/weekly_win_projection_validation.csv)
-- [Fantasy projection summary](report/fantasy_football_projection_summary.md)
-- [Weekly win projection summary](report/weekly_win_projection_summary.md)
-
-Fantasy projections estimate 2026 season-long PPR points for players with 2025
-NFL production data. The fantasy pipeline compares a current-year baseline,
-regularized linear models, Random Forest, Histogram Gradient Boosting, and a
-two-stage model that predicts games played and PPR per game separately. The
-weekly win section is currently a rolling historical backtest, meaning each
-validation season is predicted using only earlier seasons. This makes the
-section honest enough to evaluate before adding future schedule rows.
-
-## Weekly Fantasy Projection (Player-Game Layer)
-
-The fantasy track previously projected only season-long PPR points. The
-weekly module adds the missing player-game layer: each player's next
-regular-season game gets a projected PPR total with calibrated floor/ceiling
-intervals, built strictly from pregame information.
-
-The architectural choice follows directly from the two-stage value result.
-Because that experiment showed multiplying learned `opportunity × efficiency`
-components lost to a single direct model — and weekly efficiency is even noisier
-than season-level efficiency — the primary point predictor here is a single
-HistGradientBoosting model, benchmarked against three explicit baselines.
-Decomposition is kept as the *uncertainty / interpretation* layer, not the
-point predictor.
-
-- [Read the weekly fantasy projection summary](report/weekly_fantasy_projection_summary.md)
-- [View method comparison vs baselines](outputs/tables/weekly_fantasy_method_summary.csv)
-- [View per-position skill scores](outputs/tables/weekly_fantasy_by_position.csv)
-- [View per-fold rolling RMSE](outputs/tables/weekly_fantasy_by_fold.csv)
-- [View conformal interval coverage](outputs/tables/weekly_fantasy_conformal_coverage.csv)
-- [View per-player-week validation predictions](outputs/tables/weekly_fantasy_validation_predictions.csv)
-
-```bash
-python scripts/run_pipeline.py --steps weekly_fantasy
-```
-
-On the current rolling backtest (2020–2025 held-out seasons, ~35k player-weeks),
-the single HGB model scores RMSE ≈ 6.19 PPR vs ≈ 6.65 for a rolling 4-week
-average and ≈ 6.70 for season-to-date average — about a 7% skill score over the
-toughest baseline. Split-conformal intervals are calibrated on the held-out 20%
-of each training fold and hit their target coverage almost exactly (50%
-interval covers 50.0%, 80% interval covers 79.4%), which is the honest deliverable
-for floor/ceiling use cases. The position-specific variant trains a separate
-HGB per position; it loses to the pooled model at every position, which is
-reported in the same spirit as the two-stage value finding.
-
-## Context Feature Impact Review
-
-The project now includes a reproducible feature-impact check for contextual
-football variables:
-
-- [Read the context feature impact report](report/context_feature_impact.md)
-- [View rolling feature-set comparison](outputs/tables/context_feature_group_summary.csv)
-- [View 2024 permutation importance](outputs/tables/context_feature_permutation_importance_2024.csv)
-- [View context feature dictionary](outputs/tables/context_feature_dictionary.csv)
-
-This stage compares the current baseline model against versions that add
-usage context, team environment context, schedule context, and all context
-features together. The point is to avoid blindly adding features: a context
-group should either improve rolling validation or make the model meaningfully
-more explainable.
-
-## Value Decomposition: Efficiency vs Opportunity
-
-The headline `value_score` is the within season-position z-score of *total* EPA,
-which blends two different things a front office needs to separate: how good a
-player is *per opportunity* (efficiency/ability) and how *much* they are used
-(opportunity/role). The decomposition stage splits value into two standardized
-axes — `efficiency_z` (value EPA per opportunity) and `opportunity_z` (usage per
-game) — and adds talent-isolating rate features (catch rate, yards per target,
-aDOT, YAC per reception, RACR, yards per carry, completion %, yards per attempt,
-passing aDOT, PACR) reconstructed from the existing season totals. Efficiency is
-only standardized over player-seasons that clear a position-specific minimum
-opportunity load, so small-sample flukes do not distort the rankings.
-
-It then measures how repeatable each axis is year over year, which is the
-evidence for what actually reflects stable talent:
-
-- [Read the value decomposition report](report/value_decomposition.md)
-- [View year-over-year stability](outputs/tables/value_decomposition_stability.csv)
-- [View the decomposed player-season table](data/processed/player_value_decomposition_2016_2025.csv)
-
-```bash
-python scripts/run_pipeline.py --steps decompose
-```
-
-The headline finding from the current data: opportunity is far more persistent
-year over year (about 0.76) than efficiency for skill positions (roughly
-0.18–0.25 once small samples are excluded), while quarterback efficiency is the
-exception and is genuinely sticky (about 0.47). In other words, much of what the
-total-EPA value score appears to "predict" from one season to the next is role
-stability rather than ability — which is exactly why modeling the two axes
-separately is more honest for talent evaluation.
-
-## Two-Stage Value Model (Opportunity × Efficiency)
-
-The decomposition finding — that opportunity is highly persistent year over year
-while efficiency is mostly noise for skill positions — motivates a two-stage
-value model that predicts the two factors separately and recombines them, rather
-than predicting blended total value with one model. The factorization is exact:
-`value_epa_total = efficiency_per_opportunity × opportunity_per_game ×
-games_played`.
-
-Both stages are implemented. Stage 1 predicts next-season opportunity per game
-(Random Forest / Histogram Gradient Boosting vs a persistence baseline). Stage 2
-predicts next-season efficiency on efficiency-qualified seasons only, scored
-against a shrink-to-mean baseline — the right null when efficiency barely
-autocorrelates. The two stages then multiply to a per-game value projection,
-compared on the same rows against a single model that predicts value directly.
-
-**The honest result: the single model won.** On identical rows it scored RMSE
-2.318 (R² 0.20) versus the two-stage's 2.417 (R² 0.13) — about 4% better. Stage 2
-efficiency barely beats its baseline, so multiplying that near-noise into the
-product adds error the single model avoids. The single model is therefore the
-primary predictor; the two-stage's lasting value is the uncertainty layer below,
-not accuracy. This negative result is reported rather than hidden, which is the
-point.
-
-- [Read the two-stage model report](report/two_stage_value.md)
-- [View opportunity summary](outputs/tables/two_stage_opportunity_summary.csv)
-- [View opportunity skill by position](outputs/tables/two_stage_opportunity_by_position.csv)
-- [View efficiency summary](outputs/tables/two_stage_efficiency_summary.csv)
-- [View efficiency skill by position](outputs/tables/two_stage_efficiency_by_position.csv)
-- [View recombined vs single-model comparison](outputs/tables/two_stage_combined_summary.csv)
-- [View asymmetric interval coverage](outputs/tables/two_stage_interval_coverage.csv)
-- [View value-uncertainty variance share by axis](outputs/tables/two_stage_variance_share.csv)
-- [View 2026 two-stage player projections](outputs/tables/two_stage_2026_projection.csv)
-
-```bash
-python scripts/run_pipeline.py --steps two_stage
-```
-
-The two stages also produce an **asymmetric prediction interval**. Each stage's
-calibration-set residuals give a per-position error sigma, and these propagate
-through the product `value = efficiency × opportunity` as
-`Var(E·O) = O²σ_E² + E²σ_O² + σ_E²σ_O²`. This both sets the band width and
-decomposes each player's value uncertainty into an efficiency share and an
-opportunity share — so the interval is wide along exactly the axis the model
-cannot pin down. On the current data, essentially all WR/TE value uncertainty
-comes from the efficiency axis, while for QB/RB the opportunity axis carries the
-majority. A single blended model cannot express this distinction.
-
-The empirical pattern that justifies the design: opportunity is highly
-persistent (next-season R² ~0.83 for skill positions), while efficiency is
-learnable for quarterbacks (~13% skill over the positional mean) but close to
-pure regression to the mean for RB/WR/TE (~2%). Separating the axes lets the
-model concentrate confidence where signal exists and shrink hard where it does
-not.
-
-## Model Benchmark: Skill Score And Calibrated Intervals
-
-Because the prediction target (`next_value_score`) is standardized within each
-season-position group, its per-season standard deviation is about 1.0, so a
-model that simply predicts the group mean already scores an RMSE near 1.0.
-RMSE alone therefore overstates model quality. The benchmark stage reports the
-honest measure — a *skill score*, the percentage RMSE reduction versus strong
-naive baselines (season mean, raw persistence, shrunken persistence, and an age
-curve) — for both the tuned Random Forest and a Histogram Gradient Boosting
-model, all under rolling-origin validation. It also adds split-conformal
-prediction intervals, which are distribution-free and calibrated by
-construction rather than assuming Gaussian residuals.
-
-- [Read the model benchmark report](report/model_benchmark.md)
-- [View overall benchmark summary](outputs/tables/model_benchmark_summary.csv)
-- [View skill score by position](outputs/tables/model_benchmark_by_position.csv)
-- [View per-fold results](outputs/tables/model_benchmark_by_fold.csv)
-- [View conformal interval coverage](outputs/tables/model_benchmark_conformal_coverage.csv)
-
-## Testing
-
-Unit tests cover leakage-safety in the feature/target helpers, the benchmark
-metric math and baselines, and cross-module config consistency:
-
-```bash
-pip install pytest
-python -m pytest tests/ -q
-```
-
-## Methodology And Model Interpretation
-
-The project includes two audit-style reports:
-
-- [Methodology checks](report/methodology_checks.md)
-- [Model interpretation](report/model_interpretation.md)
-
-The methodology checks verify core project assumptions: raw and processed data
-are not tracked, cleaned rows are unique at the intended level, value scores
-standardize correctly within season-position groups, prediction intervals are
-valid, and model features do not include next-season target columns.
-
-The model interpretation report summarizes permutation importance, compares
-pooled and position-specific models, and explains why the final prediction
-model is best used for tiering and screening rather than exact ranking.
-
-## Salary-Efficiency Deliverable
-
-The project now includes a first-pass salary-efficiency analysis using nflverse historical contract data from OverTheCap:
-
-- [View salary-efficiency results](outputs/tables/salary_efficiency_2016_2025.csv)
-- [View salary-efficiency merge diagnostics](outputs/tables/salary_efficiency_merge_diagnostics.csv)
-- [View salary efficiency by position](outputs/tables/salary_efficiency_by_position.csv)
-- [View top salary-efficient player-seasons](outputs/tables/salary_efficiency_top_players.csv)
-- [View lowest salary-efficiency player-seasons](outputs/tables/salary_efficiency_lowest_players.csv)
-- [Read the salary-efficiency summary](report/salary_efficiency_summary.md)
-- [Read the salary-efficiency findings](report/salary_efficiency_findings.md)
-- [View top salary surplus player-seasons](outputs/tables/salary_findings_top_surplus_players.csv)
-- [View team-season salary findings](outputs/tables/salary_findings_team_season.csv)
-
-This stage uses `inflated_apy` as an approximate annual contract-cost metric. It is not the same as exact season-level cap hit or cash paid, so the analysis is framed as contract efficiency rather than precise cap accounting.
-
-## Key Results
-
-- The 2026 report contains 505 player projections.
-- Rolling-validation RMSE for next-season value score is about 0.92.
-- Rolling-validation MAE is about 0.68.
-- Approximate central 80% prediction intervals covered about 83.9% of historical rolling-validation outcomes.
-- Position-level validation shows similar error for QBs, WRs, and TEs, with RBs slightly harder to predict.
-- The availability model has mean rolling-validation ROC AUC of about 0.79.
-- The salary-efficiency merge matched 4,569 of 4,753 value-score rows, a 96.1% match rate.
-- The first salary-efficiency model identifies value above expected salary after accounting for salary, position, age, experience, draft slot, and games played.
-- The salary findings sample includes 3,531 matched player-seasons with at least 8 games played.
-- The top team-season by total salary-efficiency surplus is 2018 Kansas City.
-- The methodology audit currently has 26 passing checks and no failing checks.
-- Position-specific models were tested; small gains for RB/WR do not clearly justify replacing the pooled model.
-
-Top projected 2026 player values in the current report:
-
-| Player | Pos | 2025 Team | Predicted 2026 Value | Approx. 80% Interval | Qualifying Probability |
-| --- | --- | --- | ---: | ---: | ---: |
-| Amon-Ra St. Brown | WR | DET | 2.35 | 1.02 to 3.67 | 94.9% |
-| George Kittle | TE | SF | 2.30 | 0.95 to 3.65 | 67.9% |
-| Josh Allen | QB | BUF | 2.07 | 0.67 to 3.48 | 92.4% |
-| Ja'Marr Chase | WR | CIN | 1.92 | 0.47 to 3.38 | 93.6% |
-| Puka Nacua | WR | LA | 1.63 | 0.20 to 3.06 | 95.7% |
-
-## Method Summary
-
-1. Load nflverse player stats, rosters, and schedules.
-2. Clean weekly player data into player-season data.
-3. Engineer EPA-based value scores by position and season.
-4. Explore value by position, age, experience, and production profile.
-5. Train models to predict next-season value.
-6. Generate a 2026 Excel prediction report using 2025 player-season inputs.
-7. Test contextual football features with rolling validation and permutation importance.
-8. Audit methodology checks and model interpretation diagnostics.
-9. Merge historical contract data and estimate salary efficiency.
-
-## Modeling Notes
-
-The 2026 report uses two modeling layers:
-
-- an enhanced-history value model that predicts next-season position-adjusted value score
-- an availability model that estimates whether a player will have a qualifying next-season row
-
-The value model uses current-season production plus multi-year history features such as prior value, rolling value averages, trend, and recent games played. The final model uses a depth-limited Random Forest selected with a simplicity-adjusted rolling-validation rule: when models were effectively tied, the simpler depth-limited version was preferred. The report also includes rolling-validation error by position so pooled-model performance can be checked for QBs, RBs, WRs, and TEs.
-
-Player value scores are rebuilt from the cleaned player-season-team data by collapsing multi-team stints before applying the minimum-games filter. This keeps traded-player seasons from being split into misleading partial samples.
-
-The 2026 report includes approximate central 80% prediction intervals and checks their rolling-validation coverage. These intervals are meant to make uncertainty visible; the model is better suited for tiering and screening than exact player ranking.
-
-This helps avoid hiding survivorship risk inside the value prediction. The report should be interpreted as a screening tool for deeper football analysis, not as a guarantee of future player performance.
-
-## Replacement-Level Salary Surplus (Front-Office Framing)
-
-The salary track now includes a replacement-level analysis layered on top of
-the existing efficiency residual. For each `(season, position)` we estimate a
-replacement-level cap cost (median of bottom-quartile salaries) and a
-replacement-level value, then express each player-season's surplus as dollars
-of above-replacement value minus the cap premium paid.
-
-- [View replacement-level baselines](outputs/tables/salary_findings_replacement_baselines.csv)
-- [View top replacement-level surplus player-seasons](outputs/tables/salary_findings_replacement_top_surplus.csv)
-- [View team-season totals](outputs/tables/salary_findings_replacement_team_season.csv)
-- [View by-position snapshot](outputs/tables/salary_findings_replacement_by_position.csv)
-
-Headline observations: Brock Purdy's 2023 season produced about $37M of
-above-replacement surplus on a rookie deal. Running back is the only position
-where the implicit market price of one z-unit of value is occasionally
-negative, consistent with the well-documented RB-market irrationality. Honesty
-caveat: the cost variable is still `inflated_apy`, not year-by-year cap hit;
-replacing that is Tier 1 item #3 of `PORTFOLIO_ROADMAP.md`.
-
-## External Benchmark vs DraftKings Closing-Line Implied (Live for 2020-2021)
-
-The weekly fantasy model is benchmarked head-to-head against DraftKings
-closing-line *implied* projections — the strongest free fantasy benchmark
-available. DK sets salaries pregame, and a per-(season, position) regression of
-actual PPR on DK salary recovers the salary→points conversion the market is
-using. The fitted value of that regression is the market's implied PPR
-projection for each player-week.
-
-- [Read the external benchmark report](report/external_benchmark.md)
-
-**Current result** (DK closing-line implied, 11,191 matched player-weeks across
-the 2020-2021 overlap with the model's rolling backtest):
-
-| Position | Model RMSE | DK RMSE | Skill |
+## Fantasy / DFS perspective
+
+> **Can we project weekly PPR fantasy points more accurately than the DraftKings betting market?**
+
+### The headline result
+
+**+1.6% RMSE skill score over DraftKings closing-line implied projections**, 11,191 player-weeks across 2020-2021:
+
+| Position | Model RMSE | DK-implied RMSE | Skill vs market |
 | --- | ---: | ---: | ---: |
-| QB | 7.695 | 7.842 | **+1.9%** |
-| RB | 6.586 | 6.707 | **+1.8%** |
-| WR | 6.438 | 6.553 | **+1.8%** |
-| TE | 5.102 | 5.137 | **+0.7%** |
-| **Overall** | **6.386** | **6.493** | **+1.6%** |
+| QB | 7.70 | 7.84 | **+1.9%** |
+| RB | 6.59 | 6.71 | **+1.8%** |
+| WR | 6.44 | 6.55 | **+1.8%** |
+| TE | 5.10 | 5.14 | **+0.7%** |
+| **Overall** | **6.39** | **6.49** | **+1.6%** |
 
-Public DFS analytics shops sell projections claiming a 1-3% edge over the DK
-salary line, so a calibrated +1.6% beat after honest rolling backtesting is
-inside that band. TE was the one negative result *until* snap share landed —
-the +0.7% post-snap-counts result confirms the prior deficit was a
-missing-feature issue, not a model-quality issue.
-
-**Temporal stability** (per-season skill vs the recent-4-avg internal
-baseline, across the full 2020-2025 rolling-validation window):
+**Temporal stability** (per-season skill vs the recent-4-avg internal baseline, full 2020-2025 window — covering years where DK data isn't free):
 
 | Season | n | Skill vs recent-4-avg |
 | --- | ---: | ---: |
@@ -512,225 +90,193 @@ baseline, across the full 2020-2025 rolling-validation window):
 | 2024 | 5,848 | +7.4% |
 | 2025 | 6,043 | +8.2% |
 
-DK coverage stops in 2021, so the table above uses an internal baseline to
-demonstrate that the +1.6% DK beat isn't a 2020-2021 fluke — the model
-produces a stable single-digit edge over the toughest internal baseline in
-every season. Extending the DK-style benchmark to 2022-2025 requires a paid
-source (Stokastic, FantasyData, or FantasyPros MVP archives); the
-multi-source loader at `src/external_benchmark.py` will pick up any
-additional `data/raw/external_projections*.csv` file automatically.
+Consistent single-digit edge across every season — the DK beat isn't a 2020-2021 fluke.
 
-Reproduce locally:
+### How the model works
+
+A pooled HistGradientBoosting regression on engineered pregame features: rolling production/usage (last-1, last-4, last-8, season-to-date PPR; targets, receptions, carries, passing attempts), Vegas market signals with position × market interactions, availability proxy from team-schedule × player-appearance crosscheck, opponent PPR-allowed-to-position, **snap share from nflverse**, and schedule context. Split-conformal 50% / 80% prediction intervals calibrated on held-out folds (empirical coverage 50.0% / 79.4%).
+
+### Supporting investigations
+
+The fantasy model rests on three methodology decisions documented as their own reports:
+
+- **Bayesian hierarchical rookie cold-start** — Solves the rookie-Week-1 problem the HGB cannot. Hierarchical Normal with partial pooling across positions, non-centered parameterization, calibrated posteriors. ([Rookie Bayes report](report/rookie_bayes_projection.md))
+- **Two-stage decomposition experiment** — Tested whether structurally-constrained `team_attempts × target_share × PPR_per_target` beats the pooled HGB. It doesn't. The per-stage diagnostic explains why: stage 1 (target share renormalized) is +34% over mean, stages 2 and 3 are noise. ([Two-stage weekly](report/two_stage_weekly.md))
+- **Causal investigation of QB injury as a feature** — Built a DiD to test whether QB-injury status is a usable leading feature. It isn't — the formal Out designation is a lagging indicator. ([Causal sessions 1 + 2](report/causal/))
+
+### Honest limitations
+
+- RotoGuru's free DK archive ends in 2021, so the head-to-head benchmark covers 2020-2021 only. Extending to 2022-2025 requires a paid source (documented in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md)).
+- Depth-chart rank is broken at the nflverse data level around 2024 (numeric rank field dropped).
+- Injury reports attach at 17.1% coverage (only injured players are reported by definition).
+
+## Methodology / research perspective
+
+> **What are the right modeling architectures for NFL player projection — and what do honest negative results teach us?**
+
+### Causal DiD: QB injury → WR PPR
+
+Two-session causal analysis testing the conventional-wisdom claim that QB injury causes WR PPR to crater.
+
+**Session 1**: identifies 213 QB-injury treatment events 2016-2025 from `injuries × player_stats × schedules`. Validates against hand-checked cases (Burrow 2023, Lawrence 2024, Wentz 2017). Builds matched-control panels using same-calendar-week receivers on stable-QB teams. Runs the parallel-trends check — **and finds a violation** (p ≈ 0.034 at offset -3).
+
+**Session 2**: implements pre-registered mitigations. Level matching fails (regression-to-the-mean widens the pretrend, p drops to 0.005). The event-study + 2×2 DiD on the unmatched panel — both estimators agree:
+
+| Estimator | Reference | ATT | p-value |
+| --- | --- | ---: | ---: |
+| Event-study pooled post-period | offset -1 | **+0.60 PPG** | 0.001 |
+| Simple 2×2 DiD | full pre-period avg | **+0.03 PPG** | 0.88 |
+
+Both null or *positive*. The pre-period coefficients (also significantly positive) revealed the mechanism: treated WRs hit their absolute low at offset -1, the week immediately before the formal QB switch. The Out designation is a lagging indicator, not a leading feature.
+
+This is the kind of finding that distinguishes a careful causal analysis from a regression-with-a-causal-interpretation. Hypothesis tested, parallel trends checked, mitigations attempted, null finding survived, mechanism named.
+
+### Four-decomposition finding
+
+Across four independent attempts in this project, **explicit multiplicative decompositions of player value have consistently lost to pooled tree-based models on engineered rolling features**:
+
+1. Season-level two-stage value (opportunity × efficiency × games) — lost to single model on RMSE
+2. Season-level position-specific HGB — lost to pooled HGB at every position
+3. Weekly position-specific HGB — lost to pooled HGB at every position
+4. Weekly WR/TE two-stage with structural constraint (target shares renormalized within team-week) — lost to pooled HGB by 7-8% even with shrinkage on the efficiency stage
+
+The cumulative evidence is a *finding*, not four separate anecdotes: for NFL fantasy and value projection, pooled tree-based models with engineered rolling features extract the relevant signals more efficiently than any explicit decomposition we've tried. Reports for each attempt include per-stage diagnostic detail explaining the mechanism. ([Season-level](report/two_stage_value.md) / [weekly WR/TE](report/two_stage_weekly.md))
+
+### Bayesian hierarchical methodology
+
+A hierarchical Normal regression on rookie-season PPR/game with partial pooling across positions on both intercept and slopes. Non-centered parameterization brought divergences from 22-32 down to 1. Posterior coverage at the 50% and 80% levels is close to nominal in every rookie class:
+
+| Rookie class | n | RMSE | 50% coverage | 80% coverage |
+| --- | ---: | ---: | ---: | ---: |
+| 2020 | 105 | 4.14 | 44.8% | 81.0% |
+| 2021 | 91 | 3.74 | 45.1% | 85.7% |
+| 2022 | 101 | 3.23 | 52.5% | 88.1% |
+| 2023 | 94 | 3.76 | 47.9% | 87.2% |
+| 2024 | 93 | 3.80 | 47.3% | 76.3% |
+| 2025 | 101 | 3.32 | 54.5% | 87.1% |
+
+PyMC has a numpy/pandas dependency conflict with the main project stack, so the sampling pass runs from a dedicated venv (`.venv-bayes`). See [`requirements-bayes.txt`](requirements-bayes.txt) and the [rookie Bayes report](report/rookie_bayes_projection.md).
+
+## Interactive dashboard
+
+The Streamlit dashboard surfaces all three perspectives:
 
 ```bash
-python scripts/fetch_rotoguru_salaries.py --years 2014-2021
-python scripts/build_external_projections_from_dk.py
-python scripts/run_pipeline.py --steps external_benchmark
+pip install -r requirements.txt
+streamlit run app/streamlit_app.py
 ```
 
-**Coverage gap**: RotoGuru's free DK archive ends in 2021. Extending the
-benchmark to 2022-2025 requires a paid source (Stokastic / FantasyData) or
-scraping FantasyPros archives. The scaffolding accepts any CSV at
-[`data/raw/external_projections.csv`](data/raw/external_projections.example.csv)
-matching the documented schema, so swapping in a richer source is purely a
-data-acquisition step. Sequenced in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
+Pages currently include front-office (value, salary, predictions, validation), fantasy (season-long, weekly with conformal intervals, model comparison), weekly win projections, and methodology / reports. A v2 rebuild is in progress to surface the newer methodology pieces (replacement-level surplus leaderboard, Bayesian rookie posteriors, causal QB-injury event study) — see [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md) for the plan.
 
-## nflverse Supplementary Signals (Live for Snap Counts)
+## Reproducing the pipeline
 
-The weekly fantasy model gracefully consumes nflverse supplementary feeds when
-they are present locally. Fetch them with:
+```bash
+pip install -r requirements.txt
+python scripts/run_pipeline.py
+```
+
+Pipeline steps run in dependency order: clean raw weekly data → rebuild value scores → rebuild value decomposition → rebuild 2026 prediction tables → rebuild salary efficiency → rebuild salary findings (including replacement-level surplus) → rebuild weekly fantasy projections → rebuild external benchmark → rebuild rookie modeling frame → rebuild two-stage weekly experiment → rebuild causal sessions 1+2 → rebuild weekly win projections → rebuild methodology checks → rebuild model interpretation → rebuild benchmark → rebuild season-level two-stage value.
+
+Selective runs:
+
+```bash
+python scripts/run_pipeline.py --steps weekly_fantasy,external_benchmark
+python scripts/run_pipeline.py --steps findings,causal_session2
+```
+
+Supplementary data fetches (run between pipeline calls when data goes stale):
 
 ```bash
 pip install nfl_data_py
 python scripts/fetch_nflverse_data.py --years 2016-2025
+python scripts/fetch_rotoguru_salaries.py --years 2014-2021
+python scripts/build_external_projections_from_dk.py
 ```
 
-That writes `data/raw/snap_counts_*.csv`, `data/raw/injuries_*.csv`, and
-`data/raw/depth_charts_*.csv`. The next pipeline run auto-detects them and adds
-the available features to the weekly model.
-
-**Honest reading of what each feed did:**
-
-- **Snap counts (live, 82.6% coverage)** — significant lift: external benchmark
-  went from +1.1% to +1.7% overall, with TE flipping from −0.4% to +0.7%. Snap
-  share is the highest-signal weekly fantasy feature for skill positions; the
-  join hops through the roster table to translate nflverse's `pfr_player_id`
-  to the project's `gsis_id`.
-- **Injury status (live, 17.1% coverage)** — only injured players are reported,
-  so coverage is structurally limited. Friday practice-status indicators are
-  attached but add marginal signal at best; rolling stats already capture most
-  of the same recency information.
-- **Depth chart rank (broken in this nflverse vintage)** — nflverse dropped the
-  numeric `list_rank` field around 2024 and the `depth_position` column carries
-  only a string position label. Deriving per-team-week rank requires brittle
-  sorting logic; the attach is left in place as a no-op and documented as a
-  schema-handling task in `PORTFOLIO_ROADMAP.md`.
-
-## Bayesian Rookie Projection (Live)
-
-[`src/rookie_bayes.py`](src/rookie_bayes.py) implements a hierarchical Bayesian
-model for projecting a rookie's PPR per game *before* they have played an NFL
-snap — the cold-start problem the HGB stack cannot solve. Partial-pooled
-across the four skill positions on intercept and slopes, non-centered
-parameterization for clean sampling, features for log draft pick, age at
-draft, height, weight, and an optional college-production score.
-
-- [Read the live report](report/rookie_bayes_projection.md)
-- [Browse the rookie modeling frame (2,265 player-seasons)](outputs/tables/rookie_modeling_frame.csv)
-- [View validation metrics](outputs/tables/rookie_bayes_validation_metrics.csv)
-- [View per-rookie posterior predictions](outputs/tables/rookie_bayes_validation_predictions.csv)
-- [Tests for the non-PyMC data-prep pieces](tests/test_rookie_bayes.py)
-
-**Live rolling-validation results** (PyMC 6.0.1, 2 chains × 1,000 draws,
-non-centered parameterization):
-
-| Rookie class | n | RMSE | MAE | 50% coverage | 80% coverage |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 2020 | 105 | 4.14 | 3.19 | 44.8% | 81.0% |
-| 2021 | 91 | 3.74 | 2.96 | 45.1% | 85.7% |
-| 2022 | 101 | 3.23 | 2.65 | 52.5% | 88.1% |
-| 2023 | 94 | 3.76 | 2.94 | 47.9% | 87.2% |
-| 2024 | 93 | 3.80 | 3.09 | 47.3% | 76.3% |
-| 2025 | 101 | 3.32 | 2.70 | 54.5% | 87.1% |
-
-PPR/game RMSE 3.2-4.1 across rookie classes (relative to a target with σ ≈ 5);
-50% and 80% posterior intervals hit close to nominal coverage. The slight
-positive bias is consistent with the training filter (≥4 games) being stricter
-than the test set.
-
-PyMC's ABI conflicts with the rest of the project's pins, so PyMC is imported
-inside `fit_rookie_model` only and the sampling step runs in a dedicated venv:
+PyMC rookie sampling (separate venv):
 
 ```bash
 python3.12 -m venv .venv-bayes
 .venv-bayes/bin/python -m pip install -r requirements-bayes.txt
-.venv-bayes/bin/python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"
+PYTHONPATH=. .venv-bayes/bin/python -c "from src.rookie_bayes import build_rookie_bayes_outputs; build_rookie_bayes_outputs()"
 ```
 
-This is the Tier 2 #4 piece in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
-Adding the college-production score (`scripts/fetch_college_production.py` is
-the stub) is the next refinement.
+## Project layout
 
-## Two-Stage WR/TE Decomposition — Negative Result With Diagnostic
+```
+src/
+  config.py / load_data.py / models.py    # shared infrastructure
+  clean_data.py / features.py             # data cleaning, feature engineering
+  prediction_report.py                    # 2026 Excel report
+  value_decomposition.py                  # efficiency × opportunity decomp
+  two_stage_value.py                      # season-level negative result
+  salary_efficiency.py                    # contract efficiency analysis
+  salary_findings.py                      # leaderboards + replacement-level
+  replacement_level.py                    # the front-office surplus framework
+  weekly_fantasy_projection.py            # weekly model + nflverse signals
+  external_benchmark.py                   # DK closing-line head-to-head
+  rookie_bayes.py                         # hierarchical Bayes for rookies
+  two_stage_weekly.py                     # WR/TE decomp experiment
+  causal/                                 # QB-injury DiD investigation
+  fantasy_projection.py                   # season-long fantasy
+  weekly_win_projection.py                # game-winner projection (draft)
+  methodology_checks.py                   # leakage + interval audit
+  model_benchmark.py                      # skill scores + conformal intervals
+  model_interpretation.py                 # permutation importance + position FE
+  context_features.py / feature_impact.py # context-feature audit
+  advanced_modeling.py                    # Optuna + SHAP + MLflow diagnostics
+  pipeline.py                             # orchestration
 
-Tier 2 #5 of [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md). Tests whether
-decomposing weekly WR/TE PPR into
-`team_pass_attempts × target_share × PPR_per_target` (with target shares
-renormalized within each team-week — the structural constraint) beats the
-pooled HGB on identical player-weeks. Built specifically because the
-project's prior three decomposition attempts all lost, and the roadmap's
-hypothesis was that explicit structural constraints would change that.
+scripts/
+  run_pipeline.py
+  fetch_nflverse_data.py
+  fetch_rotoguru_salaries.py
+  build_external_projections_from_dk.py
+  fetch_college_production.py             # cfbd-py stub
+  export_notebooks_to_markdown.py
+  prepare_notebooks_for_github.py
 
-- [Read the report](report/two_stage_weekly.md)
-- [Head-to-head table](outputs/tables/two_stage_weekly_method_summary.csv)
-- [By validation year](outputs/tables/two_stage_weekly_by_fold.csv)
-- [Per-stage quality diagnostic](outputs/tables/two_stage_weekly_per_stage_quality.csv)
+tests/
+  72 tests covering leakage safety, feature engineering, model benchmark
+  math, replacement-level, two-stage value, value decomposition, weekly
+  fantasy, two-stage weekly, rookie Bayes, and causal treatment ID.
 
-**Result**: both two-stage variants lose to pooled HGB in every fold. The
-diagnostic table tells the structural story:
+report/
+  final_project_report.md                 # full narrative
+  salary_efficiency_findings.md           # front-office headline
+  weekly_fantasy_projection_summary.md    # fantasy headline
+  external_benchmark.md                   # DK head-to-head
+  rookie_bayes_projection.md              # Bayesian methodology
+  two_stage_weekly.md                     # decomposition diagnostic
+  causal/qb_injury_session1.md            # causal foundation
+  causal/qb_injury_session2.md            # causal verdict
+  two_stage_value.md / value_decomposition.md / ...
+```
 
-| Method | RMSE | Skill vs pooled HGB |
-| --- | ---: | ---: |
-| Two-stage (full learned) | 6.41 | **-9.8%** |
-| Two-stage (stage 3 shrunk to position mean) | 6.28 | **-7.6%** |
-| Pooled HGB (WR/TE-only) | 5.84 | 0.0% |
-
-| Stage | Skill vs predict-the-mean |
-| --- | ---: |
-| Target share (renormalized) | **+34.3%** ← genuinely informative |
-| Team pass attempts | -3.2% ← noise |
-| PPR per target | -0.2% ← noise |
-
-The shrunk-stage-3 variant outperforming the full-learned variant by ~2
-points in every fold *confirms* the diagnosis: the unshrunk efficiency
-stage was actively adding error rather than information. The cumulative
-evidence across four decomposition attempts in this project is now a real
-finding — tree-based pooled models on engineered rolling features extract
-team-attempts and per-target-efficiency signals more efficiently than any
-explicit multiplicative decomposition. The actionable next bet is not
-another decomposition variant; it is better features (depth-chart rank,
-snap projection) or a different pooled model class (quantile gradient
-boosting for proper per-prediction intervals).
-
-## Causal Analysis: QB Injury → WR PPR (Session 1)
-
-Tier 2 #6 of [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md). Multi-session
-causal analysis of *how much PPR a WR loses when their starting QB goes down
-to injury*. Session 1 is the data-engineering foundation and the parallel-
-trends check — the assumption that has to hold before a DiD estimate is
-worth running.
-
-- [Read the session 1 report](report/causal/qb_injury_session1.md)
-- [Treatment events (213 across 10 seasons)](outputs/tables/causal_qb_injury_treatment_events.csv)
-- [Affected receivers per event](outputs/tables/causal_qb_injury_affected_receivers.csv)
-- [Treated + control panel](outputs/tables/causal_qb_injury_panel.csv)
-- [Parallel-trends plot](outputs/figures/causal_qb_injury_parallel_trends.png)
-- [Pretrend interaction coefficients](outputs/tables/causal_qb_injury_pretrend_coefficients.csv)
-
-**Result**: 213 QB-injury treatment events identified across 2016-2025 (~21
-per season), with ~3 affected WRs each. Burrow → Browning 2023, Lawrence →
-Mac Jones 2024, and other textbook injury transitions are captured (pinned
-by tests).
-
-**Parallel trends DO NOT cleanly hold**, and that is exactly what session 1
-is designed to surface. Treated WRs were on a declining PPR trajectory
-(~1 PPG drop over the 4-week pre-period) while controls were flat. The
-interaction coefficient at week -3 vs week -1 is statistically distinguishable
-from zero (p ≈ 0.034). The likely cause is endogenous timing: QBs are
-typically formally ruled Out only after several weeks of playing through a
-developing injury, so the offense was already declining before the formal
-"treatment" event.
-
-A naive DiD on this panel would overstate the causal effect. Session 2
-implemented the two pre-registered mitigations, ran the estimators, and
-delivered the honest verdict.
-
-### Session 2: estimation and verdict
-
-[Read session 2 here](report/causal/qb_injury_session2.md). Two estimators
-on the same panel give complementary answers depending on the reference
-period:
-
-| Estimator | Reference | ATT (PPG) | p-value |
-| --- | --- | ---: | ---: |
-| Event-study pooled post-period | offset -1 (immediate pre-injury) | **+0.60** | 0.001 |
-| Simple 2×2 DiD | full pre-period average | **+0.03** | 0.88 |
-
-**Both estimates point to the same finding: the formal "QB ruled Out"
-designation does not cause a measurable drop in WR PPR.** This is the
-opposite of the conventional "QB1 goes down, WR1 craters" narrative.
-
-Why? The pre-period coefficients (significantly positive in the event
-study) reveal the mechanism: treated WRs hit their absolute low at offset
--1, the week *immediately before* the formal QB switch. They had been
-declining for weeks before the QB was officially ruled Out — consistent
-with the QB playing through a developing injury while production drops
-in real time. The formal Out designation is a *lagging indicator* of QB
-health, not the start of the causal damage. After the backup takes over,
-WR production stabilizes or slightly recovers.
-
-The level-matching mitigation actually *failed* on its own — restricting
-controls to similar-baseline WRs introduced regression-to-the-mean bias
-that widened the pretrend gap, not narrowed it. The honest finding survives
-this mitigation failure because both the matched and unmatched estimators
-agree on the result.
-
-The follow-up causal question worth asking — and the session 3 build —
-is to use the *first week a QB appears on the injury report* (even as
-Questionable) as the treatment moment, not the first week he was Out.
-That shifts the analysis to capture the actual causal decline rather
-than the lagging formal designation.
+## Testing
 
 ```bash
-python scripts/run_pipeline.py --steps causal_session1,causal_session2
+pip install pytest
+python -m pytest tests/ -q
 ```
 
-## Limitations
+72/72 tests passing. Coverage spans leakage-safety in feature engineering, benchmark math, replacement-level surplus, two-stage value math, value-decomposition arithmetic, weekly-fantasy structural invariants, rookie-Bayesian data prep, and causal treatment identification (including hand-checked Burrow / Lawrence / Wentz cases).
 
-EPA-based value captures production, not pure individual talent. It does not fully isolate scheme, offensive line quality, teammate effects, injuries, depth-chart changes, coaching changes, or future roster movement. Tight ends are especially affected because blocking value is not fully represented in the current data.
+## Limitations and honest gaps
 
-Raw and processed data files are intentionally excluded from GitHub. The salary-efficiency outputs are committed, but the raw contract file is local and can be regenerated from the nflverse historical contracts release.
+- **Salary track uses APY, not year-by-year cap hit.** Real cap analysts will treat this as contract efficiency. True cap-hit data (OTC premium or reconstruction from contract terms) is the next acquisition.
+- **DK benchmark coverage stops in 2021.** RotoGuru's free archive doesn't go later. Extending requires a paid source.
+- **No depth-chart rank.** nflverse dropped the numeric `list_rank` field around 2024. Deriving rank from row-order is the next feature-engineering target.
+- **Injury attach at 17% coverage.** Only injured players are reported. The QB-injury causal study handles this carefully; the headline fantasy model uses injury indicators with caution.
+- **Streamlit dashboard is currently a draft layer.** It surfaces the older modules but hasn't kept pace with replacement-level surplus, Bayesian rookie projections, the causal QB-injury findings, or the two-stage weekly experiment. A full rebuild is the next infrastructure investment — see [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
+- **No causal session 3.** The session 1+2 finding (QB Out is a lagging indicator) implies the *real* causal moment is the first week of injury-report appearance. Re-running the DiD on that treatment definition is the open follow-up.
 
-## Next Phase
+## Next phase
 
-The next improvement is to replace approximate contract APY with true season-level cap hit or cash paid. That would make the salary-efficiency results more precise and would allow a stronger team-level cap allocation analysis.
+Three concrete moves, in priority order:
+
+1. **Full Streamlit dashboard rebuild** to surface all three perspectives — the v2 plan replaces the current draft layer.
+2. **Causal session 3** — re-identify treatment as first-injury-report-appearance (not formal Out). Reuses all session-1/2 infrastructure.
+3. **Real cap hit replacing APY** in the salary track — unblocks audit-grade front-office findings.
+
+The full multi-session roadmap (including Tier 3 specializations) lives in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
