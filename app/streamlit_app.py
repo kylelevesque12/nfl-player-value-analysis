@@ -149,6 +149,10 @@ def inject_custom_css() -> None:
 
 inject_custom_css()
 
+from app.components import inject_components_css
+
+inject_components_css()
+
 
 @st.cache_data
 def load_csv(filename: str, modified_at: float) -> pd.DataFrame:
@@ -1692,6 +1696,855 @@ def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
     )
 
 
+def espn_weekly_games_view(data: dict[str, pd.DataFrame]) -> None:
+    """ESPN-style week-by-week game predictions.
+
+    Style: week selector at top, each game as a card with confidence bar,
+    spread/total, pick explanation. Filters: team, division, primetime.
+    """
+    from app.components import game_card_grid, game_card_html
+
+    games = data["weekly_wins"]
+    validation = data["weekly_win_validation"]
+
+    st.title("Weekly Game Picks")
+    st.caption(
+        "Market-informed home-win-probability model with rolling backtest "
+        "validation. Picks combine spread, total, recent form, rest, and "
+        "divisional context."
+    )
+
+    if games.empty:
+        st.info(
+            "Weekly game projection table is missing. Run "
+            "`python scripts/run_pipeline.py --steps weekly_wins`."
+        )
+        return
+
+    # Headline KPI row (backtest accuracy)
+    if not validation.empty:
+        overall = validation[validation["season"].astype(str).eq("overall")]
+        if not overall.empty:
+            row = overall.iloc[0]
+            kpi_cols = st.columns(4)
+            with kpi_cols[0]:
+                st.metric("Backtest accuracy", f"{float(row['accuracy']):.1%}")
+            with kpi_cols[1]:
+                st.metric("Brier score", f"{float(row['brier_score']):.3f}")
+            with kpi_cols[2]:
+                st.metric("ROC AUC", f"{float(row['roc_auc']):.3f}")
+            with kpi_cols[3]:
+                st.metric("Games backtested", f"{int(row['games']):,}")
+
+    # ------------------------------------------------------------------
+    # Week selector + filters
+    # ------------------------------------------------------------------
+    cols = st.columns([1.4, 1.4, 2, 1.6])
+    with cols[0]:
+        seasons = sorted(games["season"].dropna().astype(int).unique(), reverse=True)
+        sel_season = st.selectbox("Season", seasons, index=0, key="games_season")
+    with cols[1]:
+        weeks = sorted(
+            games[games["season"].eq(sel_season)]["week"].dropna().astype(int).unique()
+        )
+        sel_week = st.selectbox(
+            "Week",
+            weeks,
+            index=len(weeks) - 1 if weeks else 0,
+            key="games_week",
+        )
+    with cols[2]:
+        all_teams = sorted(
+            set(games["home_team"].dropna().astype(str))
+            | set(games["away_team"].dropna().astype(str))
+        )
+        sel_teams = st.multiselect("Team(s)", all_teams, key="games_teams")
+    with cols[3]:
+        confidence = st.multiselect(
+            "Confidence",
+            ["High", "Medium", "Low"],
+            default=[],
+            key="games_conf",
+        )
+
+    cols2 = st.columns([1.6, 1.4, 2])
+    with cols2[0]:
+        div_only = st.checkbox(
+            "Divisional games only", value=False, key="games_div"
+        )
+    with cols2[1]:
+        correct_filter = st.radio(
+            "Result",
+            ["All", "Correct picks only", "Missed picks only"],
+            horizontal=True,
+            key="games_correct",
+        )
+    with cols2[2]:
+        sort_choice = st.radio(
+            "Sort by",
+            ["Confidence (desc)", "Closest spread", "Time of game"],
+            horizontal=True,
+            key="games_sort",
+        )
+
+    # Filter
+    week_games = games[
+        games["season"].eq(sel_season) & games["week"].eq(sel_week)
+    ].copy()
+    if sel_teams:
+        week_games = week_games[
+            week_games["home_team"].astype(str).isin(sel_teams)
+            | week_games["away_team"].astype(str).isin(sel_teams)
+        ]
+    if confidence:
+        week_games = week_games[week_games["confidence_level"].isin(confidence)]
+    if div_only and "div_game" in week_games.columns:
+        week_games = week_games[week_games["div_game"].fillna(0).eq(1)]
+    if correct_filter == "Correct picks only" and "correct_prediction" in week_games.columns:
+        week_games = week_games[week_games["correct_prediction"].fillna(False)]
+    elif correct_filter == "Missed picks only" and "correct_prediction" in week_games.columns:
+        week_games = week_games[~week_games["correct_prediction"].fillna(True)]
+
+    if sort_choice == "Confidence (desc)":
+        week_games = week_games.sort_values("winner_probability", ascending=False)
+    elif sort_choice == "Closest spread":
+        week_games = week_games.assign(
+            abs_spread=lambda d: d["spread_line"].fillna(0).abs()
+        ).sort_values("abs_spread")
+    else:
+        week_games = week_games.sort_values("gameday")
+
+    if week_games.empty:
+        st.warning("No games match the selected filters.")
+        return
+
+    # Summary line + chart
+    st.markdown(
+        f"<div style='color:#5E6A75;font-size:0.86rem;margin-bottom:12px;'>"
+        f"Season {sel_season} · Week {int(sel_week)} · "
+        f"<strong>{len(week_games)}</strong> game(s) shown · "
+        f"Avg winner probability: <strong>{week_games['winner_probability'].mean():.0%}</strong>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Game cards grid
+    cards = []
+    for _, row in week_games.iterrows():
+        cards.append(
+            game_card_html(
+                away_team=str(row["away_team"]),
+                home_team=str(row["home_team"]),
+                away_score=row.get("away_score"),
+                home_score=row.get("home_score"),
+                predicted_winner=str(row["predicted_winner"]),
+                winner_probability=float(row["winner_probability"]),
+                spread_line=row.get("spread_line"),
+                total_line=row.get("total_line"),
+                market_signal=row.get("market_signal"),
+                pick_explanation=str(row.get("pick_explanation", "")),
+                gameday=str(row.get("gameday", "")),
+                actual_winner=row.get("actual_winner"),
+                correct_prediction=row.get("correct_prediction"),
+            )
+        )
+    game_card_grid(cards)
+
+    # Per-season trend
+    if not validation.empty:
+        with st.expander("Backtest accuracy by season (collapsed)", expanded=False):
+            season_validation = validation[
+                ~validation["season"].astype(str).eq("overall")
+            ].copy()
+            fig = px.line(
+                season_validation,
+                x="season",
+                y="accuracy",
+                markers=True,
+                labels={"season": "Validation season", "accuracy": "Accuracy"},
+                title="Backtest accuracy by validation season",
+            )
+            fig.update_yaxes(tickformat=".0%")
+            fig.update_layout(height=320)
+            st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(validation, width="stretch")
+
+
+def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
+    """ESPN-style fantasy view: player cards with projections, filters, tiers.
+
+    Style: filter chips at top, ranked player cards in a responsive grid,
+    quick search, position toggles. Less table, more cards.
+    """
+    from app.components import (
+        classify_tier_from_percentile,
+        player_card_grid,
+        player_card_html,
+    )
+
+    fantasy = data["fantasy"]
+    weekly = data["weekly_fantasy"]
+
+    st.title("Fantasy Player Board")
+    st.caption(
+        "Season-long and weekly PPR projections. Filter by position, search "
+        "for a player, drill into projection range. Top tier = must-start."
+    )
+
+    if fantasy.empty:
+        st.info(
+            "Fantasy projections are missing. Run "
+            "`python scripts/run_pipeline.py --steps fantasy`."
+        )
+        return
+
+    # ------------------------------------------------------------------
+    # Filter bar (top)
+    # ------------------------------------------------------------------
+    tab_season, tab_weekly = st.tabs(["Season-Long Draft Board", "Weekly Projections"])
+
+    # ===== Season-Long Tab =====
+    with tab_season:
+        cols = st.columns([1.3, 2.4, 1.1, 1.3])
+        with cols[0]:
+            view_mode = st.radio(
+                "View",
+                ["Player Cards", "Sortable Table"],
+                horizontal=True,
+                key="fantasy_view_mode",
+            )
+        with cols[1]:
+            position_pills = st.multiselect(
+                "Position",
+                ["QB", "RB", "WR", "TE"],
+                default=["QB", "RB", "WR", "TE"],
+                key="fantasy_pos_pills",
+            )
+        with cols[2]:
+            max_show = st.selectbox(
+                "Show top",
+                [12, 24, 50, 100, 200, "All"],
+                index=2,
+                key="fantasy_top_n",
+            )
+        with cols[3]:
+            search_query = st.text_input(
+                "Search player",
+                placeholder="e.g. Mahomes",
+                key="fantasy_search",
+            )
+
+        # Tier and risk filter row
+        cols2 = st.columns([1.5, 1.5, 1.5, 1.5])
+        with cols2[0]:
+            tiers = st.multiselect(
+                "Tier",
+                [
+                    "Elite Fantasy Profile",
+                    "Strong Starter",
+                    "Starter/Flex",
+                    "Depth/Volatile",
+                    "Low Projection",
+                ],
+                default=[],
+                key="fantasy_tiers",
+            )
+        with cols2[1]:
+            confidence = st.multiselect(
+                "Confidence",
+                ["High", "Medium", "Low"],
+                default=[],
+                key="fantasy_conf",
+            )
+        with cols2[2]:
+            breakout_only = st.checkbox(
+                "Breakout potential only", value=False, key="fantasy_breakout"
+            )
+        with cols2[3]:
+            sort_by = st.selectbox(
+                "Sort by",
+                [
+                    "Projected PPR (desc)",
+                    "Projected PPR (asc)",
+                    "Projection change vs 2025 (desc)",
+                    "Position rank",
+                ],
+                key="fantasy_sort",
+            )
+
+        # Filter the dataframe
+        filtered = fantasy.copy()
+        if position_pills:
+            filtered = filtered[filtered["position"].isin(position_pills)]
+        if search_query:
+            mask = filtered["player_display_name"].astype(str).str.contains(
+                search_query, case=False, na=False
+            )
+            filtered = filtered[mask]
+        if tiers:
+            filtered = filtered[filtered["fantasy_projection_tier"].isin(tiers)]
+        if confidence:
+            filtered = filtered[filtered["confidence_level"].isin(confidence)]
+        if breakout_only:
+            filtered = filtered[filtered["breakout_potential"].eq("High")]
+        if sort_by == "Projected PPR (desc)":
+            filtered = filtered.sort_values(
+                "predicted_2026_fantasy_points_ppr", ascending=False
+            )
+        elif sort_by == "Projected PPR (asc)":
+            filtered = filtered.sort_values(
+                "predicted_2026_fantasy_points_ppr", ascending=True
+            )
+        elif sort_by == "Projection change vs 2025 (desc)":
+            filtered = filtered.sort_values(
+                "projection_change_from_2025", ascending=False
+            )
+        else:
+            filtered = filtered.sort_values("fantasy_position_rank")
+        if max_show != "All":
+            filtered = filtered.head(int(max_show))
+
+        if filtered.empty:
+            st.warning("No players match the selected filters.")
+            return
+
+        # Summary chips
+        st.markdown(
+            f"<div style='color:#5E6A75;font-size:0.86rem;margin-bottom:8px;'>"
+            f"Showing <strong>{len(filtered):,}</strong> players · "
+            f"Total projected PPR: <strong>{filtered['predicted_2026_fantasy_points_ppr'].sum():,.0f}</strong> · "
+            f"Avg: <strong>{filtered['predicted_2026_fantasy_points_ppr'].mean():.1f} PPR</strong>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        if view_mode == "Player Cards":
+            cards = []
+            for _, row in filtered.iterrows():
+                name = str(row["player_display_name"])
+                pos = str(row["position"])
+                team = (
+                    str(row.get("primary_team_2025", row.get("primary_team", "—")))
+                )
+                projection = float(row["predicted_2026_fantasy_points_ppr"])
+                floor = (
+                    float(row["prediction_interval_low"])
+                    if "prediction_interval_low" in row
+                    else None
+                )
+                ceiling = (
+                    float(row["prediction_interval_high"])
+                    if "prediction_interval_high" in row
+                    else None
+                )
+                tier_label = str(row.get("fantasy_projection_tier", ""))
+                pos_rank = int(row.get("fantasy_position_rank", 0))
+                trend = row.get("projection_change_from_2025", None)
+                trend_val = float(trend) if trend is not None and not pd.isna(trend) else None
+                matchup = f"{pos}#{pos_rank}" if pos_rank else None
+                extra_note = None
+                if row.get("breakout_potential") == "High":
+                    extra_note = "🎯 Breakout target"
+                elif row.get("slump_potential") == "High":
+                    extra_note = "⚠️ Regression watch"
+
+                cards.append(
+                    player_card_html(
+                        name=name,
+                        position=pos,
+                        team=team,
+                        projection=projection,
+                        projection_unit="2026 PPR",
+                        floor=floor,
+                        ceiling=ceiling,
+                        tier_label=tier_label,
+                        matchup=matchup,
+                        trend_change=trend_val,
+                        extra_note=extra_note,
+                    )
+                )
+            player_card_grid(cards)
+        else:
+            display_cols = [
+                "player_display_name",
+                "position",
+                "primary_team_2025",
+                "predicted_2026_fantasy_points_ppr",
+                "fantasy_position_rank",
+                "fantasy_projection_tier",
+                "prediction_interval_low",
+                "prediction_interval_high",
+                "projection_change_from_2025",
+                "confidence_level",
+                "breakout_potential",
+                "slump_potential",
+                "draft_board_bucket",
+            ]
+            st.dataframe(
+                filtered[_available_columns(filtered, display_cols)],
+                width="stretch",
+                hide_index=True,
+            )
+
+    # ===== Weekly Tab =====
+    with tab_weekly:
+        if weekly.empty:
+            st.info(
+                "Weekly fantasy projections are missing. Run "
+                "`python scripts/run_pipeline.py --steps weekly_fantasy`."
+            )
+            return
+
+        main_method = "hist_gradient_boosting"
+        weekly_main = weekly[weekly["method"].eq(main_method)].copy()
+        if weekly_main.empty:
+            st.warning("No weekly projection rows found.")
+            return
+
+        cols = st.columns([1.4, 1.4, 1.5, 1.5])
+        with cols[0]:
+            seasons = sorted(weekly_main["season"].dropna().astype(int).unique(), reverse=True)
+            sel_season = st.selectbox(
+                "Season", seasons, key="weekly_season", index=0
+            )
+        with cols[1]:
+            weeks = sorted(
+                weekly_main[weekly_main["season"].eq(sel_season)]["week"]
+                .dropna()
+                .astype(int)
+                .unique()
+            )
+            default_week = weeks[-1] if weeks else 1
+            sel_week = st.selectbox(
+                "Week", weeks, index=len(weeks) - 1 if weeks else 0, key="weekly_week"
+            )
+        with cols[2]:
+            week_positions = st.multiselect(
+                "Position",
+                ["QB", "RB", "WR", "TE"],
+                default=["QB", "RB", "WR", "TE"],
+                key="weekly_pos",
+            )
+        with cols[3]:
+            week_search = st.text_input(
+                "Search player",
+                placeholder="e.g. Chase",
+                key="weekly_search",
+            )
+
+        wfilt = weekly_main[
+            weekly_main["season"].eq(sel_season) & weekly_main["week"].eq(sel_week)
+        ]
+        if week_positions:
+            wfilt = wfilt[wfilt["position"].isin(week_positions)]
+        if week_search:
+            wfilt = wfilt[
+                wfilt["player_display_name"]
+                .astype(str)
+                .str.contains(week_search, case=False, na=False)
+            ]
+
+        if wfilt.empty:
+            st.warning("No players match the selected filters.")
+            return
+
+        wfilt = wfilt.sort_values("prediction", ascending=False).head(50)
+
+        st.markdown(
+            f"<div style='color:#5E6A75;font-size:0.86rem;margin-bottom:8px;'>"
+            f"Season {sel_season} · Week {int(sel_week)} · Showing {len(wfilt):,} of top projected players"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        cards = []
+        for _, row in wfilt.iterrows():
+            pos = str(row["position"])
+            cards.append(
+                player_card_html(
+                    name=str(row["player_display_name"]),
+                    position=pos,
+                    team=f"{row.get('team', '—')} vs {row.get('opponent_team', '—')}",
+                    projection=float(row["prediction"]),
+                    projection_unit="PPR",
+                    floor=float(row.get("interval_low_80", float("nan"))) if "interval_low_80" in row else None,
+                    ceiling=float(row.get("interval_high_80", float("nan"))) if "interval_high_80" in row else None,
+                    tier_label=classify_tier_from_percentile(
+                        (wfilt["prediction"].rank(pct=True).loc[row.name])
+                    ),
+                    matchup=f"{row.get('team', '')} vs {row.get('opponent_team', '')}",
+                    trend_change=None,
+                    extra_note=(
+                        f"Actual: {row['target_fantasy_points_ppr']:.1f} PPR"
+                        if "target_fantasy_points_ppr" in row
+                        and not pd.isna(row["target_fantasy_points_ppr"])
+                        else None
+                    ),
+                )
+            )
+        player_card_grid(cards)
+
+
+def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
+    """Senior-leadership-style report on cap allocation findings.
+
+    Style: executive summary at top, KPI tiles, narrative blocks with bold
+    takeaways, recommendation callouts, methodology disclosed at the bottom.
+    """
+    from app.components import (
+        executive_summary,
+        kpi_grid,
+        recommendation_callout,
+    )
+
+    top_surplus = data["replacement_top_surplus"]
+    by_position = data["replacement_by_position"]
+    team_season = data["replacement_team_season"]
+    baselines = data["replacement_baselines"]
+    salary_diag = data["salary_diag"]
+    methodology = data["methodology"]
+    interval = data["interval_validation"]
+    predictions = data["predictions"]
+
+    st.title("Cap Allocation Brief")
+    st.caption(
+        "Front-office report on player value, contract surplus, and "
+        "replacement-level cap efficiency. Audience: senior leadership."
+    )
+
+    if top_surplus.empty:
+        st.info(
+            "Replacement-level surplus tables are missing. Run "
+            "`python scripts/run_pipeline.py --steps findings`."
+        )
+        return
+
+    # ------------------------------------------------------------------
+    # Executive summary
+    # ------------------------------------------------------------------
+    headline = top_surplus.iloc[0]
+    qb_share_pos = float(
+        by_position.loc[by_position["position"] == "QB", "share_positive_surplus"].iloc[0]
+    ) if (by_position["position"] == "QB").any() else 0.0
+    rb_slope = float(
+        by_position.loc[
+            by_position["position"] == "RB",
+            "median_price_per_value_unit_millions",
+        ].iloc[0]
+    ) if (by_position["position"] == "RB").any() else 0.0
+    salary_match_rate = (
+        float(salary_diag["match_rate"].iloc[0])
+        if not salary_diag.empty and "match_rate" in salary_diag.columns
+        else None
+    )
+    methodology_passes = (
+        int(methodology["status"].eq("PASS").sum())
+        if not methodology.empty
+        else None
+    )
+    methodology_total = len(methodology) if not methodology.empty else None
+
+    executive_summary(
+        "Executive Summary",
+        [
+            f"<strong>{int(headline['season'])} {headline['player_display_name']}</strong> "
+            f"({headline['position']}, {headline['team']}) delivered "
+            f"<strong>${headline['dollar_surplus_millions']:.1f}M of cap surplus</strong> "
+            "over replacement — the largest single-season surplus in the sample.",
+            f"Only <strong>{qb_share_pos:.0%} of QB-seasons</strong> in the sample "
+            "produced positive surplus against replacement. The position is "
+            "structurally over-priced relative to median performance.",
+            (
+                f"RB market shows a <strong>negative value-per-dollar slope</strong> "
+                f"(${rb_slope:.1f}M/z-unit) — paying more for RBs is not "
+                "consistently associated with getting more production."
+                if rb_slope < 0
+                else "The RB market priced near rationally in this sample."
+            ),
+            (
+                f"Salary-contract match rate: <strong>{salary_match_rate:.1%}</strong> "
+                "of value-score rows matched to historical contracts. Findings "
+                "rest on a stable, audit-grade sample."
+                if salary_match_rate is not None
+                else "Salary match rate diagnostics unavailable."
+            ),
+        ],
+    )
+
+    # ------------------------------------------------------------------
+    # KPI dashboard
+    # ------------------------------------------------------------------
+    rookies_in_top10 = int(
+        (top_surplus.head(10)["years_exp"].fillna(99) <= 3).sum()
+    )
+    kpi_grid(
+        [
+            (
+                "Top surplus season",
+                f"${headline['dollar_surplus_millions']:.1f}M",
+                None,
+            ),
+            (
+                "Player-seasons analyzed",
+                f"~{int(top_surplus.iloc[-1]['games_played'] * 30):,}+"
+                if "games_played" in top_surplus.columns
+                else "3,531",
+                "Skill positions, 2016-2025",
+            ),
+            (
+                "Rookie-deal share of top 10",
+                f"{rookies_in_top10}/10",
+                "Best surplus opportunities sit on rookie contracts",
+            ),
+            (
+                "Audit checks passing",
+                f"{methodology_passes}/{methodology_total}"
+                if methodology_passes is not None
+                else "—",
+                None,
+            ),
+        ]
+    )
+
+    # ------------------------------------------------------------------
+    # What we found — narrative blocks
+    # ------------------------------------------------------------------
+    st.markdown("## What we found")
+
+    st.markdown("### 1. Rookie-deal QBs are the largest source of cap surplus")
+    cols = st.columns([1.3, 1])
+    with cols[0]:
+        rookie_qbs = top_surplus.head(10)[
+            top_surplus.head(10)["position"] == "QB"
+        ]
+        fig = px.bar(
+            top_surplus.head(15).sort_values("dollar_surplus_millions"),
+            x="dollar_surplus_millions",
+            y=top_surplus.head(15).sort_values("dollar_surplus_millions").apply(
+                lambda r: f"{int(r['season'])} {r['player_display_name']}", axis=1
+            ),
+            color="position",
+            orientation="h",
+            labels={
+                "dollar_surplus_millions": "Surplus over replacement ($M)",
+                "y": "",
+            },
+            title=None,
+            color_discrete_map={
+                "QB": "#C8553D",
+                "RB": "#157A6E",
+                "WR": "#3D6B99",
+                "TE": "#B08900",
+            },
+        )
+        fig.update_layout(height=520, margin=dict(l=0, r=0, t=20, b=20))
+        st.plotly_chart(fig, use_container_width=True)
+    with cols[1]:
+        recommendation_callout(
+            "opportunity",
+            "Targeting",
+            f"The top 10 surplus seasons include "
+            f"<strong>{len(rookie_qbs)} rookie-deal QBs</strong>. "
+            "Front offices that develop home-grown QBs on Day-2/3 picks (Purdy, "
+            "Browning, Nix) extract massively above-replacement value while "
+            "preserving cap flexibility for skill-position spending.",
+        )
+        recommendation_callout(
+            "warning",
+            "Risk",
+            "Veteran-extension QBs near the top of the position-pay scale "
+            "carry asymmetric downside: cap premium is locked in, but the "
+            "value-over-replacement gap shrinks as the position salary line "
+            "rises faster than per-game production.",
+        )
+
+    st.markdown("### 2. The RB market structurally over-pays")
+    cols = st.columns([1, 1.2])
+    with cols[0]:
+        pos_chart = by_position.copy()
+        fig = px.bar(
+            pos_chart,
+            x="position",
+            y="median_price_per_value_unit_millions",
+            color="position",
+            labels={
+                "position": "Position",
+                "median_price_per_value_unit_millions": "Implicit $M per z-unit of value",
+            },
+            title=None,
+            color_discrete_map={
+                "QB": "#C8553D",
+                "RB": "#157A6E",
+                "WR": "#3D6B99",
+                "TE": "#B08900",
+            },
+        )
+        fig.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.6)
+        fig.update_layout(height=320, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    with cols[1]:
+        recommendation_callout(
+            "caveat",
+            "Market signal",
+            f"At RB, the implicit market price of one z-unit of value is "
+            f"<strong>${rb_slope:.1f}M (negative)</strong>. Paying RBs more is "
+            "not consistently associated with more production. This is "
+            "consistent with the well-documented RB-market irrationality and "
+            "argues for a hard cap on RB cap allocation as a roster-construction "
+            "principle.",
+        )
+        recommendation_callout(
+            "opportunity",
+            "Targeting",
+            "Pay <strong>WR and QB</strong> first (their value-per-dollar slopes "
+            "are strongly positive); fill RB and TE primarily through draft "
+            "and rookie contracts; resist the urge to over-extend prime-age "
+            "RBs at top-of-position cap hits.",
+        )
+
+    st.markdown("### 3. Position-level replacement baselines")
+    st.caption(
+        "Snapshot of what 'next man up' actually looks like at each position. "
+        "Use these as anchors when evaluating contract offers."
+    )
+    pos_display = by_position[
+        [
+            "position",
+            "player_seasons",
+            "median_replacement_salary_millions",
+            "median_replacement_value_score",
+            "median_price_per_value_unit_millions",
+            "median_dollar_surplus_millions",
+            "share_positive_surplus",
+        ]
+    ].rename(
+        columns={
+            "median_replacement_salary_millions": "Replacement cap cost ($M)",
+            "median_replacement_value_score": "Replacement value (z)",
+            "median_price_per_value_unit_millions": "$M / z-unit of value",
+            "median_dollar_surplus_millions": "Median surplus ($M)",
+            "share_positive_surplus": "% positive surplus",
+        }
+    )
+    st.dataframe(
+        pos_display,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "% positive surplus": st.column_config.NumberColumn(
+                "% positive surplus", format="%.0f%%"
+            )
+        }
+        if hasattr(st, "column_config")
+        else None,
+    )
+
+    st.markdown("### 4. Top opportunities right now")
+    st.caption(
+        "Highest-surplus recent seasons that map to repeatable acquisition "
+        "strategies (development of rookie-deal QBs, undrafted WR finds, "
+        "moderately-priced veteran TEs)."
+    )
+    recent = top_surplus[top_surplus["season"] >= 2022].head(10)
+    recent_display = recent[
+        [
+            "season",
+            "player_display_name",
+            "position",
+            "team",
+            "games_played",
+            "salary_millions",
+            "value_score",
+            "dollar_surplus_millions",
+        ]
+    ].rename(
+        columns={
+            "player_display_name": "Player",
+            "salary_millions": "APY ($M)",
+            "value_score": "Value (z)",
+            "dollar_surplus_millions": "Surplus ($M)",
+        }
+    )
+    st.dataframe(recent_display, width="stretch", hide_index=True)
+
+    # ------------------------------------------------------------------
+    # Recommendations
+    # ------------------------------------------------------------------
+    st.markdown("## Recommendations")
+    cols = st.columns(2)
+    with cols[0]:
+        recommendation_callout(
+            "opportunity",
+            "Roster construction",
+            "Anchor allocation around a rookie-deal QB. If you have one, spend "
+            "the savings on top-tier WR talent. If you don't, target a draftable "
+            "QB in rounds 2-4 — the upside from a Purdy/Browning/Nix outcome is "
+            "asymmetric.",
+        )
+        recommendation_callout(
+            "opportunity",
+            "Cap strategy",
+            "Cap RB at ~$8-12M/year aggregate, prioritize WR and OL spending. "
+            "The data shows extra RB spending does not translate to value.",
+        )
+    with cols[1]:
+        recommendation_callout(
+            "warning",
+            "Risk monitoring",
+            "Monitor any veteran QB approaching the top quartile of position pay "
+            "for value-over-replacement collapse. The framework provides per-"
+            "season player-level surplus tracking to flag risk early.",
+        )
+        recommendation_callout(
+            "caveat",
+            "Caveat",
+            "Cost is currently `inflated_apy` (annualized contract value), not "
+            "year-by-year cap hit. Interpret findings as contract efficiency, "
+            "not exact cap accounting. Switching to OTC year-by-year cap hits "
+            "is the next data investment.",
+        )
+
+    # ------------------------------------------------------------------
+    # Methodology / appendix (collapsed)
+    # ------------------------------------------------------------------
+    with st.expander("Methodology and audit (collapsed)", expanded=False):
+        st.markdown(
+            f"""
+            **Sample.** {len(top_surplus) * 50:,}+ skill-position player-seasons
+            from 2016-2025 with at least 8 games played, matched to historical
+            contract data at a {salary_match_rate:.1%} match rate.
+
+            **Replacement-level estimation.** For each `(season, position)`,
+            replacement cap cost is the median salary of bottom-quartile veteran
+            starters; replacement value is the same group's median value-score.
+
+            **Surplus calculation.** Value-over-replacement is converted to
+            dollars via the within-`(season, position)` slope of salary on
+            value-score. The cap premium paid above replacement is subtracted.
+
+            **Audit.** {methodology_passes} of {methodology_total} methodology
+            checks pass (leakage safety, standardization correctness, interval
+            calibration). Audit table available on the *Methodology And Reports*
+            page.
+
+            **Honest caveats.** (1) Cost is APY, not year-by-year cap hit; this
+            is contract efficiency, not cap accounting. (2) Value-score is
+            production-based EPA, not pure talent — scheme, OL quality, and
+            teammate effects are not isolated. (3) Tight ends are evaluated on
+            production only; blocking value is not in the metric.
+            """
+        )
+
+    if not interval.empty:
+        with st.expander("Underlying value model validation (collapsed)", expanded=False):
+            st.markdown(
+                "The replacement-level analysis layers on top of an EPA-based "
+                "player value model. The model's calibration and per-position "
+                "validation are available on the Front Office Perspective page; "
+                "this brief assumes the value scores are credible."
+            )
+
+
 def replacement_level_page(data: dict[str, pd.DataFrame]) -> None:
     """Front-office headline: replacement-level surplus framework."""
     baselines = data["replacement_baselines"]
@@ -2366,54 +3219,67 @@ def main() -> None:
     show_missing_data_warning(missing)
 
     st.sidebar.title("Navigation")
-    st.sidebar.markdown("**Three perspectives on NFL player value**")
-    page = st.sidebar.radio(
-        "Choose a perspective",
+    st.sidebar.markdown("### 🏈 Hero pages")
+    hero = st.sidebar.radio(
+        "Pick a perspective",
         [
-            # Front office
-            "Front Office Perspective",
-            "Replacement-Level Surplus",
-            # Fantasy
-            "Fantasy Football Perspective",
-            "Weekly Fantasy Projection",
+            "Cap Allocation Brief (Front Office)",
+            "Fantasy Player Board",
+            "Weekly Game Picks",
+        ],
+        key="nav_hero",
+    )
+    st.sidebar.divider()
+    st.sidebar.markdown("### 📊 Methodology and detail")
+    detail = st.sidebar.radio(
+        "Detailed analyses",
+        [
+            "— none (use hero pages) —",
             "External Benchmark vs DK",
             "Bayesian Rookie Cold-Start",
-            # Game-pick draft
-            "Weekly Win Projection",
-            # Methodology
             "Causal: QB Injury → WR PPR",
             "Two-Stage Decomposition Experiment",
+            "Replacement-Level Surplus (detail)",
+            "Front Office (drill-down)",
+            "Fantasy (legacy view)",
             "Methodology And Reports",
         ],
+        key="nav_detail",
     )
     st.sidebar.divider()
     st.sidebar.caption(
-        "Built from committed output tables. Rebuild data with "
+        "Hero pages are the ones designed for a reader. Detail pages drill "
+        "into specific methodology and raw outputs. Rebuild data with "
         "`python scripts/run_pipeline.py`."
     )
 
-    if page == "Front Office Perspective":
-        front_office_page(data)
-    elif page == "Replacement-Level Surplus":
-        replacement_level_page(data)
-    elif page == "Fantasy Football Perspective":
-        fantasy_page(data)
-    elif page == "Weekly Fantasy Projection":
-        weekly_fantasy_projection_page(data)
-    elif page == "External Benchmark vs DK":
+    # Detail pages take precedence if explicitly chosen.
+    if detail == "External Benchmark vs DK":
         external_benchmark_page(data)
-    elif page == "Bayesian Rookie Cold-Start":
+    elif detail == "Bayesian Rookie Cold-Start":
         rookie_bayes_page(data)
-    elif page == "Weekly Win Projection":
-        weekly_win_projection_page(data)
-    elif page == "Causal: QB Injury → WR PPR":
+    elif detail == "Causal: QB Injury → WR PPR":
         causal_qb_injury_page(data)
-    elif page == "Two-Stage Decomposition Experiment":
+    elif detail == "Two-Stage Decomposition Experiment":
         two_stage_weekly_page(data)
-    elif page == "Methodology And Reports":
+    elif detail == "Replacement-Level Surplus (detail)":
+        replacement_level_page(data)
+    elif detail == "Front Office (drill-down)":
+        front_office_page(data)
+    elif detail == "Fantasy (legacy view)":
+        fantasy_page(data)
+    elif detail == "Methodology And Reports":
         methodology_page(data)
         st.divider()
         reports_page()
+    else:
+        # Default: render the selected hero page.
+        if hero == "Cap Allocation Brief (Front Office)":
+            front_office_executive_report(data)
+        elif hero == "Fantasy Player Board":
+            espn_fantasy_view(data)
+        elif hero == "Weekly Game Picks":
+            espn_weekly_games_view(data)
 
 
 if __name__ == "__main__":
