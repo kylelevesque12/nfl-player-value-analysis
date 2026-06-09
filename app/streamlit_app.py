@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import streamlit as st
+# Make `from app.components import ...` work regardless of how Streamlit is
+# invoked. Streamlit's cwd is the script's directory (app/), not the project
+# root, so we prepend the project root to sys.path here.
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import plotly.express as px  # noqa: E402
+import streamlit as st  # noqa: E402
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = _PROJECT_ROOT
 TABLE_DIR = PROJECT_ROOT / "outputs" / "tables"
 REPORT_DIR = PROJECT_ROOT / "report"
 
