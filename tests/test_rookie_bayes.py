@@ -102,6 +102,46 @@ def test_modeling_frame_includes_only_rookie_year_rows():
     assert p2["draft_log"] == np.log(175)
 
 
+def test_modeling_frame_includes_hurdle_targets():
+    # Two rookies: one who played 10 games, one who didn't play at all.
+    # The hurdle targets should be 1 / 0 for played_meaningfully and the
+    # actual PPR / zero for the full target.
+    rosters = pd.DataFrame(
+        {
+            "gsis_id": ["p1", "p2"],
+            "full_name": ["Played Rookie", "Sat Rookie"],
+            "position": ["WR", "QB"],
+            "season": [2022, 2022],
+            "rookie_year": [2022, 2022],
+            "draft_number": [10, 26],
+            "birth_date": ["2000-01-01", "2000-06-15"],
+            "height": ["6-1", "6-4"],
+            "weight": [200, 220],
+            "college": ["Ohio State", "Utah State"],
+            "draft_club": ["NYJ", "GB"],
+            "entry_year": [2022, 2022],
+        }
+    )
+    weekly = pd.DataFrame(
+        {
+            "player_id": ["p1"] * 10,
+            "season": [2022] * 10,
+            "week": list(range(1, 11)),
+            "season_type": ["REG"] * 10,
+            "fantasy_points_ppr": [12.0] * 10,
+        }
+    )
+    frame = build_rookie_modeling_frame(rosters, weekly)
+    p1 = frame[frame["player_id"].eq("p1")].iloc[0]
+    p2 = frame[frame["player_id"].eq("p2")].iloc[0]
+    # p1 played 10 games => meaningfully = 1, full target = 12 PPR/game
+    assert p1["played_meaningfully"] == 1
+    assert p1["rookie_year_ppr_per_game_full"] == 12.0
+    # p2 has no weekly rows at all => meaningfully = 0, full target = 0
+    assert p2["played_meaningfully"] == 0
+    assert p2["rookie_year_ppr_per_game_full"] == 0.0
+
+
 def test_modeling_frame_imputes_undrafted_pick():
     rosters = pd.DataFrame(
         {

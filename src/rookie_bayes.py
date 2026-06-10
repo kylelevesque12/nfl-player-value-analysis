@@ -207,6 +207,25 @@ def build_rookie_modeling_frame(
     if not college.empty:
         df = df.merge(college[["player_id", "college_score"]], on="player_id", how="left")
 
+    # Hurdle-model targets.
+    #   played_meaningfully = 1 if the rookie had >= MIN_GAMES_FOR_TARGET games
+    #     in their rookie year, 0 otherwise (covers Jordan Love 2020 — no
+    #     appearances at all behind Rodgers, currently NaN -> dropped from
+    #     training entirely).
+    #   rookie_year_ppr_per_game_full = season_ppr_per_game if played, 0 if not.
+    #     This is what we actually want to project: expected rookie-year PPR/game
+    #     averaged over the cases where the player played and the cases where
+    #     they didn't.
+    games = df.get("games_played")
+    df["played_meaningfully"] = (
+        (games.fillna(0) >= MIN_GAMES_FOR_TARGET).astype(int)
+        if games is not None
+        else 0
+    )
+    df["rookie_year_ppr_per_game_full"] = df.get(
+        "season_ppr_per_game", pd.Series(dtype="float64")
+    ).fillna(0.0)
+
     keep = [
         "player_id",
         "player_display_name" if "player_display_name" in df.columns else "full_name",
@@ -222,6 +241,8 @@ def build_rookie_modeling_frame(
         "season_ppr_total",
         "games_played",
         "season_ppr_per_game",
+        "played_meaningfully",
+        "rookie_year_ppr_per_game_full",
     ]
     if "college_score" in df.columns:
         keep.insert(keep.index("college") + 1, "college_score")
@@ -368,6 +389,141 @@ def predict_rookies(idata: Any, test_df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Hurdle model: stage 1 (logistic) for P(plays meaningfully)
+# ---------------------------------------------------------------------------
+def fit_played_meaningfully_model(
+    train_df: pd.DataFrame,
+    *,
+    draws: int = 1000,
+    tune: int = 1000,
+    chains: int = 4,
+    target_accept: float = 0.95,
+    random_seed: int = 42,
+) -> Any:
+    """Stage 1 of the hurdle: hierarchical logistic regression on whether the
+    rookie played a meaningful number of games (default >= 4) in their
+    rookie season.
+
+    Trains on **every** rookie in the frame — both players who played and
+    players who didn't. The target is binary.
+    """
+    import pymc as pm  # noqa: PLC0415
+
+    train = train_df.dropna(subset=["played_meaningfully"]).copy()
+    if train.empty:
+        raise ValueError("No rookies with a played_meaningfully label.")
+
+    pos_idx, pos_levels = pd.factorize(train["position"], sort=True)
+    n_positions = len(pos_levels)
+    feature_z_cols = [c for c in train.columns if c.endswith("_z")]
+    if not feature_z_cols:
+        raise ValueError(
+            "No standardized feature columns found. Call standardize_features first."
+        )
+
+    feature_matrix = train[feature_z_cols].fillna(0.0).to_numpy()
+    n_features = feature_matrix.shape[1]
+    y = train["played_meaningfully"].astype(int).to_numpy()
+
+    with pm.Model() as model:
+        # Hierarchical structure mirrors stage 2 — partial pooling on
+        # intercept and slopes across positions.
+        alpha_mu = pm.Normal("alpha_mu", mu=0.0, sigma=2.0)
+        alpha_tau = pm.HalfNormal("alpha_tau", sigma=2.0)
+        alpha_offset = pm.Normal("alpha_offset", mu=0.0, sigma=1.0, shape=n_positions)
+        alpha = pm.Deterministic("alpha", alpha_mu + alpha_tau * alpha_offset)
+
+        beta_mu = pm.Normal("beta_mu", mu=0.0, sigma=1.0, shape=n_features)
+        beta_tau = pm.HalfNormal("beta_tau", sigma=1.0, shape=n_features)
+        beta_offset = pm.Normal(
+            "beta_offset", mu=0.0, sigma=1.0, shape=(n_positions, n_features)
+        )
+        beta = pm.Deterministic("beta", beta_mu + beta_tau * beta_offset)
+
+        logit_p = alpha[pos_idx] + pm.math.sum(
+            beta[pos_idx, :] * feature_matrix, axis=1
+        )
+        pm.Bernoulli("y", logit_p=logit_p, observed=y)
+
+        idata = pm.sample(
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            target_accept=target_accept,
+            random_seed=random_seed,
+            progressbar=False,
+        )
+        idata.attrs["position_levels"] = list(pos_levels)
+        idata.attrs["feature_columns"] = feature_z_cols
+    return idata
+
+
+def _stack_posterior(idata: Any, name: str) -> np.ndarray:
+    return idata.posterior[name].stack(sample=("chain", "draw")).values
+
+
+def predict_hurdle(
+    stage1_idata: Any,
+    stage2_idata: Any,
+    test_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Combined hurdle projection: P(plays) * E[PPR/game | plays].
+
+    Returns a DataFrame with the joint posterior mean and 50/80 percentile
+    intervals over the combined product, plus diagnostic columns showing
+    each stage's contribution separately.
+    """
+    pos_levels = list(stage1_idata.attrs["position_levels"])
+    feature_cols = list(stage1_idata.attrs["feature_columns"])
+
+    alpha1 = _stack_posterior(stage1_idata, "alpha")
+    beta1 = _stack_posterior(stage1_idata, "beta")
+    alpha2 = _stack_posterior(stage2_idata, "alpha")
+    beta2 = _stack_posterior(stage2_idata, "beta")
+    sigma2 = _stack_posterior(stage2_idata, "sigma")
+
+    pos_to_idx = {p: i for i, p in enumerate(pos_levels)}
+    rows = test_df.copy()
+    feature_matrix = rows[feature_cols].fillna(0.0).to_numpy()
+    pos_idx = rows["position"].map(pos_to_idx).fillna(0).astype(int).to_numpy()
+
+    n_samples = alpha1.shape[1]
+    n_rows = len(rows)
+
+    p_plays_samples = np.zeros((n_rows, n_samples))
+    ppr_if_plays_samples = np.zeros((n_rows, n_samples))
+
+    for i in range(n_rows):
+        p = pos_idx[i]
+        logit1 = alpha1[p] + beta1[p, :, :].T @ feature_matrix[i]
+        p_plays_samples[i] = 1.0 / (1.0 + np.exp(-logit1))
+        mu2 = alpha2[p] + beta2[p, :, :].T @ feature_matrix[i]
+        ppr_if_plays_samples[i] = np.random.normal(mu2, sigma2[p])
+
+    # Expected rookie-year PPR/game averaged over both "didn't play" (yields 0)
+    # and "did play" (yields the stage-2 sample). This is the calibrated
+    # answer to "what should we expect from this rookie in year 1?"
+    combined_samples = p_plays_samples * ppr_if_plays_samples.clip(min=0.0)
+
+    rows["predicted_p_plays_meaningfully"] = p_plays_samples.mean(axis=1)
+    rows["predicted_ppr_per_game_if_plays_mean"] = ppr_if_plays_samples.mean(axis=1)
+    rows["predicted_rookie_year_ppr_per_game_mean"] = combined_samples.mean(axis=1)
+    rows["predicted_rookie_year_ppr_per_game_p10"] = np.percentile(
+        combined_samples, 10, axis=1
+    )
+    rows["predicted_rookie_year_ppr_per_game_p25"] = np.percentile(
+        combined_samples, 25, axis=1
+    )
+    rows["predicted_rookie_year_ppr_per_game_p75"] = np.percentile(
+        combined_samples, 75, axis=1
+    )
+    rows["predicted_rookie_year_ppr_per_game_p90"] = np.percentile(
+        combined_samples, 90, axis=1
+    )
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
 def rolling_rookie_validation(
@@ -424,6 +580,95 @@ def rolling_rookie_validation(
                     )
                     .mean()
                 ),
+            }
+        )
+
+    preds_df = (
+        pd.concat(all_preds, ignore_index=True) if all_preds else pd.DataFrame()
+    )
+    metrics_df = pd.DataFrame(metric_rows)
+    return preds_df, metrics_df
+
+
+def rolling_hurdle_validation(
+    modeling_df: pd.DataFrame,
+    validation_years: list[int] | None = None,
+    **fit_kwargs: Any,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Rolling validation for the two-stage hurdle model.
+
+    Evaluates the combined projection (P(plays) * E[PPR|plays]) against the
+    *full* rookie-year PPR/game target (which is 0 for rookies who didn't
+    play, not NaN). This is the version that gives Jordan Love a meaningful
+    target instead of silently dropping him.
+    """
+    if validation_years is None:
+        validation_years = DEFAULT_VALIDATION_YEARS
+
+    all_preds: list[pd.DataFrame] = []
+    metric_rows: list[dict[str, Any]] = []
+    for year in validation_years:
+        train = modeling_df[modeling_df["rookie_year"].lt(year)].copy()
+        test = modeling_df[modeling_df["rookie_year"].eq(year)].copy()
+        if train.empty or test.empty:
+            continue
+        train_z, test_z, _stats = standardize_features(train, test)
+
+        stage1 = fit_played_meaningfully_model(train_z, **fit_kwargs)
+        train_played = train_z[train_z["played_meaningfully"].eq(1)].copy()
+        if train_played.empty:
+            continue
+        stage2 = fit_rookie_model(train_played, **fit_kwargs)
+        preds = predict_hurdle(stage1, stage2, test_z)
+        preds["validation_year"] = int(year)
+        all_preds.append(preds)
+
+        eval_df = preds.dropna(subset=["rookie_year_ppr_per_game_full"])
+        if eval_df.empty:
+            continue
+        y = eval_df["rookie_year_ppr_per_game_full"].to_numpy()
+        p = eval_df["predicted_rookie_year_ppr_per_game_mean"].to_numpy()
+
+        # Calibration: are the players we predict will play actually playing?
+        played_actual = (
+            (eval_df["games_played"].fillna(0) >= MIN_GAMES_FOR_TARGET)
+            .astype(int)
+            .to_numpy()
+        )
+        played_pred = eval_df["predicted_p_plays_meaningfully"].to_numpy()
+        # Simple Brier-style calibration metric: mean squared error of the
+        # plays probability against the realized binary outcome.
+        plays_brier = float(np.mean((played_pred - played_actual) ** 2))
+        plays_actual_rate = float(played_actual.mean())
+        plays_pred_rate = float(played_pred.mean())
+
+        metric_rows.append(
+            {
+                "validation_year": int(year),
+                "n_rookies": int(len(eval_df)),
+                "n_played_meaningfully": int(played_actual.sum()),
+                "rmse_full_target": float(np.sqrt(np.mean((y - p) ** 2))),
+                "mae_full_target": float(np.mean(np.abs(y - p))),
+                "bias_full_target": float(np.mean(p - y)),
+                "interval_50_coverage_full": float(
+                    eval_df["rookie_year_ppr_per_game_full"]
+                    .between(
+                        eval_df["predicted_rookie_year_ppr_per_game_p25"],
+                        eval_df["predicted_rookie_year_ppr_per_game_p75"],
+                    )
+                    .mean()
+                ),
+                "interval_80_coverage_full": float(
+                    eval_df["rookie_year_ppr_per_game_full"]
+                    .between(
+                        eval_df["predicted_rookie_year_ppr_per_game_p10"],
+                        eval_df["predicted_rookie_year_ppr_per_game_p90"],
+                    )
+                    .mean()
+                ),
+                "plays_brier": plays_brier,
+                "plays_actual_rate": plays_actual_rate,
+                "plays_predicted_rate": plays_pred_rate,
             }
         )
 
@@ -497,6 +742,188 @@ def build_rookie_bayes_outputs(
         (root / "report" / "rookie_bayes_projection.md").write_text(summary_text)
 
     return outputs
+
+
+def build_rookie_hurdle_outputs(
+    project_root: str | Path | None = None,
+    save_outputs: bool = True,
+    validation_years: list[int] | None = None,
+    **fit_kwargs: Any,
+) -> dict[str, Any]:
+    """Build hurdle-model artifacts: P(plays) * E[PPR/game | plays] projections.
+
+    Two coupled PyMC models. Stage 1 is logistic; stage 2 is the existing
+    Normal regression but trained only on players who played at least
+    MIN_GAMES_FOR_TARGET games. The combined projection answers the right
+    question: what is this rookie's expected season-long fantasy production
+    in their rookie year, accounting for the fact that some players sit
+    behind veterans?
+
+    Same dedicated-venv requirements as the PPR/game-only model.
+    """
+    root = (
+        find_project_root() if project_root is None else Path(project_root).resolve()
+    )
+    dirs = ensure_project_dirs(root)
+    output_dir = dirs["tables"]
+
+    rosters = pd.read_csv(
+        root / "data" / "raw" / "rosters_2016_2025.csv", low_memory=False
+    )
+    player_stats = pd.read_csv(
+        root / "data" / "raw" / "player_stats_2016_2025.csv", low_memory=False
+    )
+    modeling_df = build_rookie_modeling_frame(rosters, player_stats, project_root=root)
+
+    preds, metrics = rolling_hurdle_validation(
+        modeling_df, validation_years=validation_years, **fit_kwargs
+    )
+
+    summary_text = _build_hurdle_summary_text(modeling_df, preds, metrics)
+
+    outputs = {
+        "modeling_frame": modeling_df,
+        "hurdle_predictions": preds,
+        "hurdle_metrics": metrics,
+        "summary_text": summary_text,
+    }
+
+    if save_outputs:
+        modeling_df.to_csv(
+            output_dir / "rookie_modeling_frame.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        if not preds.empty:
+            preds.to_csv(
+                output_dir / "rookie_hurdle_validation_predictions.csv",
+                index=False,
+                float_format=CSV_FLOAT_FORMAT,
+            )
+        if not metrics.empty:
+            metrics.to_csv(
+                output_dir / "rookie_hurdle_validation_metrics.csv",
+                index=False,
+                float_format=CSV_FLOAT_FORMAT,
+            )
+        (root / "report" / "rookie_hurdle_projection.md").write_text(summary_text)
+
+    return outputs
+
+
+def _build_hurdle_summary_text(
+    modeling_df: pd.DataFrame,
+    preds: pd.DataFrame,
+    metrics: pd.DataFrame,
+) -> str:
+    n_total = len(modeling_df)
+    n_played = int(modeling_df.get("played_meaningfully", pd.Series([0])).sum())
+
+    lines = [
+        "# Rookie Projection (Hurdle Model)",
+        "",
+        "Two coupled Bayesian models give a calibrated projection of a rookie's",
+        "expected season-long fantasy production. The original PPR/game-only",
+        "model silently dropped rookies who didn't play enough games — Jordan",
+        "Love in 2020 (behind Rodgers) ended up with a NaN target and was",
+        "never learned from. This version handles those cases explicitly.",
+        "",
+        "**Stage 1** (logistic). P(plays >= 4 games in rookie year) given draft",
+        "slot, age, height, weight, position. Trained on every rookie in the",
+        "frame, regardless of whether they ended up playing.",
+        "",
+        "**Stage 2** (Normal). PPR/game *conditional on having played*, with",
+        "the same features. Trained only on rookies who cleared the 4-game",
+        "threshold.",
+        "",
+        "**Combined projection**: P(plays) * E[PPR/game | plays]. For Jordan",
+        "Love at draft time, this answers: low expected rookie-year production",
+        "because he was unlikely to play, not because he was projected as a",
+        "bad player.",
+        "",
+        f"{n_total:,} rookie player-seasons in the frame; {n_played:,} cleared",
+        f"the 4-game threshold ({n_played / max(n_total, 1):.0%}).",
+        "",
+    ]
+
+    if metrics.empty:
+        lines.extend(
+            [
+                "## Validation",
+                "",
+                "PyMC sampling pass has not been run. From a dedicated venv:",
+                "",
+                "    python -c \"from src.rookie_bayes import build_rookie_hurdle_outputs; build_rookie_hurdle_outputs()\"",
+                "",
+            ]
+        )
+        return "\n".join(lines) + "\n"
+
+    lines.append("## Rolling-origin validation against the full target")
+    lines.append("")
+    lines.append(
+        "The 'full target' is rookie-year PPR/game with non-players treated as"
+    )
+    lines.append("zero rather than dropped from the evaluation.")
+    lines.append("")
+    lines.append(
+        "| Rookie class | n | Played n | RMSE | MAE | 50% cov | 80% cov | "
+        "Plays Brier | Plays actual | Plays pred |"
+    )
+    lines.append(
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+    )
+    for _, row in metrics.iterrows():
+        lines.append(
+            f"| {int(row['validation_year'])} | {int(row['n_rookies'])} | "
+            f"{int(row['n_played_meaningfully'])} | "
+            f"{row['rmse_full_target']:.2f} | {row['mae_full_target']:.2f} | "
+            f"{row['interval_50_coverage_full']:.0%} | "
+            f"{row['interval_80_coverage_full']:.0%} | "
+            f"{row['plays_brier']:.3f} | "
+            f"{row['plays_actual_rate']:.0%} | "
+            f"{row['plays_predicted_rate']:.0%} |"
+        )
+
+    lines.append("")
+    lines.append("## Spot-check: Jordan Love")
+    lines.append("")
+    love_rows = preds[preds["player_display_name"].astype(str).str.contains(
+        "Jordan Love", case=False, na=False
+    )]
+    if not love_rows.empty:
+        love = love_rows.iloc[0]
+        lines.append(
+            f"- P(plays >= 4 games as a rookie): "
+            f"{love['predicted_p_plays_meaningfully']:.2f}"
+        )
+        lines.append(
+            f"- Conditional E[PPR/game if plays]: "
+            f"{love['predicted_ppr_per_game_if_plays_mean']:.1f}"
+        )
+        lines.append(
+            f"- Combined expected rookie-year PPR/game: "
+            f"{love['predicted_rookie_year_ppr_per_game_mean']:.1f}"
+        )
+        lines.append(
+            f"- 80% interval: "
+            f"{love['predicted_rookie_year_ppr_per_game_p10']:.1f} "
+            f"to "
+            f"{love['predicted_rookie_year_ppr_per_game_p90']:.1f}"
+        )
+        games = love.get("games_played", 0)
+        games_int = int(games) if pd.notna(games) else 0
+        lines.append(
+            f"- Actual rookie year ({int(love['rookie_year'])}): "
+            f"{love['rookie_year_ppr_per_game_full']:.1f} PPR/game "
+            f"({games_int} games)"
+        )
+    else:
+        lines.append(
+            "Jordan Love is not in the rookie modeling frame (rookie year"
+            " outside the validation window)."
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _build_summary_text(
