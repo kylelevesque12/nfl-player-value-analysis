@@ -1,35 +1,28 @@
 # NFL Player Value Analysis
 
-A comprehensive NFL analytics suite spanning three perspectives on the same underlying data — front-office cap allocation, weekly fantasy projection, and causal-methodology research — built on 10 years of nflverse play-by-play, schedules, rosters, contracts, and supplementary feeds.
+Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can we project weekly fantasy points better than the betting market, and what do the negative results teach us about model architecture.
 
-The project tests one core question across three frames: **how do we measure, predict, and compare NFL player value in ways that are transparent, position-aware, and useful for real decisions?**
+## Four results worth knowing
 
-## Headline findings
+The weekly fantasy projector beats DraftKings closing-line implied projections by 1.6% RMSE on 11,191 matched player-weeks. That sits inside the 1-3% edge public DFS shops claim as their selling point. Snap-share features did most of the work; the TE position flipped from a negative to a positive skill score the moment they were added. ([External benchmark](report/external_benchmark.md))
 
-- **Fantasy projection beats DraftKings closing-line implied projections by +1.6% RMSE** on 11,191 matched player-weeks (2020-2021). Public DFS analytics shops claim 1-3% edges as their core selling point. ([External benchmark](report/external_benchmark.md))
-- **Brock Purdy's 2023 season delivered ~$37M of surplus over replacement-level QB cost** on a rookie contract — the largest single-season surplus in the 2016-2025 sample. ([Replacement-level findings](report/salary_efficiency_findings.md))
-- **The formal "QB ruled Out" designation does not cause a measurable drop in WR PPR.** Two-session causal DiD with parallel-trends checks finds a null/positive ATT. Mechanism: the QB plays through a developing injury for weeks before being formally ruled out, so by the time the Out designation hits, the receivers' production has already declined. The Out flag is a lagging indicator, not a leading feature. ([Causal session 1](report/causal/qb_injury_session1.md) / [session 2](report/causal/qb_injury_session2.md))
-- **Bayesian hierarchical rookie projections hit nominal posterior-interval coverage** (PyMC, non-centered, calibrated 80% intervals across six rolling-validation rookie classes). Solves the cold-start problem the headline HGB projector cannot. ([Rookie Bayes](report/rookie_bayes_projection.md))
+Brock Purdy's 2023 season produced about $37M of surplus over a replacement-level QB on a rookie deal — the largest single-season cap surplus in 2016-2025. Three of the top ten surplus seasons are rookie-deal QBs (Purdy 2023, Purdy 2024, Jayden Daniels 2024). The RB market shows a negative implicit price for value at the position level, consistent with the long-documented RB market inefficiency. ([Replacement-level findings](report/salary_efficiency_findings.md))
 
-## Three perspectives
+The "QB1 goes down, WR1 craters" story does not survive a careful DiD. Two-session causal analysis with parallel-trends checks finds a null effect when treatment is defined as the formal Out designation. The reason matters: the QB plays through a developing injury for weeks before being ruled out, so by the time the Out flag triggers, receiver production has already declined. The Out flag lags the actual onset. The session-3 follow-up is to re-define treatment as the first week of any injury-report appearance. ([Causal session 1](report/causal/qb_injury_session1.md) · [session 2](report/causal/qb_injury_session2.md))
 
-The project is best read by perspective rather than by module. Each one stands on its own, with its own headline result, its own methodology decisions, and its own honest limitations.
+Bayesian hierarchical rookie projections (PyMC, non-centered, partial pooling across positions) hit near-nominal posterior interval coverage in every rookie class. The first version had a Jordan Love problem: rookies drafted behind a veteran starter had NaN targets and disappeared from training. The current hurdle model handles this. Stage 1 predicts whether a rookie plays meaningfully; stage 2 predicts production conditional on playing; the product is the projection. Late-round QBs now correctly project as low-volume rather than getting silently excluded. ([Rookie Bayes](report/rookie_bayes_projection.md) · [Hurdle model](report/rookie_hurdle_projection.md))
 
-| Perspective | Primary audience | Headline | Where to look |
-| --- | --- | --- | --- |
-| Front office | NFL team analytics, cap analysts | $37M Brock Purdy surplus over replacement | [Final project report](report/final_project_report.md), [salary findings](report/salary_efficiency_findings.md) |
-| Fantasy / DFS | ESPN, DraftKings, FantasyPros | +1.6% RMSE skill score vs DK closing line | [Weekly fantasy projection](report/weekly_fantasy_projection_summary.md), [external benchmark](report/external_benchmark.md) |
-| Methodology / research | Research labs, methodology-conscious reviewers | Causal null + structural negative result with diagnostic | [Causal sessions](report/causal/), [two-stage weekly](report/two_stage_weekly.md), [rookie Bayes](report/rookie_bayes_projection.md) |
+## Where to start
 
-## How to review this project
+The project covers three audiences. Pick the section that matches yours:
 
-Recommended reading order:
+| Audience | Section | Top deliverable |
+| --- | --- | --- |
+| NFL team analytics / cap analysts | [Front office](#front-office-perspective) | Replacement-level surplus framework with Brock Purdy at #1 |
+| ESPN / DraftKings / FantasyPros | [Fantasy / DFS](#fantasy--dfs-perspective) | Weekly projector that beats DK closing line by 1.6% |
+| Research labs / methodology reviewers | [Methodology](#methodology--research-perspective) | Causal DiD with a null finding, rookie hurdle Bayes, four decomposition experiments |
 
-1. **Start here**: [Final project report](report/final_project_report.md) for the whole story across all three perspectives.
-2. **For NFL team / cap analytics reviewers**: skip to the [front-office section below](#front-office-perspective). Headline is replacement-level surplus.
-3. **For ESPN / fantasy / DFS reviewers**: skip to the [fantasy section below](#fantasy--dfs-perspective). Headline is the DK benchmark beat.
-4. **For methodology-focused reviewers**: skip to the [methodology section below](#methodology--research-perspective). Headline is the causal QB-injury null and the four-attempt decomposition finding.
-5. **For deeper detail on any one piece**: every section links to its own dedicated report under `report/`.
+If you want the whole story start to finish, read the [final project report](report/final_project_report.md). If you want to play with the live numbers, run the [Streamlit dashboard](#interactive-dashboard).
 
 ## Front office perspective
 
@@ -61,7 +54,7 @@ EPA-based player value scores, z-scored within `(season, position)`, with multi-
 
 ### Methodology audit and limitations
 
-A 26-check methodology audit covers leakage safety, standardization correctness, interval calibration, and missing-target detection ([methodology checks](report/methodology_checks.md)). The honest limitation: the cost variable is `inflated_apy`, not year-by-year cap hit. The salary track is **contract efficiency, not cap accounting**. Replacing APY with true cap hit (OverTheCap premium or manual reconstruction) is the next data-acquisition step.
+A 26-check methodology audit covers leakage safety, standardization correctness, interval calibration, and missing-target detection ([methodology checks](report/methodology_checks.md)). The biggest open limitation is that the cost variable is `inflated_apy`, not year-by-year cap hit. The salary track is contract efficiency, not cap accounting. Switching to OverTheCap year-by-year cap hits is the next data investment.
 
 ## Fantasy / DFS perspective
 
@@ -112,7 +105,7 @@ The fantasy model rests on three methodology decisions documented as their own r
 
 ## Methodology / research perspective
 
-> **What are the right modeling architectures for NFL player projection — and what do honest negative results teach us?**
+> **What are the right modeling architectures for NFL player projection, and what do the negative results teach us?**
 
 ### Causal DiD: QB injury → WR PPR
 
@@ -129,7 +122,7 @@ Two-session causal analysis testing the conventional-wisdom claim that QB injury
 
 Both null or *positive*. The pre-period coefficients (also significantly positive) revealed the mechanism: treated WRs hit their absolute low at offset -1, the week immediately before the formal QB switch. The Out designation is a lagging indicator, not a leading feature.
 
-This is the kind of finding that distinguishes a careful causal analysis from a regression-with-a-causal-interpretation. Hypothesis tested, parallel trends checked, mitigations attempted, null finding survived, mechanism named.
+The pretrend failure was found by the session-1 diagnostic, not papered over. The session-2 mitigations were pre-registered before running. The null result survived both estimators and both panel specifications. The mechanism (the QB plays through a developing injury for weeks before being formally ruled out) was named, and the follow-up — re-defining treatment as the first week of any injury-report appearance — is on the roadmap.
 
 ### Four-decomposition finding
 
@@ -262,12 +255,12 @@ python -m pytest tests/ -q
 
 72/72 tests passing. Coverage spans leakage-safety in feature engineering, benchmark math, replacement-level surplus, two-stage value math, value-decomposition arithmetic, weekly-fantasy structural invariants, rookie-Bayesian data prep, and causal treatment identification (including hand-checked Burrow / Lawrence / Wentz cases).
 
-## Limitations and honest gaps
+## Limitations and gaps
 
 - **Salary track uses APY, not year-by-year cap hit.** Real cap analysts will treat this as contract efficiency. True cap-hit data (OTC premium or reconstruction from contract terms) is the next acquisition.
 - **DK benchmark coverage stops in 2021.** RotoGuru's free archive doesn't go later. Extending requires a paid source.
 - **No depth-chart rank.** nflverse dropped the numeric `list_rank` field around 2024. Deriving rank from row-order is the next feature-engineering target.
-- **Injury attach at 17% coverage.** Only injured players are reported. The QB-injury causal study handles this carefully; the headline fantasy model uses injury indicators with caution.
+- **Injury attach at 17% coverage.** Only injured players appear on the report. The QB-injury causal study works around this by joining at the team-week level; the fantasy model treats missing injury status as "healthy" and tolerates the resulting noise.
 - **Streamlit dashboard is currently a draft layer.** It surfaces the older modules but hasn't kept pace with replacement-level surplus, Bayesian rookie projections, the causal QB-injury findings, or the two-stage weekly experiment. A full rebuild is the next infrastructure investment — see [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
 - **No causal session 3.** The session 1+2 finding (QB Out is a lagging indicator) implies the *real* causal moment is the first week of injury-report appearance. Re-running the DiD on that treatment definition is the open follow-up.
 

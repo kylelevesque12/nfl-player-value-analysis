@@ -1503,12 +1503,13 @@ def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
             "- `target_fantasy_points_ppr` is the actual PPR points scored "
             "the following game — only present because this table is a "
             "historical backtest.\n"
-            "- `residual` is `actual - prediction`. The model is honestly modest: "
-            "weekly PPR has a low ceiling on R^2.\n"
+            "- `residual` is `actual - prediction`. Weekly PPR has a low "
+            "ceiling on R²; the model's job is to be a few percent better "
+            "than the rolling average, not to nail single games.\n"
             "- The primary point predictor is a pooled HistGradientBoosting "
-            "model. A position-specific variant is included in the method "
-            "comparison; it is honestly worse, which the project reports rather "
-            "than hides."
+            "model. A position-specific variant lost to the pooled model at "
+            "every position; it stays in the method comparison so the "
+            "experiment is on the record."
         )
 
     if weekly.empty:
@@ -1717,9 +1718,9 @@ def espn_weekly_games_view(data: dict[str, pd.DataFrame]) -> None:
 
     st.title("Weekly Game Picks")
     st.caption(
-        "Market-informed home-win-probability model with rolling backtest "
-        "validation. Picks combine spread, total, recent form, rest, and "
-        "divisional context."
+        "Pick winners for any week in the dataset. The model uses the closing "
+        "spread, total, rest, recent form, and divisional matchup; it's a "
+        "market-informed projection, not a pure team-strength rating."
     )
 
     if games.empty:
@@ -1895,8 +1896,8 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
 
     st.title("Fantasy Player Board")
     st.caption(
-        "Season-long and weekly PPR projections. Filter by position, search "
-        "for a player, drill into projection range. Top tier = must-start."
+        "Find a player, see their projection range, decide whether to "
+        "start them. Season-long for draft prep; weekly for in-season decisions."
     )
 
     if fantasy.empty:
@@ -2216,8 +2217,8 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
 
     st.title("Cap Allocation Brief")
     st.caption(
-        "Front-office report on player value, contract surplus, and "
-        "replacement-level cap efficiency. Audience: senior leadership."
+        "Where the cap dollars actually went, and what they bought. "
+        "Findings are organized for a GM scanning the page in three minutes."
     )
 
     if top_surplus.empty:
@@ -2253,28 +2254,31 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
     methodology_total = len(methodology) if not methodology.empty else None
 
     executive_summary(
-        "Executive Summary",
+        "Top of mind",
         [
             f"<strong>{int(headline['season'])} {headline['player_display_name']}</strong> "
-            f"({headline['position']}, {headline['team']}) delivered "
-            f"<strong>${headline['dollar_surplus_millions']:.1f}M of cap surplus</strong> "
-            "over replacement — the largest single-season surplus in the sample.",
-            f"Only <strong>{qb_share_pos:.0%} of QB-seasons</strong> in the sample "
-            "produced positive surplus against replacement. The position is "
-            "structurally over-priced relative to median performance.",
+            f"({headline['position']}, {headline['team']}) leads the sample at "
+            f"<strong>${headline['dollar_surplus_millions']:.1f}M of surplus</strong> "
+            "over a replacement-level QB. Rookie-contract production at this level "
+            "is the largest single source of cap surplus in the modern era.",
+            f"QBs are systematically over-priced: only <strong>{qb_share_pos:.0%}</strong> "
+            "of QB-seasons in the sample produced positive surplus against the "
+            "position's replacement baseline. The market pays for the position, "
+            "not for the production.",
             (
-                f"RB market shows a <strong>negative value-per-dollar slope</strong> "
-                f"(${rb_slope:.1f}M/z-unit) — paying more for RBs is not "
-                "consistently associated with getting more production."
+                f"RBs are mispriced the other direction. The implicit market price "
+                f"for one z-unit of RB value is <strong>${rb_slope:.1f}M</strong> — "
+                "negative. Paying more does not buy more production. Treat RB "
+                "cap allocation as a hard ceiling, not a competitive bid."
                 if rb_slope < 0
-                else "The RB market priced near rationally in this sample."
+                else "RBs appear to be priced rationally in this sample."
             ),
             (
-                f"Salary-contract match rate: <strong>{salary_match_rate:.1%}</strong> "
-                "of value-score rows matched to historical contracts. Findings "
-                "rest on a stable, audit-grade sample."
+                f"The findings rest on a <strong>{salary_match_rate:.1%}</strong> "
+                "match rate between value-score rows and historical contracts. "
+                "Sample is large enough to support position-level claims."
                 if salary_match_rate is not None
-                else "Salary match rate diagnostics unavailable."
+                else "Salary match-rate diagnostics are unavailable."
             ),
         ],
     )
@@ -3063,37 +3067,40 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
 
 
 def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
-    """Two-stage WR/TE decomposition experiment — honest negative result."""
+    """Two-stage WR/TE decomposition experiment (negative result)."""
     method_summary = data["two_stage_weekly_summary"]
     by_fold = data["two_stage_weekly_by_fold"]
     per_stage = data["two_stage_weekly_per_stage"]
 
     st.title("Two-Stage WR/TE Decomposition Experiment")
     st.caption(
-        "Tier 2 #5 experiment: tests whether decomposing weekly WR/TE PPR "
-        "into team_attempts × target_share × PPR/target — with target shares "
-        "renormalized to sum to 1 within each (team, season, week) — beats "
-        "a pooled HistGradientBoosting on identical player-weeks. The "
-        "structural constraint encodes real-world physics."
+        "Does decomposing weekly WR/TE PPR into "
+        "team pass attempts × target share × PPR per target — with target "
+        "shares renormalized to sum to 1 within each team-week — beat the "
+        "pooled HGB on the same player-weeks? It does not. This page shows "
+        "why."
     )
-    with st.expander("Honest verdict (negative result with diagnostic)", expanded=True):
+    with st.expander("What the per-stage diagnostic shows", expanded=True):
         st.markdown(
-            "**Both two-stage variants lose to pooled HGB in every fold.** The "
-            "per-stage diagnostic explains why: target-share prediction is "
-            "+34% over predict-the-mean (the structural constraint genuinely "
-            "works), but team-attempts and PPR/target stages are essentially "
-            "noise. Multiplying noisy stages through the product compounds "
-            "error the pooled model avoids.\n\n"
-            "The shrunk-stage-3 variant (replacing learned efficiency with "
-            "position-season mean) outperforms the full learned variant in "
-            "every fold, *confirming* unshrunk stage 3 was actively adding "
-            "error. But even with the prescription, the structurally-"
-            "constrained product still loses to pooled HGB by ~7-8%.\n\n"
-            "This is the project's fourth decomposition negative result. "
-            "Cumulative evidence is a *finding*: pooled tree-based models on "
-            "engineered rolling features extract team-attempts and "
-            "per-target-efficiency signals more efficiently than any explicit "
-            "multiplicative decomposition tried so far."
+            "The two-stage product loses to the pooled HGB in every fold. "
+            "The per-stage breakdown explains where the failure comes from. "
+            "Stage 1 (renormalized target share) beats a predict-the-mean "
+            "baseline by 34% — the structural constraint actually carries "
+            "signal. Stages 2 and 3 (team attempts, PPR per target) come in "
+            "essentially flat against the mean. When you multiply noisy "
+            "estimates through the product, you compound error the pooled "
+            "model avoids by learning the relevant interactions implicitly.\n\n"
+            "The shrunk-stage-3 variant — replacing the learned efficiency "
+            "model with the position-season mean — beats the full learned "
+            "version in every fold, which tells you the unshrunk stage was "
+            "adding error rather than information. Even after that "
+            "prescription, the structurally-constrained product still loses "
+            "by 7-8%.\n\n"
+            "This is the fourth decomposition experiment in the project to "
+            "lose to a pooled HGB. Pooled tree models on engineered rolling "
+            "features extract the team-attempts and per-target-efficiency "
+            "signals more efficiently than any multiplicative decomposition "
+            "we've tried."
         )
 
     if method_summary.empty:
