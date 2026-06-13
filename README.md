@@ -198,27 +198,31 @@ PYTHONPATH=. .venv-bayes/bin/python -c "from src.rookie_bayes import build_rooki
 
 ```
 src/
-  config.py / load_data.py / models.py    # shared infrastructure
-  clean_data.py / features.py             # data cleaning, feature engineering
-  prediction_report.py                    # 2026 Excel report
-  value_decomposition.py                  # efficiency × opportunity decomp
-  two_stage_value.py                      # season-level negative result
-  salary_efficiency.py                    # contract efficiency analysis
-  salary_findings.py                      # leaderboards + replacement-level
-  replacement_level.py                    # the front-office surplus framework
-  weekly_fantasy_projection.py            # weekly model + nflverse signals
-  external_benchmark.py                   # DK closing-line head-to-head
-  rookie_bayes.py                         # hierarchical Bayes for rookies
-  two_stage_weekly.py                     # WR/TE decomp experiment
-  causal/                                 # QB-injury DiD investigation
-  fantasy_projection.py                   # season-long fantasy
-  weekly_win_projection.py                # game-winner projection (draft)
+  config.py / load_data.py / models.py    # shared utilities
+  clean_data.py / features.py             # cleaning + feature engineering
   methodology_checks.py                   # leakage + interval audit
   model_benchmark.py                      # skill scores + conformal intervals
   model_interpretation.py                 # permutation importance + position FE
-  context_features.py / feature_impact.py # context-feature audit
-  advanced_modeling.py                    # Optuna + SHAP + MLflow diagnostics
+
+  # Front office
+  prediction_report.py                    # 2026 Excel report
+  value_decomposition.py                  # efficiency × opportunity decomp
+  two_stage_value.py                      # season-level decomposition result
+  salary_efficiency.py                    # contract efficiency
+  salary_findings.py                      # leaderboards + replacement-level
+  replacement_level.py                    # replacement-level surplus framework
+
+  # Fantasy
+  fantasy_projection.py                   # season-long projections
+  weekly_fantasy_projection.py            # weekly model + nflverse signals
+  external_benchmark.py                   # DK closing-line head-to-head
+  rookie_bayes.py                         # hierarchical Bayes + hurdle stage
+  two_stage_weekly.py                     # WR/TE decomp experiment
+  causal/                                 # QB-injury DiD
+
   pipeline.py                             # orchestration
+
+archive/                                  # earlier experiments retired with a brief writeup
 
 scripts/
   run_pipeline.py

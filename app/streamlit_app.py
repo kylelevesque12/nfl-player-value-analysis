@@ -252,8 +252,6 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "fantasy": "2026_fantasy_football_projections.csv",
         "fantasy_validation": "fantasy_projection_validation_by_position.csv",
         "fantasy_model_comparison": "fantasy_model_comparison.csv",
-        "weekly_wins": "weekly_win_projection_games.csv",
-        "weekly_win_validation": "weekly_win_projection_validation.csv",
         "weekly_fantasy": "weekly_fantasy_validation_predictions.csv",
         "weekly_fantasy_summary": "weekly_fantasy_method_summary.csv",
         "weekly_fantasy_by_position": "weekly_fantasy_by_position.csv",
@@ -1314,170 +1312,6 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
             st.dataframe(validation, width="stretch")
 
 
-def weekly_win_projection_page(data: dict[str, pd.DataFrame]) -> None:
-    games = data["weekly_wins"]
-    validation = data["weekly_win_validation"]
-
-    st.title("Weekly Win Projection")
-    st.caption(
-        "A draft game-pick section that estimates home-win probability from "
-        "market context, rest, divisional status, weather, and recent team form. "
-        "The current table is a rolling historical backtest, so it is useful for "
-        "validating the approach before adding future schedule rows."
-    )
-    with st.expander("How to read weekly win projections", expanded=True):
-        st.markdown(
-            "- `winner_probability` is the model's probability for the team listed in `predicted_winner`.\n"
-            "- The model is market-informed because it uses `spread_line` and `total_line`, so this is not a pure team-strength rating.\n"
-            "- `market_signal` translates the spread into which side the betting market leaned toward.\n"
-            "- `pick_explanation` combines the market lean, recent form, and rest edge into a short explanation.\n"
-            "- `correct_prediction` is only available because this table is currently a historical backtest."
-        )
-
-    if games.empty:
-        st.info(
-            "Weekly win projection table is missing. Run "
-            "`python scripts/run_pipeline.py --steps weekly_wins`."
-        )
-        return
-
-    with st.sidebar:
-        st.subheader("Game Filters")
-        seasons = st.multiselect(
-            "Season",
-            sorted(games["season"].dropna().unique(), reverse=True),
-            default=[games["season"].max()],
-        )
-        weeks = st.multiselect(
-            "Week",
-            sorted(games["week"].dropna().astype(int).unique()),
-            default=[],
-        )
-        teams = sorted(
-            set(games["home_team"].dropna().astype(str))
-            | set(games["away_team"].dropna().astype(str))
-        )
-        selected_teams = st.multiselect("Team", teams)
-        confidence = multiselect_filter(games, "confidence_level", "Confidence")
-
-    filtered = games.copy()
-    if seasons:
-        filtered = filtered[filtered["season"].isin(seasons)].copy()
-    if weeks:
-        filtered = filtered[filtered["week"].isin(weeks)].copy()
-    if selected_teams:
-        filtered = filtered[
-            filtered["home_team"].astype(str).isin(selected_teams)
-            | filtered["away_team"].astype(str).isin(selected_teams)
-        ].copy()
-    filtered = apply_filter(filtered, "confidence_level", confidence)
-
-    if filtered.empty:
-        st.warning("No games match the selected filters.")
-        return
-
-    accuracy = (
-        filtered["correct_prediction"].mean()
-        if "correct_prediction" in filtered.columns
-        else np.nan
-    )
-    card_row(
-        [
-            ("Games", f"{len(filtered):,}", None),
-            ("Filtered accuracy", fmt_percent(accuracy), "Accuracy only applies to completed backtest games."),
-            (
-                "Avg winner probability",
-                fmt_percent(filtered["winner_probability"].mean()),
-                None,
-            ),
-            (
-                "High-confidence picks",
-                f"{filtered['confidence_level'].eq('High').sum():,}",
-                "High confidence means the predicted winner probability is at least 65%.",
-            ),
-        ]
-    )
-
-    left, right = st.columns([1.15, 1])
-    with left:
-        chart_df = filtered.sort_values(["season", "week", "game_id"]).head(40)
-        fig = px.bar(
-            chart_df,
-            x="winner_probability",
-            y="matchup",
-            color="predicted_winner",
-            orientation="h",
-            labels={"winner_probability": "Predicted winner probability", "matchup": "Game"},
-            title="Projected winners for selected games",
-        )
-        fig.update_xaxes(tickformat=".0%")
-        fig.update_layout(height=650)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with right:
-        if validation.empty:
-            st.info("Weekly validation table is missing.")
-        else:
-            season_validation = validation[
-                ~validation["season"].astype(str).eq("overall")
-            ].copy()
-            fig = px.line(
-                season_validation,
-                x="season",
-                y="accuracy",
-                markers=True,
-                labels={"season": "Validation season", "accuracy": "Accuracy"},
-                title="Rolling backtest accuracy by season",
-            )
-            fig.update_yaxes(tickformat=".0%")
-            fig.update_layout(height=360)
-            st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(validation, width="stretch")
-
-        fig = px.histogram(
-            filtered,
-            x="winner_probability",
-            nbins=12,
-            labels={"winner_probability": "Predicted winner probability"},
-            title="Confidence distribution",
-        )
-        fig.update_xaxes(tickformat=".0%")
-        fig.update_layout(height=280)
-        st.plotly_chart(fig, use_container_width=True)
-
-    display_cols = [
-        "season",
-        "week",
-        "gameday",
-        "away_team",
-        "home_team",
-        "predicted_winner",
-        "winner_probability",
-        "actual_winner",
-        "correct_prediction",
-        "confidence_level",
-        "market_signal",
-        "recent_point_diff_diff",
-        "recent_win_rate_diff",
-        "rest_advantage",
-        "spread_line",
-        "total_line",
-        "pick_explanation",
-    ]
-    st.subheader("Filtered Game Table")
-    sorted_games = filtered.sort_values(["season", "week", "game_id"])
-    st.dataframe(
-        sorted_games[_available_columns(sorted_games, display_cols)],
-        width="stretch",
-    )
-    st.download_button(
-        "Download filtered game projections",
-        filtered.to_csv(index=False),
-        file_name="filtered_weekly_win_projections.csv",
-        mime="text/csv",
-    )
-
-
 def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
     weekly = data["weekly_fantasy"]
     method_summary = data["weekly_fantasy_summary"]
@@ -1703,180 +1537,6 @@ def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
         "reported in the same spirit as the two-stage value finding: the "
         "negative results stay visible."
     )
-
-
-def espn_weekly_games_view(data: dict[str, pd.DataFrame]) -> None:
-    """ESPN-style week-by-week game predictions.
-
-    Style: week selector at top, each game as a card with confidence bar,
-    spread/total, pick explanation. Filters: team, division, primetime.
-    """
-    from app.components import game_card_grid, game_card_html
-
-    games = data["weekly_wins"]
-    validation = data["weekly_win_validation"]
-
-    st.title("Weekly Game Picks")
-    st.caption(
-        "Pick winners for any week in the dataset. The model uses the closing "
-        "spread, total, rest, recent form, and divisional matchup; it's a "
-        "market-informed projection, not a pure team-strength rating."
-    )
-
-    if games.empty:
-        st.info(
-            "Weekly game projection table is missing. Run "
-            "`python scripts/run_pipeline.py --steps weekly_wins`."
-        )
-        return
-
-    # Headline KPI row (backtest accuracy)
-    if not validation.empty:
-        overall = validation[validation["season"].astype(str).eq("overall")]
-        if not overall.empty:
-            row = overall.iloc[0]
-            kpi_cols = st.columns(4)
-            with kpi_cols[0]:
-                st.metric("Backtest accuracy", f"{float(row['accuracy']):.1%}")
-            with kpi_cols[1]:
-                st.metric("Brier score", f"{float(row['brier_score']):.3f}")
-            with kpi_cols[2]:
-                st.metric("ROC AUC", f"{float(row['roc_auc']):.3f}")
-            with kpi_cols[3]:
-                st.metric("Games backtested", f"{int(row['games']):,}")
-
-    # ------------------------------------------------------------------
-    # Week selector + filters
-    # ------------------------------------------------------------------
-    cols = st.columns([1.4, 1.4, 2, 1.6])
-    with cols[0]:
-        seasons = sorted(games["season"].dropna().astype(int).unique(), reverse=True)
-        sel_season = st.selectbox("Season", seasons, index=0, key="games_season")
-    with cols[1]:
-        weeks = sorted(
-            games[games["season"].eq(sel_season)]["week"].dropna().astype(int).unique()
-        )
-        sel_week = st.selectbox(
-            "Week",
-            weeks,
-            index=len(weeks) - 1 if weeks else 0,
-            key="games_week",
-        )
-    with cols[2]:
-        all_teams = sorted(
-            set(games["home_team"].dropna().astype(str))
-            | set(games["away_team"].dropna().astype(str))
-        )
-        sel_teams = st.multiselect("Team(s)", all_teams, key="games_teams")
-    with cols[3]:
-        confidence = st.multiselect(
-            "Confidence",
-            ["High", "Medium", "Low"],
-            default=[],
-            key="games_conf",
-        )
-
-    cols2 = st.columns([1.6, 1.4, 2])
-    with cols2[0]:
-        div_only = st.checkbox(
-            "Divisional games only", value=False, key="games_div"
-        )
-    with cols2[1]:
-        correct_filter = st.radio(
-            "Result",
-            ["All", "Correct picks only", "Missed picks only"],
-            horizontal=True,
-            key="games_correct",
-        )
-    with cols2[2]:
-        sort_choice = st.radio(
-            "Sort by",
-            ["Confidence (desc)", "Closest spread", "Time of game"],
-            horizontal=True,
-            key="games_sort",
-        )
-
-    # Filter
-    week_games = games[
-        games["season"].eq(sel_season) & games["week"].eq(sel_week)
-    ].copy()
-    if sel_teams:
-        week_games = week_games[
-            week_games["home_team"].astype(str).isin(sel_teams)
-            | week_games["away_team"].astype(str).isin(sel_teams)
-        ]
-    if confidence:
-        week_games = week_games[week_games["confidence_level"].isin(confidence)]
-    if div_only and "div_game" in week_games.columns:
-        week_games = week_games[week_games["div_game"].fillna(0).eq(1)]
-    if correct_filter == "Correct picks only" and "correct_prediction" in week_games.columns:
-        week_games = week_games[week_games["correct_prediction"].fillna(False)]
-    elif correct_filter == "Missed picks only" and "correct_prediction" in week_games.columns:
-        week_games = week_games[~week_games["correct_prediction"].fillna(True)]
-
-    if sort_choice == "Confidence (desc)":
-        week_games = week_games.sort_values("winner_probability", ascending=False)
-    elif sort_choice == "Closest spread":
-        week_games = week_games.assign(
-            abs_spread=lambda d: d["spread_line"].fillna(0).abs()
-        ).sort_values("abs_spread")
-    else:
-        week_games = week_games.sort_values("gameday")
-
-    if week_games.empty:
-        st.warning("No games match the selected filters.")
-        return
-
-    # Summary line + chart
-    st.markdown(
-        f"<div style='color:#5E6A75;font-size:0.86rem;margin-bottom:12px;'>"
-        f"Season {sel_season} · Week {int(sel_week)} · "
-        f"<strong>{len(week_games)}</strong> game(s) shown · "
-        f"Avg winner probability: <strong>{week_games['winner_probability'].mean():.0%}</strong>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # Game cards grid
-    cards = []
-    for _, row in week_games.iterrows():
-        cards.append(
-            game_card_html(
-                away_team=str(row["away_team"]),
-                home_team=str(row["home_team"]),
-                away_score=row.get("away_score"),
-                home_score=row.get("home_score"),
-                predicted_winner=str(row["predicted_winner"]),
-                winner_probability=float(row["winner_probability"]),
-                spread_line=row.get("spread_line"),
-                total_line=row.get("total_line"),
-                market_signal=row.get("market_signal"),
-                pick_explanation=str(row.get("pick_explanation", "")),
-                gameday=str(row.get("gameday", "")),
-                actual_winner=row.get("actual_winner"),
-                correct_prediction=row.get("correct_prediction"),
-            )
-        )
-    game_card_grid(cards)
-
-    # Per-season trend
-    if not validation.empty:
-        with st.expander("Backtest accuracy by season (collapsed)", expanded=False):
-            season_validation = validation[
-                ~validation["season"].astype(str).eq("overall")
-            ].copy()
-            fig = px.line(
-                season_validation,
-                x="season",
-                y="accuracy",
-                markers=True,
-                labels={"season": "Validation season", "accuracy": "Accuracy"},
-                title="Backtest accuracy by validation season",
-            )
-            fig.update_yaxes(tickformat=".0%")
-            fig.update_layout(height=320)
-            st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(validation, width="stretch")
 
 
 def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
@@ -3226,7 +2886,6 @@ def main() -> None:
             "feature_importance",
             "fantasy",
             "fantasy_model_comparison",
-            "weekly_wins",
             "weekly_fantasy",
             "weekly_fantasy_summary",
         }
@@ -3234,18 +2893,17 @@ def main() -> None:
     show_missing_data_warning(missing)
 
     st.sidebar.title("Navigation")
-    st.sidebar.markdown("### 🏈 Hero pages")
+    st.sidebar.markdown("### Two perspectives")
     hero = st.sidebar.radio(
-        "Pick a perspective",
+        "Pick one",
         [
             "Cap Allocation Brief (Front Office)",
             "Fantasy Player Board",
-            "Weekly Game Picks",
         ],
         key="nav_hero",
     )
     st.sidebar.divider()
-    st.sidebar.markdown("### 📊 Methodology and detail")
+    st.sidebar.markdown("### Drill-down")
     detail = st.sidebar.radio(
         "Detailed analyses",
         [
@@ -3255,20 +2913,18 @@ def main() -> None:
             "Causal: QB Injury → WR PPR",
             "Two-Stage Decomposition Experiment",
             "Replacement-Level Surplus (detail)",
-            "Front Office (drill-down)",
-            "Fantasy (legacy view)",
             "Methodology And Reports",
         ],
         key="nav_detail",
     )
     st.sidebar.divider()
     st.sidebar.caption(
-        "Hero pages are the ones designed for a reader. Detail pages drill "
-        "into specific methodology and raw outputs. Rebuild data with "
+        "Hero pages are written for a reader. Drill-down pages dig into "
+        "specific methodology and raw outputs. Rebuild data with "
         "`python scripts/run_pipeline.py`."
     )
 
-    # Detail pages take precedence if explicitly chosen.
+    # Drill-down pages take precedence if explicitly chosen.
     if detail == "External Benchmark vs DK":
         external_benchmark_page(data)
     elif detail == "Bayesian Rookie Cold-Start":
@@ -3279,10 +2935,6 @@ def main() -> None:
         two_stage_weekly_page(data)
     elif detail == "Replacement-Level Surplus (detail)":
         replacement_level_page(data)
-    elif detail == "Front Office (drill-down)":
-        front_office_page(data)
-    elif detail == "Fantasy (legacy view)":
-        fantasy_page(data)
     elif detail == "Methodology And Reports":
         methodology_page(data)
         st.divider()
@@ -3293,8 +2945,6 @@ def main() -> None:
             front_office_executive_report(data)
         elif hero == "Fantasy Player Board":
             espn_fantasy_view(data)
-        elif hero == "Weekly Game Picks":
-            espn_weekly_games_view(data)
 
 
 if __name__ == "__main__":

@@ -16,8 +16,6 @@ from src.prediction_report import (
 )
 from src.salary_efficiency import build_salary_efficiency_tables
 from src.salary_findings import build_salary_finding_tables
-from src.context_features import build_contextual_player_features
-from src.feature_impact import build_context_feature_impact_outputs
 from src.fantasy_projection import build_fantasy_projection_outputs
 from src.methodology_checks import build_methodology_check_outputs
 from src.model_interpretation import build_model_interpretation_outputs
@@ -27,20 +25,27 @@ from src.external_benchmark import build_external_benchmark_outputs
 from src.rookie_bayes import build_rookie_modeling_frame
 from src.two_stage_weekly import build_two_stage_weekly_outputs
 from src.weekly_fantasy_projection import build_weekly_fantasy_outputs
-from src.weekly_win_projection import build_weekly_win_projection_outputs
-from src.advanced_modeling import build_advanced_modeling_outputs
 from src.model_benchmark import build_model_benchmark_outputs
 from src.value_decomposition import build_value_decomposition_outputs
 from src.two_stage_value import build_two_stage_value_outputs
 
 
+# Pipeline steps grouped by perspective. Both perspectives use the same
+# upstream cleaning + value-score stages.
 PIPELINE_STEPS = [
+    # Shared upstream
     "clean",
     "value",
     "decompose",
+    "checks",
+    "interpretation",
+    "benchmark",
+    # Front office
     "predictions",
     "salary",
     "findings",
+    "two_stage",
+    # Fantasy
     "fantasy",
     "weekly_fantasy",
     "external_benchmark",
@@ -48,35 +53,8 @@ PIPELINE_STEPS = [
     "two_stage_weekly",
     "causal_session1",
     "causal_session2",
-    "weekly_wins",
-    "context",
-    "feature_impact",
-    "checks",
-    "interpretation",
-    "benchmark",
-    "two_stage",
-    "advanced_modeling",
 ]
-DEFAULT_PIPELINE_STEPS = [
-    "clean",
-    "value",
-    "decompose",
-    "predictions",
-    "salary",
-    "findings",
-    "fantasy",
-    "weekly_fantasy",
-    "external_benchmark",
-    "rookie_bayes",
-    "two_stage_weekly",
-    "causal_session1",
-    "causal_session2",
-    "weekly_wins",
-    "checks",
-    "interpretation",
-    "benchmark",
-    "two_stage",
-]
+DEFAULT_PIPELINE_STEPS = PIPELINE_STEPS.copy()
 
 
 def _resolve_project_root(project_root: str | Path | None = None) -> Path:
@@ -137,12 +115,6 @@ def build_fantasy_outputs(project_root: str | Path | None = None) -> dict[str, A
     """Rebuild 2026 fantasy-football projection tables and report."""
     root = _resolve_project_root(project_root)
     return build_fantasy_projection_outputs(project_root=root, save_outputs=True)
-
-
-def build_weekly_win_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
-    """Rebuild weekly game winner projection tables and report."""
-    root = _resolve_project_root(project_root)
-    return build_weekly_win_projection_outputs(project_root=root, save_outputs=True)
 
 
 def build_weekly_fantasy_outputs_step(
@@ -229,25 +201,6 @@ def build_rookie_bayes_step(
     return {"modeling_frame": modeling_df, "summary_text": summary_text}
 
 
-def build_context_features(project_root: str | Path | None = None) -> pd.DataFrame:
-    """Rebuild player-season contextual football features from raw local data."""
-    root = _resolve_project_root(project_root)
-    dirs = ensure_project_dirs(root)
-
-    player_stats = load_csv("data/raw/player_stats_2016_2025.csv", root, low_memory=False)
-    schedules = load_csv("data/raw/schedules_2016_2025.csv", root, low_memory=False)
-    context_features = build_contextual_player_features(player_stats, schedules)
-    output_path = dirs["processed"] / "player_context_features_2016_2025.csv"
-    context_features.to_csv(output_path, index=False)
-    return context_features
-
-
-def build_feature_impact_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
-    """Rebuild contextual feature-impact comparison tables and report."""
-    root = _resolve_project_root(project_root)
-    return build_context_feature_impact_outputs(project_root=root, save_outputs=True)
-
-
 def build_check_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
     """Rebuild methodology checks and report."""
     root = _resolve_project_root(project_root)
@@ -258,12 +211,6 @@ def build_interpretation_outputs(project_root: str | Path | None = None) -> dict
     """Rebuild model interpretation tables and report."""
     root = _resolve_project_root(project_root)
     return build_model_interpretation_outputs(project_root=root, save_outputs=True)
-
-
-def build_advanced_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
-    """Rebuild optional advanced modeling outputs."""
-    root = _resolve_project_root(project_root)
-    return build_advanced_modeling_outputs(project_root=root, save_outputs=True)
 
 
 def build_decomposition_outputs(project_root: str | Path | None = None) -> dict[str, Any]:
@@ -328,12 +275,6 @@ def run_pipeline(
             results[step] = build_causal_session1_step(root)
         elif step == "causal_session2":
             results[step] = build_causal_session2_step(root)
-        elif step == "weekly_wins":
-            results[step] = build_weekly_win_outputs(root)
-        elif step == "context":
-            results[step] = build_context_features(root)
-        elif step == "feature_impact":
-            results[step] = build_feature_impact_outputs(root)
         elif step == "checks":
             results[step] = build_check_outputs(root)
         elif step == "interpretation":
@@ -342,7 +283,5 @@ def run_pipeline(
             results[step] = build_benchmark_outputs(root)
         elif step == "two_stage":
             results[step] = build_two_stage_outputs(root)
-        elif step == "advanced_modeling":
-            results[step] = build_advanced_outputs(root)
 
     return results
