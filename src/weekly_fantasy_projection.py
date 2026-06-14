@@ -126,6 +126,12 @@ WEEKLY_FANTASY_FEATURES = [
     "is_indoor",
     "game_temp",
     "game_wind",
+    # NOTE: Session 2 evaluated NGS + PFR weekly features and found NO
+    # leakage-safe lift over the Session 1 set. The apparent +9% from joining
+    # lagged NGS values was a leak — the join's missingness encoded same-week
+    # tracking status. Properly lagged coverage flags add ~0. So no NGS/PFR
+    # columns are registered here. See report/fantasy/session2_ngs_pfr_features.md
+    # and src/external_player_features.py for the full investigation.
     "practice_status_full",
     "practice_status_limited",
     "practice_status_dnp",
@@ -588,6 +594,10 @@ def build_modeling_frame(
     # leaves `depth_chart_rank` mostly null on recent seasons. These features
     # rebuild that signal directly from play-by-play usage (see pbp_features).
     featured = attach_pbp_features(featured, project_root=root)
+    # Session 2 evaluated NGS + PFR weekly features here and found no
+    # leakage-safe lift (the value join leaked same-week availability; properly
+    # lagged coverage adds ~0). They are intentionally NOT attached. The
+    # investigation lives in src/external_player_features.py + scripts/.
     featured = add_market_interactions(featured)
     featured = add_target(featured)
     return featured
