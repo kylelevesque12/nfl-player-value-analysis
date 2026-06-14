@@ -25,11 +25,14 @@ For each player-season we then compute:
     premium. Positive surplus means the player out-earned their contract; the
     larger the number, the bigger the deal for the team.
 
-Important honesty caveat: the underlying cap-cost variable is currently
-``inflated_apy`` (annualized contract value), not year-by-year cap hit. The
-replacement-level framing is more honest than raw APY but the dollar surplus
-numbers still inherit APY's imprecision. Replacing APY with true cap hit is
-Tier 1 item #3 of ``PORTFOLIO_ROADMAP.md`` and the appropriate next upgrade.
+Cap-cost variable: as of Session 4 the underlying ``salary_millions`` is a
+season-specific cap hit *reconstructed* from contract terms (prorated signing
+bonus + backloaded base; see ``src/cap_hit_reconstruction.py``), replacing the
+flat ``inflated_apy`` proxy. It is an estimate, not a parsed cap hit — the
+source contract data has no year-by-year cap accounting — so each player-season
+carries a ``cap_hit_quality_flag``. This is materially more honest than flat APY
+(early-extension years are correctly cheaper than late years), but precision is
+still bounded by what the contract terms support.
 """
 
 from __future__ import annotations

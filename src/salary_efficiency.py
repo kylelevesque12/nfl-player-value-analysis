@@ -181,9 +181,32 @@ def expand_contracts_to_player_seasons(
     )
     expanded = expanded.drop_duplicates(["season", "gsis_id"], keep="first")
     expanded["contract_match_method"] = "gsis_id_active_contract_window"
+
+    # Session 4: replace the flat inflated-APY salary with a season-specific
+    # reconstructed cap hit (prorated signing bonus + backloaded base, in the
+    # same inflation-adjusted millions). The old flat value is retained as
+    # `inflated_apy_salary` for comparison. See src/cap_hit_reconstruction.py.
+    from src.cap_hit_reconstruction import add_estimated_cap_hit
+
+    expanded["inflated_apy_salary"] = expanded["salary_millions"]
+    expanded["value_m"] = expanded.get("inflated_value")
+    expanded["guaranteed_m"] = expanded.get("inflated_guaranteed")
+    expanded["apy_m"] = expanded.get("inflated_apy")
+    expanded["years_int"] = (
+        np.ceil(pd.to_numeric(expanded["years"], errors="coerce")).clip(lower=1)
+    )
+    expanded = add_estimated_cap_hit(expanded)
+
+    expanded["salary_millions"] = pd.to_numeric(
+        expanded["estimated_cap_hit"], errors="coerce"
+    )
+    expanded["salary_source"] = expanded["cap_hit_source"]
+    # Drop rows whose cap hit could not be estimated at all.
+    expanded = expanded[expanded["salary_millions"].gt(0)].copy()
     expanded["salary_interpretation"] = (
-        "Approximate annual contract cost from nflverse/OverTheCap historical "
-        "contracts; not a precise season cap hit."
+        "Season-specific cap hit reconstructed from contract terms (prorated "
+        "signing bonus + backloaded base); an estimate, not a parsed cap hit. "
+        "See cap_hit_quality_flag."
     )
 
     return expanded
