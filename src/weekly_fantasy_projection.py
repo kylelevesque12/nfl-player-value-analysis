@@ -43,6 +43,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from src import config
 from src.load_data import ensure_project_dirs, find_project_root, load_csv
 from src.models import make_model_pipeline
+from src.pbp_features import attach_pbp_features
 
 
 SKILL_POSITIONS = list(config.SKILL_POSITIONS)
@@ -112,7 +113,19 @@ WEEKLY_FANTASY_FEATURES = [
     # runs (with reduced accuracy) when these files have not been fetched.
     "offense_snap_pct_last1",
     "offense_snap_pct_last4_avg",
-    "depth_chart_rank",
+    # PBP-reconstructed depth-chart rank + opportunity. Replaces the nflverse
+    # `list_rank` field (dropped from the depth-chart feed ~2024) — the old
+    # `depth_chart_rank` join was empirically ~0% populated across every season,
+    # so it has been removed entirely. All four are shift(1)-safe rolling
+    # histories — see src/pbp_features.py.
+    "pbp_depth_chart_rank_last1",
+    "pbp_depth_chart_rank_last4_avg",
+    "pbp_targets_last4_avg",
+    "pbp_touches_last4_avg",
+    # Game-environment weather. Indoor games are imputed to 70F / 0mph wind.
+    "is_indoor",
+    "game_temp",
+    "game_wind",
     "practice_status_full",
     "practice_status_limited",
     "practice_status_dnp",
@@ -173,8 +186,37 @@ def _attach_schedule_context(weekly: pd.DataFrame, schedules: pd.DataFrame) -> p
             "spread_line",
             "total_line",
             "div_game",
+            "temp",
+            "wind",
         ],
     )
+
+    # Weather is a game-level attribute (same for both teams). nflverse leaves
+    # temp/wind null for indoor games (dome/closed roof) — that is not missing
+    # data, it is "climate controlled", so we impute below rather than drop.
+    if "roof" not in sched.columns:
+        sched["roof"] = np.nan
+    for col in ("temp", "wind"):
+        if col not in sched.columns:
+            sched[col] = np.nan
+
+    roof_norm = sched["roof"].astype(str).str.strip().str.lower()
+    sched["is_indoor"] = roof_norm.isin(["dome", "closed"]).astype("float64")
+    # Indoor games: comfortable, windless conditions.
+    sched["game_temp"] = np.where(
+        sched["is_indoor"].eq(1.0), 70.0, sched["temp"]
+    )
+    sched["game_wind"] = np.where(
+        sched["is_indoor"].eq(1.0), 0.0, sched["wind"]
+    )
+    # Outdoor games with a missing reading (older rows, data gaps) fall back to
+    # the league-wide outdoor median so the column stays dense for the model.
+    outdoor = sched["is_indoor"].eq(0.0)
+    if outdoor.any():
+        temp_med = sched.loc[outdoor, "temp"].median()
+        wind_med = sched.loc[outdoor, "wind"].median()
+        sched["game_temp"] = sched["game_temp"].fillna(temp_med)
+        sched["game_wind"] = sched["game_wind"].fillna(wind_med)
 
     keep = [
         "game_id",
@@ -188,6 +230,9 @@ def _attach_schedule_context(weekly: pd.DataFrame, schedules: pd.DataFrame) -> p
         "spread_line",
         "total_line",
         "div_game",
+        "is_indoor",
+        "game_temp",
+        "game_wind",
     ]
     sched = sched[keep]
 
@@ -212,41 +257,25 @@ def _attach_schedule_context(weekly: pd.DataFrame, schedules: pd.DataFrame) -> p
     # spread_line in nflverse is the home line; flip for the away team.
     away["spread_line_team_perspective"] = -away["spread_line"]
 
+    team_game_cols = [
+        "game_id",
+        "season",
+        "week",
+        "gameday",
+        "team",
+        "opponent_from_sched",
+        "is_home",
+        "rest_days",
+        "opp_rest_days",
+        "spread_line_team_perspective",
+        "total_line",
+        "div_game",
+        "is_indoor",
+        "game_temp",
+        "game_wind",
+    ]
     team_games = pd.concat(
-        [
-            home[
-                [
-                    "game_id",
-                    "season",
-                    "week",
-                    "gameday",
-                    "team",
-                    "opponent_from_sched",
-                    "is_home",
-                    "rest_days",
-                    "opp_rest_days",
-                    "spread_line_team_perspective",
-                    "total_line",
-                    "div_game",
-                ]
-            ],
-            away[
-                [
-                    "game_id",
-                    "season",
-                    "week",
-                    "gameday",
-                    "team",
-                    "opponent_from_sched",
-                    "is_home",
-                    "rest_days",
-                    "opp_rest_days",
-                    "spread_line_team_perspective",
-                    "total_line",
-                    "div_game",
-                ]
-            ],
-        ],
+        [home[team_game_cols], away[team_game_cols]],
         ignore_index=True,
     )
     team_games["rest_advantage"] = team_games["rest_days"] - team_games["opp_rest_days"]
@@ -554,6 +583,11 @@ def build_modeling_frame(
 
     featured = add_availability_features(featured, player_stats, schedules)
     featured = attach_supplementary_signals(featured, root)
+    # PBP-derived depth-chart rank. nflverse dropped the numeric `list_rank`
+    # field from the depth-chart feed around 2024, so `_attach_depth_charts`
+    # leaves `depth_chart_rank` mostly null on recent seasons. These features
+    # rebuild that signal directly from play-by-play usage (see pbp_features).
+    featured = attach_pbp_features(featured, project_root=root)
     featured = add_market_interactions(featured)
     featured = add_target(featured)
     return featured
@@ -776,7 +810,10 @@ def attach_supplementary_signals(
     `_available()` picks them up automatically.
     """
     out = _attach_snap_counts(featured, project_root)
-    out = _attach_depth_charts(out, project_root)
+    # NOTE: the legacy `_attach_depth_charts` join is intentionally not called.
+    # nflverse dropped the numeric `list_rank` field, leaving it ~0% populated;
+    # `attach_pbp_features` (called in build_modeling_frame) supplies the real
+    # depth-chart signal from play-by-play instead.
     out = _attach_injury_status(out, project_root)
     return out
 
