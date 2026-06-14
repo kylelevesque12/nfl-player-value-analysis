@@ -165,11 +165,20 @@ def build_rookie_modeling_frame(
     rosters: pd.DataFrame,
     player_stats: pd.DataFrame,
     project_root: Path | None = None,
+    attach_context: bool = True,
 ) -> pd.DataFrame:
     """Build the per-rookie modeling frame.
 
     Each row is a player's rookie season, with pre-draft features and the
     observed rookie-season PPR-per-game target.
+
+    When ``attach_context`` is True (default), pre-season incumbent / team
+    context features are attached (see ``src/rookie_context_features``). Only a
+    small, theoretically-grounded subset (``CONTEXT_FEATURES``) is fed to the
+    model; the rest are attached for inspection but left out of the feature set.
+    All context features are strictly pre-rookie-season — Session 3 documents the
+    leakage discipline and the combine/broad-depth features that were tested and
+    dropped.
     """
     root = (
         find_project_root() if project_root is None else Path(project_root).resolve()
@@ -250,6 +259,14 @@ def build_rookie_modeling_frame(
     out = df[keep].copy()
     if "full_name" in out.columns and "player_display_name" not in out.columns:
         out = out.rename(columns={"full_name": "player_display_name"})
+    out = out.reset_index(drop=True)
+
+    if attach_context:
+        from src.rookie_context_features import attach_rookie_context_features
+
+        out = attach_rookie_context_features(
+            out, rosters, player_stats, project_root=root
+        )
     return out.reset_index(drop=True)
 
 
@@ -257,7 +274,19 @@ def build_rookie_modeling_frame(
 # Feature standardization (computed within a training fold to avoid leakage)
 # ---------------------------------------------------------------------------
 FEATURE_COLUMNS = ["draft_log", "age_at_draft", "height_inches", "weight"]
-OPTIONAL_FEATURES = ["college_score"]
+# Session 3 incumbent-context features. A focused, theoretically-grounded set:
+# whether the rookie's position has an established returning starter, whether
+# that incumbent recently signed a meaningful extension, and the prior-year
+# starting QB's production. These chiefly sharpen the QB "blocked behind a
+# starter" cell (Jordan Love, Mahomes). Combine and the broader depth features
+# were tested and dropped — see report/rookie/session3_combine_team_context.md.
+# They are OPTIONAL: absent if build_rookie_modeling_frame(attach_context=False).
+CONTEXT_FEATURES = [
+    "established_incumbent",
+    "incumbent_recent_extension",
+    "prior_qb_pprpg",
+]
+OPTIONAL_FEATURES = ["college_score"] + CONTEXT_FEATURES
 
 
 def standardize_features(
