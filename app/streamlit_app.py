@@ -256,6 +256,7 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "weekly_fantasy_summary": "weekly_fantasy_method_summary.csv",
         "weekly_fantasy_by_position": "weekly_fantasy_by_position.csv",
         "weekly_fantasy_conformal": "weekly_fantasy_conformal_coverage.csv",
+        "weekly_fantasy_live": "weekly_fantasy_live_projection.csv",
         # Replacement-level surplus (front-office headline)
         "replacement_baselines": "salary_findings_replacement_baselines.csv",
         "replacement_top_surplus": "salary_findings_replacement_top_surplus.csv",
@@ -1312,13 +1313,58 @@ def fantasy_page(data: dict[str, pd.DataFrame]) -> None:
             st.dataframe(validation, width="stretch")
 
 
+def _weekly_fantasy_live_view(live: pd.DataFrame) -> None:
+    """Minimal 'upcoming week' projection table (Session 7)."""
+    proj_week = int(live["week"].iloc[0]) if "week" in live.columns and not live.empty else None
+    st.subheader(f"Projected week {proj_week}" if proj_week else "Upcoming week projections")
+    st.caption(
+        "Projections for the upcoming week, scored before the games are played. "
+        "Player-history features are carried forward from the latest completed "
+        "week; opponent, home/away, and roof/temp/wind come from the upcoming "
+        "game's schedule. No same-week outcome, PBP, or NGS/PFR information is "
+        "used. Intervals are per-position conformal bands (wider for QBs, whose "
+        "scoring is more volatile)."
+    )
+    with st.sidebar:
+        st.subheader("Live Projection Filters")
+        positions = st.multiselect("Position", sorted(live["position"].dropna().unique()))
+        teams = st.multiselect("Team", sorted(live["team"].dropna().astype(str).unique()))
+        min_pts = st.slider("Minimum projected points", 0.0, float(live["projected_points"].max()), 0.0, 0.5)
+    view = live.copy()
+    if positions:
+        view = view[view["position"].isin(positions)]
+    if teams:
+        view = view[view["team"].astype(str).isin(teams)]
+    view = view[view["projected_points"] >= min_pts]
+    view = view.sort_values("projected_points", ascending=False)
+    show_cols = [c for c in [
+        "player_display_name", "position", "team", "opponent_team", "is_home",
+        "projected_points", "interval_low_50", "interval_high_50",
+        "interval_low_80", "interval_high_80", "pbp_depth_chart_rank_last1",
+        "implied_team_total", "game_temp", "game_wind", "is_indoor",
+    ] if c in view.columns]
+    st.dataframe(view[show_cols], use_container_width=True, hide_index=True)
+    st.caption(f"{len(view)} players. Sorted by projected points (descending).")
+
+
 def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
     weekly = data["weekly_fantasy"]
     method_summary = data["weekly_fantasy_summary"]
     by_position = data["weekly_fantasy_by_position"]
     conformal = data["weekly_fantasy_conformal"]
+    live = data.get("weekly_fantasy_live", pd.DataFrame())
 
     st.title("Weekly Fantasy Projection")
+
+    # Minimal mode selector (Session 7): historical backtest vs upcoming week.
+    mode_options = ["Historical backtest"]
+    if live is not None and not live.empty:
+        mode_options.append("Current / next week projections")
+    mode = st.radio("View", mode_options, horizontal=True) if len(mode_options) > 1 else mode_options[0]
+    if mode == "Current / next week projections":
+        _weekly_fantasy_live_view(live)
+        return
+
     st.caption(
         "Player-week PPR projections built from strictly pregame information: "
         "rolling production and usage, opponent PPR allowed to position, "
