@@ -75,6 +75,49 @@ stability — not the absolute margin.
 | 2024 | 5,848 | 6.079 | 6.562 | +7.356% |
 | 2025 | 6,043 | 5.967 | 6.502 | +8.238% |
 
+## Why the naive-baseline comparison is the right bar
+
+Leading on the baseline skill score, rather than on the 2020-2021 DraftKings
+head-to-head, is a deliberate methodological choice, and it is the one the
+forecasting literature endorses.
+
+In standard forecast evaluation, accuracy is judged *relative to a benchmark*,
+and the naive forecast — "next period equals the most recent observation," or a
+recent average — is the canonical benchmark. Hyndman & Athanasopoulos
+(*Forecasting: Principles and Practice*) build their recommended scale-free error
+metric, the Mean Absolute Scaled Error, directly on the naive forecast's error:
+a score below 1 means you beat naive, above 1 means you lost to it. The framing is
+explicit — "every method must beat naive" — and a skill score is precisely the
+proportional improvement of a method over that reference. So a 7-9% RMSE reduction
+versus the recent-form and season-to-date averages is not an arbitrary yardstick;
+it is the exact "did the model earn its complexity?" test the literature prescribes,
+and it is available in every season, including the most recent.
+
+Why a single-digit edge is meaningful here rather than disappointing: weekly
+fantasy scoring is intrinsically low in predictability. Independent accuracy work
+by Fantasy Football Analytics finds weekly projection R² in the single digits to
+low-twenties by position (roughly QB 4-10%, WR 4-9%, TE 3-9%, RB 15-20%), because
+the hard part is separating startable players from each other, not identifying
+which deep reserve will score little. Against that ceiling, a stable few-percent
+RMSE reduction over the naive baseline — sustained across six independent yearly
+holdouts — is a real edge, and consistency across seasons is exactly the property
+that the same accuracy researchers use to rank projection sources. The fantasy
+industry itself evaluates projections the same way: FantasyPros' published
+in-season accuracy methodology scores experts by mean absolute error against
+realized points, so an MAE/RMSE-versus-baseline framing is the field's own bar,
+not one invented for this project.
+
+What this does *not* claim: it does not claim the model beats live FantasyPros or
+ESPN projections, or that it beats DraftKings in recent years. The DK-implied
+comparison is scoped to 2020-2021, the only window where a free market-implied
+benchmark exists, and is reported as competitive-to-slightly-ahead there, not
+extrapolated forward. See `report/fantasy/external_projection_benchmark_feasibility.md`.
+
+Sources: Hyndman & Athanasopoulos, *Forecasting: Principles and Practice* (3rd ed.),
+[skill scores / MASE](https://otexts.com/fpp3/accuracy.html); Fantasy Football
+Analytics, [Which Fantasy Football Projections Are Most Accurate?](https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html);
+FantasyPros, [In-Season Accuracy Methodology](https://www.fantasypros.com/about/faq/football-inseason-accuracy-methodology/).
+
 ## Conformal interval coverage
 
 | Target coverage | Empirical coverage | Mean width | n |

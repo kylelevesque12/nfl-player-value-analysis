@@ -1,10 +1,10 @@
 # NFL Player Value Analysis
 
-Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can we project weekly fantasy points better than the betting market, and what do the negative results teach us about model architecture.
+Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can a weekly fantasy model consistently beat the naive baselines every forecast is measured against, and what do the negative results teach us about model architecture.
 
 ## Four results worth knowing
 
-The weekly fantasy projector beats DraftKings closing-line implied projections by 1.6% RMSE on 11,191 matched player-weeks. That sits inside the 1-3% edge public DFS shops claim as their selling point. Snap-share features did most of the work; the TE position flipped from a negative to a positive skill score the moment they were added. ([External benchmark](report/external_benchmark.md))
+The weekly fantasy projector cuts RMSE 7-9% below the naive forecasting baselines — a player's recent-form and season-to-date averages — the standard bar any forecast must clear ([Hyndman & Athanasopoulos](https://otexts.com/fpp3/accuracy.html)) — and that edge holds in every season from 2020 through 2025, including the most recent. That margin is meaningful because weekly fantasy scoring is intrinsically low-predictability (single-digit to low-twenties R² by position, per [Fantasy Football Analytics](https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html)). On the 2020-2021 window where a free market-implied benchmark exists, the model is also competitive-to-slightly-ahead of a DraftKings-implied projection (6.386 vs 6.493 RMSE on 11,191 matched player-weeks) — though that comparison can't be extended to recent years without paid projection data, so it is not the headline claim. Snap-share features did most of the work; the TE position flipped from a negative to a positive skill score the moment they were added. ([External benchmark](report/external_benchmark.md) · [feasibility note](report/fantasy/external_projection_benchmark_feasibility.md))
 
 Brock Purdy's 2023 season produced about $37M of surplus over a replacement-level QB on a rookie deal — the largest single-season cap surplus in 2016-2025. Three of the top ten surplus seasons are rookie-deal QBs (Purdy 2023, Purdy 2024, Jayden Daniels 2024). The RB market shows a negative implicit price for value at the position level, consistent with the long-documented RB market inefficiency. ([Replacement-level findings](report/salary_efficiency_findings.md))
 
@@ -19,7 +19,7 @@ The project covers three audiences. Pick the section that matches yours:
 | Audience | Section | Top deliverable |
 | --- | --- | --- |
 | NFL team analytics / cap analysts | [Front office](#front-office-perspective) | Replacement-level surplus framework with Brock Purdy at #1 |
-| ESPN / DraftKings / FantasyPros | [Fantasy / DFS](#fantasy--dfs-perspective) | Weekly projector that beats DK closing line by 1.6% |
+| ESPN / DraftKings / FantasyPros | [Fantasy / DFS](#fantasy--dfs-perspective) | Weekly projector: 7-9% RMSE edge over naive baselines every season 2020-2025; competitive with a market-implied DK benchmark on 2020-2021 |
 | Research labs / methodology reviewers | [Methodology](#methodology--research-perspective) | Causal DiD with a null finding, rookie hurdle Bayes, four decomposition experiments |
 
 If you want the whole story start to finish, read the [final project report](report/final_project_report.md). If you want to play with the live numbers, run the [Streamlit dashboard](#interactive-dashboard).
@@ -58,21 +58,11 @@ A 26-check methodology audit covers leakage safety, standardization correctness,
 
 ## Fantasy / DFS perspective
 
-> **Can we project weekly PPR fantasy points more accurately than the DraftKings betting market?**
+> **Can a weekly PPR model consistently beat the naive baselines every forecast is measured against — and how does it stack up against the market where that comparison is possible?**
 
 ### The headline result
 
-**+1.6% RMSE skill score over DraftKings closing-line implied projections**, 11,191 player-weeks across 2020-2021:
-
-| Position | Model RMSE | DK-implied RMSE | Skill vs market |
-| --- | ---: | ---: | ---: |
-| QB | 7.70 | 7.84 | **+1.9%** |
-| RB | 6.59 | 6.71 | **+1.8%** |
-| WR | 6.44 | 6.55 | **+1.8%** |
-| TE | 5.10 | 5.14 | **+0.7%** |
-| **Overall** | **6.39** | **6.49** | **+1.6%** |
-
-**Temporal stability** (per-season skill vs the recent-4-avg internal baseline, full 2020-2025 window — covering years where DK data isn't free):
+**A 7-9% RMSE reduction versus the naive forecasting baselines — a player's recent-form and season-to-date averages — sustained in every season 2020-2025.** Beating the naive forecast is the standard bar in forecast evaluation ([Hyndman & Athanasopoulos](https://otexts.com/fpp3/accuracy.html)); reporting it per season, across six independent yearly holdouts, is the recency-proof evidence that the edge is real and not a one-year artifact:
 
 | Season | n | Skill vs recent-4-avg |
 | --- | ---: | ---: |
@@ -83,7 +73,21 @@ A 26-check methodology audit covers leakage safety, standardization correctness,
 | 2024 | 5,848 | +7.4% |
 | 2025 | 6,043 | +8.2% |
 
-Consistent single-digit edge across every season — the DK beat isn't a 2020-2021 fluke.
+A single-digit edge is meaningful here because weekly fantasy scoring is intrinsically low-predictability — single-digit to low-twenties R² by position ([Fantasy Football Analytics](https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html)).
+
+### Scoped market check (2020-2021 only)
+
+Where a *free* market-implied benchmark exists — DraftKings closing-line salaries, available via RotoGuru's free archive only through 2021 — the model is competitive-to-slightly-ahead of the DK-implied projection on 11,191 matched player-weeks:
+
+| Position | Model RMSE | DK-implied RMSE | Skill vs market |
+| --- | ---: | ---: | ---: |
+| QB | 7.70 | 7.84 | **+1.9%** |
+| RB | 6.59 | 6.71 | **+1.8%** |
+| WR | 6.44 | 6.55 | **+1.8%** |
+| TE | 5.10 | 5.14 | **+0.7%** |
+| **Overall** | **6.39** | **6.49** | **+1.6%** |
+
+This is a scoped, secondary result, not a claim of beating live DraftKings, FantasyPros, or ESPN in recent years — that would require paid historical projection data the project doesn't have. The DK regression is also fit on in-season actuals, making it a deliberately tough bar. See the [feasibility note](report/fantasy/external_projection_benchmark_feasibility.md).
 
 ### How the model works
 
