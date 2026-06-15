@@ -2916,8 +2916,84 @@ def reports_page() -> None:
         st.info("Final project report is missing.")
 
 
+# ---------------------------------------------------------------------------
+# Landing page (Session 8) — pure content/config lives in app/landing_content.py
+# ---------------------------------------------------------------------------
+from app.landing_content import (  # noqa: E402
+    LANDING_TITLE,
+    LANDING_SUBTITLE,
+    NAV_FANTASY,
+    NAV_CAP,
+    NAV_ROOKIE,
+    NAV_CAUSAL,
+    NAV_DETAIL_NONE,
+    HERO_TARGETS as _HERO_TARGETS,
+    landing_cards,
+    methodology_strip_labels,
+)
+
+
+def _go_to(target: str) -> None:
+    """Defer navigation to the next run (radio keys can't be set after the
+    widgets are instantiated). Handled by _handle_landing_nav at top of main."""
+    st.session_state["_landing_goto"] = target
+    st.rerun()
+
+
+def _handle_landing_nav() -> None:
+    goto = st.session_state.pop("_landing_goto", None)
+    if not goto:
+        return
+    if goto in _HERO_TARGETS:
+        st.session_state["nav_hero"] = goto
+        st.session_state["nav_detail"] = NAV_DETAIL_NONE
+    else:  # a drill-down/detail page
+        st.session_state["nav_detail"] = goto
+
+
+def landing_page() -> None:
+    st.title(LANDING_TITLE)
+    st.subheader(LANDING_SUBTITLE)
+    st.caption(
+        "Phase 1 research is complete: each card below links to a working view. "
+        "Reports are written as research notes, including the experiments that "
+        "did not make production."
+    )
+    st.divider()
+
+    cards = landing_cards()
+    top = st.columns(2)
+    bottom = st.columns(2)
+    for col, card in zip(list(top) + list(bottom), cards):
+        with col:
+            with st.container(border=True):
+                st.markdown(f"**{card['tag']}**")
+                st.markdown(f"#### {card['headline']}")
+                for pt in card["points"]:
+                    st.markdown(f"- {pt}")
+                if st.button(card["button"], key=f"landing_{card['target']}", use_container_width=True):
+                    _go_to(card["target"])
+
+    st.divider()
+    st.caption(" · ".join(f"✓ {label}" for label in methodology_strip_labels()))
+
+    with st.expander("How to use this app"):
+        st.markdown(
+            "- Start with the **Fantasy Player Board** for weekly and live "
+            "projections.\n"
+            "- Use the **Cap Allocation** page to compare player production to "
+            "estimated cap cost.\n"
+            "- Use the **Rookie Model** page to inspect draft and player "
+            "opportunity.\n"
+            "- Use the **Causal Study** page to see how QB injury-report timing "
+            "affects outcomes.\n"
+            "- Reports are written as research notes, not black-box model claims."
+        )
+
+
 def main() -> None:
     data = load_all_data()
+    _handle_landing_nav()
     missing = [
         name
         for name, df in data.items()
@@ -2943,6 +3019,7 @@ def main() -> None:
     hero = st.sidebar.radio(
         "Pick one",
         [
+            "Home (Landing)",
             "Cap Allocation Brief (Front Office)",
             "Fantasy Player Board",
         ],
@@ -2986,11 +3063,13 @@ def main() -> None:
         st.divider()
         reports_page()
     else:
-        # Default: render the selected hero page.
+        # Default: render the selected hero page (landing page is the default).
         if hero == "Cap Allocation Brief (Front Office)":
             front_office_executive_report(data)
         elif hero == "Fantasy Player Board":
             espn_fantasy_view(data)
+        else:
+            landing_page()
 
 
 if __name__ == "__main__":
