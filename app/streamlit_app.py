@@ -157,7 +157,14 @@ def inject_custom_css() -> None:
 
 inject_custom_css()
 
-from app.components import inject_components_css
+from app.components import (
+    inject_components_css,
+    executive_summary,
+    caveat_callout,
+    source_footer,
+    render_page_scaffold,
+)
+from app.page_content import DETAIL_PAGES
 
 inject_components_css()
 
@@ -277,6 +284,11 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "causal_att_unmatched": "causal_qb_injury_att_unmatched.csv",
         "causal_2x2_did_unmatched": "causal_qb_injury_2x2_did_unmatched.csv",
         "causal_pre_period_means": "causal_qb_injury_pre_period_means.csv",
+        # Session 5: first-injury-report treatment (the current causal result)
+        "causal_s3_att": "causal_s3_att.csv",
+        "causal_s3_eligibility": "causal_s3_eligibility.csv",
+        "causal_s3_events": "causal_s3_first_report_events.csv",
+        "causal_s3_event_study": "causal_s3_event_study.csv",
         # Two-stage weekly experiment (methodology)
         "two_stage_weekly_summary": "two_stage_weekly_method_summary.csv",
         "two_stage_weekly_by_fold": "two_stage_weekly_by_fold.csv",
@@ -2215,11 +2227,11 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
         )
         recommendation_callout(
             "caveat",
-            "Caveat",
-            "Cost is currently `inflated_apy` (annualized contract value), not "
-            "year-by-year cap hit. Interpret findings as contract efficiency, "
-            "not exact cap accounting. Switching to OTC year-by-year cap hits "
-            "is the next data investment.",
+            "Reconstructed estimate",
+            "Cost is a season-specific cap hit reconstructed from contract terms "
+            "(prorated signing bonus + backloaded base) — an estimate, not exact "
+            "NFL cap accounting, since the source data has no year-by-year cap "
+            "breakdown. Each player-season carries a cap_hit_quality_flag.",
         )
 
     # ------------------------------------------------------------------
@@ -2270,30 +2282,8 @@ def replacement_level_page(data: dict[str, pd.DataFrame]) -> None:
     by_position = data["replacement_by_position"]
     team_season = data["replacement_team_season"]
 
-    st.title("Replacement-Level Surplus")
-    st.caption(
-        "Front-office framing: for each (season, position), estimate the cap "
-        "cost and value of a 'next man up' replacement. For each player-season, "
-        "the dollar surplus is value-over-replacement converted to dollars (via "
-        "the within-(season, position) salary-on-value slope) minus the cap "
-        "premium paid above replacement. Positive surplus = the player "
-        "out-earned their contract."
-    )
-    with st.expander("How to read these numbers", expanded=True):
-        st.markdown(
-            "- **`cap_over_replacement_millions`**: premium the player cost above "
-            "the bottom-quartile veteran starter at their position-season.\n"
-            "- **`value_over_replacement`**: standardized value above the same "
-            "replacement-level baseline.\n"
-            "- **`dollar_surplus_millions`**: value-over-replacement converted to "
-            "dollars minus the cap premium paid. The headline metric.\n"
-            "- The framework also reveals **position-level market irrationality**: "
-            "RB occasionally shows a negative implicit value-per-dollar slope, "
-            "consistent with the documented RB-market inefficiency.\n"
-            "- **Honest caveat**: cost is `inflated_apy` (annualized contract "
-            "value), not year-by-year cap hit. Read this as *contract efficiency*, "
-            "not exact cap accounting."
-        )
+    content = DETAIL_PAGES["surplus"]
+    render_page_scaffold(content)
 
     if top_surplus.empty:
         st.info(
@@ -2312,9 +2302,9 @@ def replacement_level_page(data: dict[str, pd.DataFrame]) -> None:
                 f"({headline['position']}, {headline['team']})",
             ),
             (
-                "Player-seasons in the analysis",
-                f"{len(top_surplus) * 50:,}+",  # rough — top table is top 25
-                "Top 25 shown; full population spans 2016-2025 skill positions.",
+                "Top-25 surplus seasons shown",
+                f"{len(top_surplus):,}",
+                "Full population: 2016-2025 skill positions.",
             ),
             (
                 "Positions covered",
@@ -2324,87 +2314,65 @@ def replacement_level_page(data: dict[str, pd.DataFrame]) -> None:
         ]
     )
 
-    left, right = st.columns([1.2, 1])
+    chart_df = top_surplus.head(15).copy()
+    chart_df["label"] = (
+        chart_df["season"].astype(int).astype(str)
+        + " "
+        + chart_df["player_display_name"].astype(str)
+    )
+    fig = px.bar(
+        chart_df,
+        x="dollar_surplus_millions",
+        y="label",
+        color="position",
+        orientation="h",
+        labels={"dollar_surplus_millions": "Dollar surplus ($M)", "label": ""},
+        title="Top 15 replacement-level surplus seasons (2016-2025)",
+        hover_data={
+            "cap_over_replacement_millions": ":.1f",
+            "value_over_replacement": ":.2f",
+            "team": True,
+            "label": False,
+        },
+    )
+    fig.update_layout(height=560, yaxis=dict(autorange="reversed"))
+    st.plotly_chart(fig, use_container_width=True)
 
-    with left:
-        chart_df = top_surplus.head(15).copy()
-        chart_df["label"] = (
-            chart_df["season"].astype(int).astype(str)
-            + " "
-            + chart_df["player_display_name"].astype(str)
-        )
-        fig = px.bar(
-            chart_df,
-            x="dollar_surplus_millions",
-            y="label",
-            color="position",
-            orientation="h",
-            labels={"dollar_surplus_millions": "Dollar surplus ($M)", "label": ""},
-            title="Top 15 replacement-level surplus seasons (2016-2025)",
-            hover_data={
-                "cap_over_replacement_millions": ":.1f",
-                "value_over_replacement": ":.2f",
-                "team": True,
-                "label": False,
-            },
-        )
-        fig.update_layout(height=600, yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, use_container_width=True)
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
-    with right:
-        st.subheader("Replacement baselines by (season, position)")
+    with st.expander("By position — market price per value unit & surplus share"):
         st.caption(
-            "Replacement cap cost is the median salary among bottom-quartile "
-            "veteran starters at that position-season; replacement value is "
-            "the same group's median value-score."
+            "Median replacement baselines, market price per value unit, and share "
+            "of player-seasons with positive surplus. RB shows the documented "
+            "market irrationality — sometimes a negative implicit value-per-dollar "
+            "slope."
         )
+        st.dataframe(by_position, width="stretch", hide_index=True)
+
+    with st.expander("Replacement baselines by (season, position)"):
+        st.dataframe(baselines.head(20), width="stretch", hide_index=True)
+
+    with st.expander("Top team-seasons by total surplus"):
+        st.dataframe(team_season.head(15), width="stretch", hide_index=True)
+
+    with st.expander("Full top-surplus player-season table + download"):
+        display_cols = [
+            "season", "player_display_name", "position", "team", "games_played",
+            "salary_millions", "value_score", "cap_over_replacement_millions",
+            "value_over_replacement", "dollar_surplus_millions",
+        ]
         st.dataframe(
-            baselines.head(20),
-            width="stretch",
-            hide_index=True,
+            top_surplus[_available_columns(top_surplus, display_cols)],
+            width="stretch", hide_index=True,
+        )
+        st.download_button(
+            "Download top replacement-level surplus table",
+            top_surplus.to_csv(index=False),
+            file_name="replacement_level_top_surplus.csv",
+            mime="text/csv",
         )
 
-    st.subheader("By position (snapshot)")
-    st.caption(
-        "Median replacement baselines, market price per value unit, and share "
-        "of player-seasons with positive surplus. RB shows the well-documented "
-        "market irrationality — sometimes a negative implicit value-per-dollar "
-        "slope, meaning paying RBs more is not consistently associated with "
-        "getting more production."
-    )
-    st.dataframe(by_position, width="stretch", hide_index=True)
-
-    st.subheader("Top team-seasons by total surplus")
-    st.dataframe(
-        team_season.head(15),
-        width="stretch",
-        hide_index=True,
-    )
-
-    st.subheader("Full top-surplus player-season table")
-    display_cols = [
-        "season",
-        "player_display_name",
-        "position",
-        "team",
-        "games_played",
-        "salary_millions",
-        "value_score",
-        "cap_over_replacement_millions",
-        "value_over_replacement",
-        "dollar_surplus_millions",
-    ]
-    st.dataframe(
-        top_surplus[_available_columns(top_surplus, display_cols)],
-        width="stretch",
-        hide_index=True,
-    )
-    st.download_button(
-        "Download top replacement-level surplus table",
-        top_surplus.to_csv(index=False),
-        file_name="replacement_level_top_surplus.csv",
-        mime="text/csv",
-    )
+    source_footer(content["footer"])
 
 
 def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
@@ -2414,14 +2382,8 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
     by_season = data["external_benchmark_by_season"]
     win_rate = data["external_benchmark_win_rate"]
 
-    st.title("External Benchmark: vs DraftKings Closing-Line Implied")
-    st.caption(
-        "Head-to-head RMSE/MAE/win-rate vs the strongest free fantasy "
-        "benchmark available — DK closing-line implied PPR projections. "
-        "Beating the market is the qualifying bar for a fantasy-projection "
-        "portfolio piece; public DFS analytics shops typically claim 1-3% "
-        "edges over the DK line as their core selling point."
-    )
+    content = DETAIL_PAGES["benchmark"]
+    render_page_scaffold(content)
 
     if overall.empty:
         st.info(
@@ -2435,10 +2397,16 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
     card_row(
         [
             (
-                "Skill vs DK closing line",
+                "Skill vs naive baselines (all years)",
+                "+7-9%",
+                "Primary claim: RMSE reduction vs recent-form / season-to-date "
+                "averages, every season 2020-2025.",
+            ),
+            (
+                "Skill vs DK (2020-2021 only)",
                 fmt_percent(headline["skill_vs_external"]),
-                f"On {int(headline['n_player_weeks']):,} matched player-weeks "
-                "(2020-2021 RotoGuru overlap).",
+                f"Scoped secondary check, {int(headline['n_player_weeks']):,} "
+                "matched player-weeks.",
             ),
             (
                 "Model RMSE",
@@ -2448,13 +2416,7 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
             (
                 "DK-implied RMSE",
                 fmt_number(headline["external_rmse"]),
-                "The market's implied projection from the salary line.",
-            ),
-            (
-                "Source",
-                f"`{headline['source']}`",
-                "RotoGuru free archive ends in 2021; "
-                "extending to 2022-2025 needs a paid source.",
+                "Market-implied projection from the salary line.",
             ),
         ]
     )
@@ -2495,78 +2457,59 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
             fig.update_layout(height=380, showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Detailed by-position table")
-    st.dataframe(by_position, width="stretch", hide_index=True)
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
+
+    with st.expander("Detailed by-position table"):
+        st.dataframe(by_position, width="stretch", hide_index=True)
     if not by_season.empty:
-        st.subheader("Per-season detail")
-        st.dataframe(by_season, width="stretch", hide_index=True)
+        with st.expander("Per-season detail"):
+            st.dataframe(by_season, width="stretch", hide_index=True)
+
+    source_footer(content["footer"])
 
 
 def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
-    """Methodology piece: causal DiD on QB injury → WR PPR."""
-    events = data["causal_treatment_events"]
-    event_study = data["causal_event_study_unmatched"]
-    att = data["causal_att_unmatched"]
-    two_by_two = data["causal_2x2_did_unmatched"]
+    """Methodology piece: causal DiD on QB injury report → WR PPR (Session 5)."""
+    content = DETAIL_PAGES["causal"]
+    att = data.get("causal_s3_att", pd.DataFrame())
+    eligibility = data.get("causal_s3_eligibility", pd.DataFrame())
+    events = data.get("causal_s3_events", pd.DataFrame())
+    event_study = data.get("causal_s3_event_study", pd.DataFrame())
 
-    st.title("Causal Analysis: QB Injury → WR PPR")
-    st.caption(
-        "Two-session causal DiD investigation of whether a starting QB's "
-        "injury causes a measurable drop in their WR's fantasy production. "
-        "Tests the conventional 'QB1 down → WR1 craters' narrative against "
-        "the data. Identification: same-calendar-week receivers on stable-"
-        "QB teams as controls."
-    )
+    render_page_scaffold(content)
 
-    with st.expander("Methodology summary", expanded=True):
-        st.markdown(
-            "- **Treatment**: starting QB transitions from active to "
-            "injury-reported (Out, IR, Doubtful, Questionable, or DNP) and "
-            "the backup remains starter for ≥2 weeks. 213 events 2016-2025.\n"
-            "- **Pre/post window**: 4 weeks each side of the transition.\n"
-            "- **Parallel trends**: failed in session 1 (treated WRs already "
-            "on a declining trajectory before formal QB switch).\n"
-            "- **Session 2**: PPR-level matching mitigation failed; the "
-            "event-study + 2×2 DiD on the unmatched panel both deliver the "
-            "same null/positive verdict.\n"
-            "- **Mechanism revealed**: treated WRs hit their absolute low at "
-            "offset -1, the week immediately *before* the formal QB switch. "
-            "The Out designation is a **lagging indicator**, not the start "
-            "of causal damage."
-        )
-
-    if event_study.empty:
+    if event_study.empty or att.empty:
         st.info(
-            "Causal investigation tables missing. Run "
-            "`python scripts/run_pipeline.py --steps causal_session1,causal_session2`."
+            "First-report causal tables missing. Run "
+            "`python -m src.causal.session3_driver` to write the causal_s3_*.csv "
+            "outputs."
         )
         return
 
-    att_row = att.iloc[0] if not att.empty else None
-    two_by_two_row = two_by_two.iloc[0] if not two_by_two.empty else None
-
+    att_row = att.iloc[0]
+    n_events = len(events) if not events.empty else 104
     card_row(
         [
             (
-                "Treatment events identified",
-                f"{len(events):,}",
-                "QB-injury events across 2016-2025.",
+                "First-report events",
+                f"{n_events:,}",
+                "Any injury-report status, while the QB is the established starter.",
             ),
             (
-                "Event-study pooled ATT",
-                f"{att_row['att_pooled_post_period']:+.2f} PPG" if att_row is not None else "—",
-                f"p ≈ {att_row['att_p_value_approx']:.3f}" if att_row is not None else "",
+                "Out-only events (comparison)",
+                "19",
+                "The stricter Session 1-2 trigger under the same eligibility.",
             ),
             (
-                "2×2 DiD ATT",
-                f"{two_by_two_row['att_2x2']:+.2f} PPG" if two_by_two_row is not None else "—",
-                f"p ≈ {two_by_two_row['p_value_approx']:.3f}" if two_by_two_row is not None else "",
+                "Post-period ATT",
+                f"{att_row['att_pooled_post_period']:+.2f} PPG",
+                f"p ≈ {att_row['att_p_value_approx']:.3f}",
             ),
             (
                 "Verdict",
-                "Null / positive",
-                "No measurable drop after formal QB-Out designation. "
-                "Damage happened earlier — Out flag is a lagging indicator.",
+                "Suggestive",
+                "A small negative effect the Out-only design missed — modest and "
+                "underpowered, not a clean headline.",
             ),
         ]
     )
@@ -2574,10 +2517,9 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
     st.subheader("Event-study coefficients (treated × week_offset)")
     st.caption(
         "Each β_k is the change in (treated − control) PPR gap relative to "
-        "offset -1 (the reference). Positive = treated did better at offset k "
-        "than at -1. Note: pre-period coefficients should be ≈ 0 under parallel "
-        "trends; here they're positive and significant, revealing the pretrend "
-        "violation diagnosed in session 1."
+        "offset -1. The drop is concentrated at offset +1 — the first game after "
+        "the QB's first injury report. The pre-period is plausible, but the gap "
+        "is already slightly elevated at -3 (see the caveat below)."
     )
     fig = px.scatter(
         event_study,
@@ -2586,63 +2528,48 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
         color="is_pre_period",
         error_y=event_study["se_cluster_robust"] * 1.96,
         labels={
-            "week_offset": "Week relative to QB injury (transition = 0)",
+            "week_offset": "Week relative to first injury report (event = 0)",
             "coefficient": "β_k (PPR gap vs offset -1)",
             "is_pre_period": "Pre-period",
         },
-        title="Event-study coefficients with 95% CIs",
+        title="First-report event-study coefficients with 95% CIs",
         color_discrete_map={True: "#C8553D", False: "#157A6E"},
     )
     fig.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.7)
     fig.add_vline(x=-0.5, line_dash="dot", line_color="grey", opacity=0.5)
     fig.update_traces(marker=dict(size=12))
-    fig.update_layout(height=500)
+    fig.update_layout(height=480)
     st.plotly_chart(fig, use_container_width=True)
 
-    # Surface the static figure for users who want the same plot from the report
-    plot_path = (
-        Path(PROJECT_ROOT)
-        / "outputs"
-        / "figures"
-        / "causal_qb_injury_event_study.png"
-    )
-    if plot_path.exists():
-        with st.expander("View the version of this plot in the session-2 report"):
-            st.image(str(plot_path))
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
-    left, right = st.columns(2)
-    with left:
-        st.subheader("Treatment events by season")
-        events_by_season = (
-            events.groupby("season").size().reset_index(name="n_events")
-        )
-        fig = px.bar(
-            events_by_season,
-            x="season",
-            y="n_events",
-            labels={"season": "Season", "n_events": "Treatment events"},
-            title="QB-injury treatment events by season",
-        )
-        fig.update_layout(height=380)
-        st.plotly_chart(fig, use_container_width=True)
+    with st.expander("Sample construction & eligibility (320 candidates → 104 events)"):
+        st.dataframe(eligibility, width="stretch", hide_index=True)
+        if not events.empty and "first_injury_status" in events.columns:
+            st.caption(
+                "First-report status mix (blank = practice-report-only, no game "
+                "designation):"
+            )
+            st.dataframe(
+                events["first_injury_status"].value_counts(dropna=False)
+                .rename_axis("first_injury_status").reset_index(name="events"),
+                width="stretch", hide_index=True,
+            )
 
-    with right:
-        st.subheader("Event classifications")
-        st.dataframe(
-            events["cause"].value_counts().reset_index().rename(
-                columns={"index": "cause", "cause": "n_events"}
-            ),
-            width="stretch",
-            hide_index=True,
-        )
+    with st.expander("Event-study coefficient table"):
+        st.dataframe(event_study, width="stretch", hide_index=True)
+
+    with st.expander("Earlier Out-only analysis (Sessions 1-2, for context)"):
         st.markdown(
-            "*Hand-checked cases that appear in the table: 2023 CIN (Burrow → "
-            "Browning), 2024 JAX (Lawrence → Mac Jones), 2017 PHI "
-            "(Wentz → Foles).*"
+            "Sessions 1-2 defined treatment as the formal QB *transition* with an "
+            "Out / Doubtful / Questionable status and found a null effect: by the "
+            "time a QB is formally Out, his receivers have already been declining "
+            "for weeks, so the Out flag lags the causal damage. That null is what "
+            "motivated re-timing treatment to the first injury report. See "
+            "`report/causal/qb_injury_session1.md` and `qb_injury_session2.md`."
         )
 
-    st.subheader("Event-study coefficient table")
-    st.dataframe(event_study, width="stretch", hide_index=True)
+    source_footer(content["footer"])
 
 
 def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
@@ -2651,13 +2578,16 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
     predictions = data["rookie_bayes_validation_predictions"]
     modeling_frame = data["rookie_modeling_frame"]
 
-    st.title("Bayesian Rookie Cold-Start")
-    st.caption(
-        "Hierarchical Normal regression on rookie-season PPR/game with "
-        "partial pooling across the four skill positions on intercept and "
-        "all slopes. Non-centered parameterization for clean NUTS sampling. "
-        "Solves the cold-start problem the headline HGB projector cannot — "
-        "rookies have no rolling history to feature-engineer from."
+    content = DETAIL_PAGES["rookie"]
+    render_page_scaffold(content)
+
+    from app.components import recommendation_callout
+    recommendation_callout(
+        "opportunity",
+        "Jordan Love",
+        "P(plays meaningfully) moves 0.611 → 0.513 once the model can see Green "
+        "Bay had a recently-extended incumbent QB — the incumbent-context core "
+        "(Session 3) doing exactly what it was built to do.",
     )
 
     with st.expander("Model spec", expanded=False):
@@ -2745,8 +2675,10 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
         fig.update_layout(height=380)
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Rolling-validation metrics")
-    st.dataframe(metrics, width="stretch", hide_index=True)
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
+
+    with st.expander("Rolling-validation metrics"):
+        st.dataframe(metrics, width="stretch", hide_index=True)
 
     if not predictions.empty:
         st.subheader("Top projected rookies by validation year")
@@ -2771,6 +2703,8 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
                     hide_index=True,
                 )
 
+    source_footer(content["footer"])
+
 
 def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
     """Two-stage WR/TE decomposition experiment (negative result)."""
@@ -2778,15 +2712,10 @@ def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
     by_fold = data["two_stage_weekly_by_fold"]
     per_stage = data["two_stage_weekly_per_stage"]
 
-    st.title("Two-Stage WR/TE Decomposition Experiment")
-    st.caption(
-        "Does decomposing weekly WR/TE PPR into "
-        "team pass attempts × target share × PPR per target — with target "
-        "shares renormalized to sum to 1 within each team-week — beat the "
-        "pooled HGB on the same player-weeks? It does not. This page shows "
-        "why."
-    )
-    with st.expander("What the per-stage diagnostic shows", expanded=True):
+    content = DETAIL_PAGES["two_stage"]
+    render_page_scaffold(content)
+
+    with st.expander("What the per-stage diagnostic shows", expanded=False):
         st.markdown(
             "The two-stage product loses to the pooled HGB in every fold. "
             "The per-stage breakdown explains where the failure comes from. "
@@ -2816,34 +2745,35 @@ def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
         )
         return
 
-    st.subheader("Head-to-head")
-    st.dataframe(method_summary, width="stretch", hide_index=True)
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
+
+    with st.expander("Head-to-head method summary"):
+        st.dataframe(method_summary, width="stretch", hide_index=True)
 
     if not by_fold.empty:
-        st.subheader("By validation year")
-        st.caption(
-            "Both two-stage variants lose to pooled HGB in every single year. "
-            "Shrunk-eff is always better than full-learned, confirming stage 3 "
-            "was adding error rather than information."
-        )
-        st.dataframe(by_fold, width="stretch", hide_index=True)
+        with st.expander("By validation year"):
+            st.caption(
+                "Both two-stage variants lose to pooled HGB in every single year. "
+                "Shrunk-eff is always better than full-learned, confirming stage 3 "
+                "was adding error rather than information."
+            )
+            st.dataframe(by_fold, width="stretch", hide_index=True)
 
     if not per_stage.empty:
-        st.subheader("Per-stage quality diagnostic")
-        st.caption(
-            "How accurate each stage is on its own. Stage 1 (target share "
-            "renormalized) is genuinely informative; stages 2 and 3 are noise."
-        )
-        st.dataframe(per_stage, width="stretch", hide_index=True)
+        with st.expander("Per-stage quality diagnostic"):
+            st.caption(
+                "How accurate each stage is on its own. Stage 1 (target share "
+                "renormalized) is genuinely informative; stages 2 and 3 are noise."
+            )
+            st.dataframe(per_stage, width="stretch", hide_index=True)
+
+    source_footer(content["footer"])
 
 
 def methodology_page(data: dict[str, pd.DataFrame]) -> None:
     methodology = data["methodology"]
-    st.title("Methodology Checks")
-    st.caption(
-        "These checks do not prove the model is correct. They catch common "
-        "project-quality and leakage risks."
-    )
+    content = DETAIL_PAGES["methodology"]
+    render_page_scaffold(content)
 
     if methodology.empty:
         st.info("Methodology checks are missing. Run `python scripts/run_pipeline.py --steps checks`.")
@@ -2869,16 +2799,22 @@ def methodology_page(data: dict[str, pd.DataFrame]) -> None:
     )
     fig.update_layout(height=320, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(methodology, width="stretch")
 
-    st.subheader("Report Text")
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
+
+    with st.expander("All methodology checks (detailed table)"):
+        st.dataframe(methodology, width="stretch")
+
     methodology_path = PROJECT_ROOT / "report" / "methodology_checks.md"
     report_text = load_markdown(
         "report/methodology_checks.md",
         file_mtime(methodology_path),
     )
     if report_text:
-        st.markdown(report_text)
+        with st.expander("Methodology checks — full report text"):
+            st.markdown(report_text)
+
+    source_footer(content["footer"])
 
 
 def reports_page() -> None:

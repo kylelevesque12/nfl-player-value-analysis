@@ -494,6 +494,34 @@ def kpi_grid(metrics: list[tuple[str, str, str | None]]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Session 9 page-scaffold helpers (thin wrappers; reuse existing CSS/components)
+# ---------------------------------------------------------------------------
+def page_header(title: str, purpose: str) -> None:
+    """Standard detail-page header: title + one-sentence purpose."""
+    st.title(title)
+    st.caption(purpose)
+
+
+def caveat_callout(body: str, label: str = "Caveat") -> None:
+    """A visible limitation/caveat, styled via the existing reco-callout CSS."""
+    recommendation_callout("caveat", label, body)
+
+
+def source_footer(text: str) -> None:
+    """Standard footer with a source / last-updated note."""
+    st.divider()
+    st.caption(text)
+
+
+def render_page_scaffold(content: dict) -> None:
+    """Render the shared top-of-page scaffold (header + executive summary) from a
+    page_content config entry. KPIs, visuals, detail expanders, the caveat, and
+    the footer are rendered by the page itself so it can use live data."""
+    page_header(content["title"], content["purpose"])
+    executive_summary("Summary", content["summary"])
+
+
+# ---------------------------------------------------------------------------
 # Tier classification (used by player cards when fantasy projection table
 # doesn't already carry a tier label)
 # ---------------------------------------------------------------------------
