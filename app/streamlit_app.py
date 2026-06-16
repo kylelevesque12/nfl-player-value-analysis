@@ -165,6 +165,9 @@ from app.components import (
     render_page_scaffold,
 )
 from app.page_content import DETAIL_PAGES
+from app import player_search as ps
+
+NAV_PLAYER = "Player Detail"
 
 inject_components_css()
 
@@ -2880,7 +2883,7 @@ def _handle_landing_nav() -> None:
     goto = st.session_state.pop("_landing_goto", None)
     if not goto:
         return
-    if goto in _HERO_TARGETS:
+    if goto == NAV_PLAYER or goto in _HERO_TARGETS:
         st.session_state["nav_hero"] = goto
         st.session_state["nav_detail"] = NAV_DETAIL_NONE
     else:  # a drill-down/detail page
@@ -2927,6 +2930,206 @@ def landing_page() -> None:
         )
 
 
+def render_player_search(index: pd.DataFrame) -> None:
+    """Always-visible sidebar player search. Selecting a player navigates to the
+    unified Player Detail view (reuses the Session 8 deferred-nav pattern)."""
+    st.sidebar.divider()
+    st.sidebar.markdown("### Player search")
+    if index is None or index.empty:
+        st.sidebar.caption("Player index unavailable.")
+        return
+    label_map = {row["player_id"]: ps.display_label(row) for _, row in index.iterrows()}
+    options = [""] + index["player_id"].tolist()
+    choice = st.sidebar.selectbox(
+        "Type a player name",
+        options,
+        format_func=lambda p: "— type to search —" if p == "" else label_map.get(p, p),
+        key="player_search_select",
+    )
+    if choice and choice != st.session_state.get("_selected_player_id"):
+        st.session_state["_selected_player_id"] = choice
+        _go_to(NAV_PLAYER)
+
+
+def _kpi_or_dash(value, fmt: str = "{:.1f}") -> str:
+    return fmt.format(value) if value is not None and pd.notna(value) else "—"
+
+
+def _player_index_from_data(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    return ps.build_player_index(
+        data.get("weekly_fantasy"),
+        data.get("weekly_fantasy_live"),
+        data.get("salary"),
+        data.get("rookie_modeling_frame"),
+        data.get("causal_s3_events"),
+    )
+
+
+def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> None:
+    pid = st.session_state.get("_selected_player_id")
+    if not pid:
+        st.title("Player Detail")
+        st.info("Search for a player in the sidebar to open a detail view.")
+        return
+
+    detail = ps.assemble_player_detail(
+        pid,
+        weekly=data.get("weekly_fantasy"),
+        live=data.get("weekly_fantasy_live"),
+        salary=data.get("salary"),
+        top_surplus=data.get("replacement_top_surplus"),
+        rookie=data.get("rookie_modeling_frame"),
+        rookie_pred=data.get("rookie_bayes_validation_predictions"),
+        causal=data.get("causal_s3_events"),
+    )
+    meta = index[index["player_id"].astype(str) == str(pid)] if not index.empty else index
+    meta_row = meta.iloc[0] if meta is not None and not meta.empty else None
+    name = detail["player_name"]
+    pos = meta_row["position"] if meta_row is not None else None
+    team = meta_row["team"] if meta_row is not None else None
+    seasons = meta_row["seasons"] if meta_row is not None else "—"
+
+    st.title(str(name))
+    bits = " · ".join([str(x) for x in [pos, team, f"seasons {seasons}"] if x and pd.notna(x)])
+    st.caption(f"Unified player view — every project output available for this player. {bits}")
+    if st.button("← Back to dashboard"):
+        st.session_state["_selected_player_id"] = None
+        _go_to("Home (Landing)")
+
+    wk = detail["weekly_history"]
+    live = detail["live"]
+    sal = detail["surplus_history"]
+    rk = detail["rookie"]
+    rk_pred = detail["rookie_pred"]
+    cz = detail["causal"]
+
+    # ---- KPI row ----
+    latest_proj = None
+    if live is not None and "projected_points" in live.columns:
+        latest_proj = float(live["projected_points"].iloc[0])
+    elif wk is not None and "prediction" in wk.columns and not wk["prediction"].dropna().empty:
+        latest_proj = float(wk["prediction"].dropna().iloc[-1])
+    depth_rank = None
+    if wk is not None and "pbp_depth_chart_rank_last1" in wk.columns:
+        dr = wk["pbp_depth_chart_rank_last1"].dropna()
+        depth_rank = float(dr.iloc[-1]) if not dr.empty else None
+    best_surplus = None
+    if sal is not None and "value_above_expected_salary" in sal.columns:
+        v = sal["value_above_expected_salary"].dropna()
+        best_surplus = float(v.max()) if not v.empty else None
+    n_causal = 0 if cz is None else len(cz)
+
+    card_row(
+        [
+            ("Latest projected PPR", _kpi_or_dash(latest_proj),
+             "Live week if available, else most recent backtest game."),
+            ("Latest depth rank (PBP)", _kpi_or_dash(depth_rank, "{:.0f}"),
+             "1 = top of the position group."),
+            ("Best value-over-expected ($M)", _kpi_or_dash(best_surplus),
+             "Peak surplus season on record." if best_surplus is not None else "No salary record."),
+            ("Causal QB events", f"{n_causal}",
+             "First-injury-report events where this player was the treated QB."),
+        ]
+    )
+
+    # ---- Weekly fantasy ----
+    st.subheader("Weekly fantasy")
+    if wk is None:
+        st.info("No weekly fantasy projection history for this player.")
+    else:
+        plot = wk.copy()
+        plot["game"] = plot["season"].astype(int).astype(str) + "-W" + plot["week"].astype(int).astype(str).str.zfill(2)
+        ycols = [c for c in ["prediction", "target_fantasy_points_ppr"] if c in plot.columns]
+        fig = px.line(
+            plot, x="game", y=ycols,
+            labels={"value": "PPR points", "game": "Game", "variable": ""},
+            title="Projected vs actual PPR by game (production HGB)",
+        )
+        fig.update_layout(height=380, xaxis=dict(showticklabels=False))
+        st.plotly_chart(fig, use_container_width=True)
+        if live is not None:
+            lrow = live.iloc[0]
+            opp = lrow.get("opponent_team", "")
+            lo = lrow.get("interval_low_80"); hi = lrow.get("interval_high_80")
+            st.markdown(
+                f"**Upcoming-week projection:** {lrow.get('projected_points', float('nan')):.1f} PPR "
+                f"vs {opp} — 80% band [{lo:.1f}, {hi:.1f}]." if pd.notna(lo) else
+                f"**Upcoming-week projection:** {lrow.get('projected_points', float('nan')):.1f} PPR vs {opp}."
+            )
+        with st.expander("Weekly projection table"):
+            cols = [c for c in ["season", "week", "team", "opponent_team", "prediction",
+                                "interval_low_80", "interval_high_80", "target_fantasy_points_ppr"]
+                    if c in wk.columns]
+            st.dataframe(wk[cols].tail(40), width="stretch", hide_index=True)
+
+    # ---- Value / surplus ----
+    st.subheader("Value & cap surplus")
+    if sal is None:
+        st.info("No salary / value record for this player.")
+    else:
+        cols = [c for c in ["season", "team", "games_played", "value_score", "salary_millions",
+                            "value_above_expected_salary", "salary_efficiency_tier", "salary_source"]
+                if c in sal.columns]
+        show = sal[cols].rename(columns={"salary_millions": "cap_hit_$M"})
+        st.dataframe(show, width="stretch", hide_index=True)
+        caveat_callout(
+            "Cap cost is a season-specific cap hit reconstructed from contract terms "
+            "(prorated signing bonus + backloaded base) — an estimate, not exact NFL "
+            "cap accounting. See the salary_source column.",
+            "Reconstructed estimate",
+        )
+        if detail["top_surplus"] is not None:
+            st.caption("This player appears in the top-25 replacement-level surplus board.")
+
+    # ---- Rookie model ----
+    st.subheader("Rookie model")
+    if rk is None:
+        st.info("This player is not in the rookie modeling frame.")
+    else:
+        r = rk.iloc[0]
+        ry = int(r["rookie_year"]) if "rookie_year" in r and pd.notna(r["rookie_year"]) else None
+        dn = r.get("draft_number"); played = r.get("played_meaningfully")
+        st.markdown(
+            f"- Rookie year: **{ry or '—'}**  ·  draft pick: "
+            f"**{int(dn) if pd.notna(dn) else '—'}**  ·  played meaningfully (>=4 games): "
+            f"**{'Yes' if pd.notna(played) and int(played) == 1 else 'No'}**"
+        )
+        if rk_pred is not None and "predicted_ppr_per_game_mean" in rk_pred.columns:
+            pr = rk_pred.iloc[0]
+            st.markdown(
+                f"- Bayesian projection: **{pr['predicted_ppr_per_game_mean']:.1f} PPR/game** "
+                "(validation class)."
+            )
+        st.caption(
+            "Session 3 added a 3-feature incumbent-context core to the hurdle gate "
+            "(combine and broad-depth features were tested and dropped). The gain is "
+            "concentrated in the blocked-QB cell."
+        )
+
+    # ---- Causal study ----
+    st.subheader("Causal study (QB injury)")
+    if cz is None:
+        st.info("This player is not a treated QB in the first-injury-report causal panel.")
+    else:
+        cols = [c for c in ["season", "team", "event_week", "first_injury_status",
+                            "games_started_before_event"] if c in cz.columns]
+        st.dataframe(cz[cols], width="stretch", hide_index=True)
+        caveat_callout(
+            "The first-report causal effect (ATT ~= -0.58 PPG) is suggestive and "
+            "underpowered; appearing here means the player was a treated QB, not that "
+            "a specific effect is attributed to him.",
+            "Suggestive / underpowered",
+        )
+
+    with st.expander("ID diagnostics"):
+        st.write({"player_id (gsis)": str(pid), "display_name": str(name)})
+
+    source_footer(
+        "Assembled from saved outputs only (weekly backtest, live projection, salary/"
+        "value, rookie frame, causal events) — no models are recomputed in the app."
+    )
+
+
 def main() -> None:
     data = load_all_data()
     _handle_landing_nav()
@@ -2950,6 +3153,8 @@ def main() -> None:
     ]
     show_missing_data_warning(missing)
 
+    player_index = _player_index_from_data(data)
+
     st.sidebar.title("Navigation")
     st.sidebar.markdown("### Two perspectives")
     hero = st.sidebar.radio(
@@ -2958,9 +3163,11 @@ def main() -> None:
             "Home (Landing)",
             "Cap Allocation Brief (Front Office)",
             "Fantasy Player Board",
+            NAV_PLAYER,
         ],
         key="nav_hero",
     )
+    render_player_search(player_index)
     st.sidebar.divider()
     st.sidebar.markdown("### Drill-down")
     detail = st.sidebar.radio(
@@ -3004,6 +3211,8 @@ def main() -> None:
             front_office_executive_report(data)
         elif hero == "Fantasy Player Board":
             espn_fantasy_view(data)
+        elif hero == NAV_PLAYER:
+            player_detail_page(data, player_index)
         else:
             landing_page()
 
