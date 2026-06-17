@@ -54,7 +54,7 @@ EPA-based player value scores, z-scored within `(season, position)`, with multi-
 
 ### Methodology audit and limitations
 
-A 26-check methodology audit covers leakage safety, standardization correctness, interval calibration, and missing-target detection ([methodology checks](report/methodology_checks.md)). The biggest open limitation is that the cost variable is `inflated_apy`, not year-by-year cap hit. The salary track is contract efficiency, not cap accounting. Switching to OverTheCap year-by-year cap hits is the next data investment.
+A 26-check methodology audit covers leakage safety, standardization correctness, interval calibration, and missing-target detection ([methodology checks](report/methodology_checks.md)). The salary track's cost variable is a season-specific cap hit reconstructed from contract terms (prorated signing bonus + backloaded base), with a quality flag on every player-season — an estimate, not exact NFL cap accounting, since the source contracts carry no year-by-year cap breakdown ([cap-hit reconstruction](report/salary/session4_cap_hit_reconstruction.md)).
 
 ## Fantasy / DFS perspective
 
@@ -265,7 +265,7 @@ python -m pytest tests/ -q
 
 ## Limitations and gaps
 
-- **Salary track uses APY, not year-by-year cap hit.** Real cap analysts will treat this as contract efficiency. True cap-hit data (OTC premium or reconstruction from contract terms) is the next acquisition.
+- **Salary track uses a reconstructed cap hit, not exact cap accounting.** The cost variable is a season-specific cap hit rebuilt from contract terms (prorated signing bonus + backloaded base), flagged per player-season. It is a principled estimate; the source contracts have no year-by-year cap breakdown, so it is not the same as a true OverTheCap cap hit.
 - **DK benchmark coverage stops in 2021.** RotoGuru's free archive doesn't go later. Extending requires a paid source.
 - **No depth-chart rank.** nflverse dropped the numeric `list_rank` field around 2024. Deriving rank from row-order is the next feature-engineering target.
 - **Injury attach at 17% coverage.** Only injured players appear on the report. The QB-injury causal study works around this by joining at the team-week level; the fantasy model treats missing injury status as "healthy" and tolerates the resulting noise.

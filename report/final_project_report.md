@@ -63,8 +63,10 @@ attach uncertainty that a decision-maker can act on.
 
 The project uses nflverse data loaded with `nflreadpy`: weekly player statistics,
 rosters, and schedules, from 2016 to 2025. The salary-efficiency section adds
-nflverse historical contract data sourced from OverTheCap, using `inflated_apy`
-(an inflation-adjusted average annual value) as a first-pass contract-cost metric.
+nflverse historical contract data sourced from OverTheCap. The cost metric is a
+season-specific cap hit reconstructed from contract terms (prorated signing bonus
++ backloaded base; see `src/cap_hit_reconstruction.py`), replacing the flat
+average-annual-value (APY) proxy used earlier in the project.
 Raw and processed data are excluded from version control; lightweight output
 tables and reports are committed so the project can be reviewed without large
 files.
@@ -313,10 +315,11 @@ team-season is 2018 Kansas City. High-cost running-back seasons show negative
 average residuals, consistent with the well-known risk in the timing and decline
 profile of veteran RB contracts.
 
-These results are framed as contract-efficiency findings, not cap accounting:
-`inflated_apy` is an averaged contract figure, not season-level cap hit or cash
-paid, and the residuals are descriptive rather than causal. The clearest next
-improvement to this section is true season-level cap data.
+These results are framed as efficiency findings, not exact cap accounting: the
+cost variable is a season-specific cap hit reconstructed from contract terms (a
+principled estimate, source-flagged, since the contracts carry no year-by-year
+cap breakdown), and the residuals are descriptive rather than causal. The clearest
+next improvement to this section is true OverTheCap season-level cap data.
 
 ## Limitations
 

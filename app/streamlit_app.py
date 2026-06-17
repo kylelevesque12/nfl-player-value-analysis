@@ -409,7 +409,7 @@ def overview_page(data: dict[str, pd.DataFrame]) -> None:
         st.markdown(
             "- The main value metric is position-season standardized total EPA.\n"
             "- The prediction model is intended for tiering and screening.\n"
-            "- Salary efficiency uses `inflated_apy`, not exact cap hit.\n"
+            "- Salary efficiency uses a reconstructed cap hit, not exact cap accounting.\n"
             "- Fantasy and weekly-win sections are first-pass draft models.\n"
             "- GitHub-friendly notebook mirrors are available in `notebooks_markdown/`."
         )

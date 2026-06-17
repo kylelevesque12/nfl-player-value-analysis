@@ -120,6 +120,11 @@ outputs/tables/*
 # Local experiment tracking
 mlruns/
 
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
 # System files
 .DS_Store
 

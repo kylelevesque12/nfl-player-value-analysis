@@ -28,4 +28,4 @@ Important processed files:
 
 Raw and processed data are kept local because they can be large and can be regenerated. Final lightweight result tables that are useful for reviewing the project are saved under `outputs/tables/` and selected files are allowed into Git.
 
-The salary-efficiency outputs use `inflated_apy` as an approximate annual contract-cost metric. That is useful for a first-pass contract-efficiency analysis, but it is not the same as exact season-level cap hit or cash paid.
+The salary-efficiency outputs use a season-specific cap hit reconstructed from contract terms (prorated signing bonus + backloaded base; see `src/cap_hit_reconstruction.py`), carried in `salary_millions` with a `salary_source` flag. It is a principled estimate built from the available contract fields, not exact season-level cap accounting or cash paid — the source contracts have no year-by-year cap breakdown.

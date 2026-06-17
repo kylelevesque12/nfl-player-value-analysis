@@ -14,7 +14,7 @@ Raw data is ignored by Git, but the salary-efficiency outputs are saved under `o
 
 The value-score dataset is merged to historical contracts using `gsis_id`. Contract rows are expanded to player-seasons using `year_signed` and contract length. If more than one contract is active for a player-season, the latest signed contract is used.
 
-The salary metric is `inflated_apy`, which estimates annual contract cost in inflation-adjusted millions. This is useful for comparing contracts across seasons, but it is not the same as exact cap hit or cash paid.
+The salary metric is a season-specific cap hit reconstructed from contract terms (prorated signing bonus + backloaded base), carried in `salary_millions` (inflation-adjusted millions) with a `salary_source` quality flag. It is a principled estimate, not exact cap hit or cash paid — the source contracts have no year-by-year cap breakdown.
 
 The main salary-efficiency metric is:
 
