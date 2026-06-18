@@ -27,7 +27,7 @@ DETAIL_PAGES: dict[str, dict] = {
             "label": "Reconstructed estimate",
             "body": "Cap cost is a season-specific cap hit reconstructed from contract terms (prorated signing bonus + backloaded base, in inflation-adjusted millions) — an estimate, not exact NFL cap accounting, since the source data has no year-by-year cap breakdown. Every player-season carries a cap_hit_quality_flag.",
         },
-        "footer": "Source: nflverse / OverTheCap historical contracts + player_value_scores. Cap hits via src/cap_hit_reconstruction.py (Session 4).",
+        "footer": "Source: nflverse / OverTheCap historical contracts + player_value_scores. Cap hits via src/cap_hit_reconstruction.py.",
     },
     "benchmark": {
         "title": "External Benchmark: weekly model vs the market",
@@ -47,29 +47,29 @@ DETAIL_PAGES: dict[str, dict] = {
         "title": "Causal: QB injury report → WR PPR",
         "purpose": "Does a starting QB's first injury-report appearance cause a measurable change in his receivers' fantasy production?",
         "summary": [
-            "Sessions 1-2 defined treatment as the formal Out designation and found a null: by the time a QB is ruled Out he has usually been playing hurt for weeks, so the Out flag lags the causal damage.",
-            "Session 3 (this page) re-times treatment to the first week the established starter appears on the injury report at all — any status — which expands the event set from 19 (Out-only) to 104 and surfaces a small post-period decline.",
+            "Defining treatment as the formal Out designation produces a null: by the time a QB is ruled Out he has usually been playing hurt for weeks, so the Out flag lags the causal damage.",
+            "Re-timing treatment to the first week the established starter appears on the injury report at all — any status — expands the event set from 19 (Out-only) to 104 and surfaces a small post-period decline.",
             "Pooled post-period ATT is about -0.58 PPG (p ~= 0.04), concentrated one game after the first report — consistent with the mechanism that damage clusters around when QB health first becomes shaky.",
         ],
         "caveat": {
             "label": "Suggestive / underpowered",
             "body": "With ~104 events the design is moderately powered and the estimate sits near the 5% significance border. The fixed-effect parallel-trends test passes, but the cell-mean event study shows a slightly elevated treated-minus-control gap at offset -3, so part of the post drop may be continuation of a pre-existing decline rather than pure causal effect. Reported as suggestive, not a headline causal estimate.",
         },
-        "footer": "Source: src/causal/first_report_treatment.py + session3_driver.py (Session 5). Report: report/causal/qb_injury_session3.md.",
+        "footer": "Source: src/causal/first_report_treatment.py. Report: report/causal/qb_injury_session3.md.",
     },
     "rookie": {
         "title": "Bayesian Rookie Cold-Start + incumbent context",
         "purpose": "Project rookies who have no rolling history, and sharpen the 'will he play?' gate with pre-season incumbent context.",
         "summary": [
             "A hierarchical Bayesian model (partial pooling across positions) solves the cold-start problem and hits near-nominal posterior interval coverage in every rookie class.",
-            "Session 3 added a focused incumbent-context core (established incumbent, recent extension, prior-year starting-QB production) to the hurdle stage — the QB 'is he blocked?' cell.",
+            "A focused incumbent-context core (established incumbent, recent extension, prior-year starting-QB production) sharpens the hurdle stage — the QB 'is he blocked?' cell.",
             "Jordan Love's modeled P(plays) moves the right way once the model can see Green Bay had a recently-extended incumbent: 0.611 -> 0.513.",
         ],
         "caveat": {
             "label": "Scope of the gain",
             "body": "Combine athletic-testing features and the broader veteran-depth features were tested and dropped — they did not beat draft capital. Only a 3-feature incumbent core was kept. The aggregate QB AUC gain is small; the value is concentrated in the rare blocked-QB cell (Love, Mahomes), so this is a targeted improvement, not a big across-the-board lift.",
         },
-        "footer": "Source: src/rookie_bayes.py + src/rookie_context_features.py (Session 3). Report: report/rookie/session3_combine_team_context.md.",
+        "footer": "Source: src/rookie_bayes.py + src/rookie_context_features.py. Report: report/rookie/session3_combine_team_context.md.",
     },
     "two_stage": {
         "title": "Two-Stage WR/TE Decomposition (negative result)",
@@ -87,12 +87,13 @@ DETAIL_PAGES: dict[str, dict] = {
     },
     "methodology": {
         "title": "Methodology & Trust Signals",
-        "purpose": "The checks and disciplines that make the project's results defensible — not a proof of correctness, but the guardrails against common failure modes.",
+        "purpose": "The models behind each result, and the checks that make those results defensible — not a proof of correctness, but the guardrails against common failure modes.",
         "summary": [
-            "Leakage-safe feature construction: every rolling/lagged feature is shift(1)-safe; NGS/PFR features were rejected (Session 2) because their availability/missingness leaked same-week status.",
+            "Models by task: weekly fantasy points use histogram-based gradient-boosted regression trees (HistGradientBoosting) on engineered rolling role features; rookie projections use a hierarchical Bayesian model with partial pooling across positions; the QB-injury question uses difference-in-differences / event-study estimation. Gradient boosting is strong on tabular, non-linear interactions; the Bayesian model is strong at the cold-start problem and honest interval coverage; DiD isolates a causal effect under stated assumptions.",
+            "Known limitations: weekly intervals under-cover heavy-tailed QB scoring even after per-position calibration; the causal estimate is moderately powered and sits near the 5% border; reconstructed cap hits are estimates, not exact NFL accounting.",
+            "Leakage-safe feature construction: every rolling/lagged feature is shift(1)-safe; NGS/PFR features were rejected because their availability/missingness leaked same-week status.",
             "Time-based validation only: rolling-origin backtests predict each season from strictly earlier data, so recent seasons are genuine out-of-sample tests.",
             "Negative results documented: NGS/PFR, the ensemble/quantile experiment, and the two-stage decomposition all lost and are kept on the record.",
-            "Source/quality flags: salary cap hits carry reconstruction quality flags; tests pin row-count stability, leakage safety, and key modeling assumptions.",
         ],
         "caveat": {
             "label": "What checks can and can't do",

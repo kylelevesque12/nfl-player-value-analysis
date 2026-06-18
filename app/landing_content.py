@@ -15,7 +15,7 @@ LANDING_SUBTITLE = (
 )
 
 # Navigation targets — must match the sidebar radio option strings exactly.
-NAV_FANTASY = "Fantasy Player Board"
+NAV_FANTASY = "Fantasy Rankings"
 NAV_CAP = "Cap Allocation Brief (Front Office)"
 NAV_ROOKIE = "Bayesian Rookie Cold-Start"
 NAV_CAUSAL = "Causal: QB Injury → WR PPR"
@@ -35,7 +35,7 @@ def landing_cards() -> list[dict]:
                 "A live projection frame now scores upcoming weeks without outcome data.",
                 "Per-position conformal intervals improve QB coverage.",
             ],
-            "button": "Open Fantasy Player Board",
+            "button": "Open Fantasy Rankings",
             "target": NAV_FANTASY,
         },
         {

@@ -1607,25 +1607,15 @@ def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
 
 
 def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
-    """ESPN-style fantasy view: player cards with projections, filters, tiers.
-
-    Style: filter chips at top, ranked player cards in a responsive grid,
-    quick search, position toggles. Less table, more cards.
-    """
-    from app.components import (
-        classify_tier_from_percentile,
-        player_card_grid,
-        player_card_html,
-    )
+    """Fantasy rankings: top-25 2026 season projections per position, plus
+    week-by-week projection-vs-actual for completed games. Table-first."""
+    import numpy as np
 
     fantasy = data["fantasy"]
     weekly = data["weekly_fantasy"]
 
-    st.title("Fantasy Player Board")
-    st.caption(
-        "Find a player, see their projection range, decide whether to "
-        "start them. Season-long for draft prep; weekly for in-season decisions."
-    )
+    st.title("Fantasy Rankings")
+    st.caption("2026 PPR projections by position, and week-by-week projection accuracy.")
 
     if fantasy.empty:
         st.info(
@@ -1634,291 +1624,80 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
         )
         return
 
-    # ------------------------------------------------------------------
-    # Filter bar (top)
-    # ------------------------------------------------------------------
-    tab_season, tab_weekly = st.tabs(["Season-Long Draft Board", "Weekly Projections"])
+    position = st.radio(
+        "Position", ["QB", "RB", "WR", "TE"], horizontal=True, key="rank_pos"
+    )
 
-    # ===== Season-Long Tab =====
-    with tab_season:
-        cols = st.columns([1.3, 2.4, 1.1, 1.3])
-        with cols[0]:
-            view_mode = st.radio(
-                "View",
-                ["Player Cards", "Sortable Table"],
-                horizontal=True,
-                key="fantasy_view_mode",
-            )
-        with cols[1]:
-            position_pills = st.multiselect(
-                "Position",
-                ["QB", "RB", "WR", "TE"],
-                default=["QB", "RB", "WR", "TE"],
-                key="fantasy_pos_pills",
-            )
-        with cols[2]:
-            max_show = st.selectbox(
-                "Show top",
-                [12, 24, 50, 100, 200, "All"],
-                index=2,
-                key="fantasy_top_n",
-            )
-        with cols[3]:
-            search_query = st.text_input(
-                "Search player",
-                placeholder="e.g. Mahomes",
-                key="fantasy_search",
-            )
+    pos = (
+        fantasy[fantasy["position"].eq(position)]
+        .sort_values("predicted_2026_fantasy_points_ppr", ascending=False)
+        .head(25)
+        .reset_index(drop=True)
+        .copy()
+    )
+    pos.insert(0, "Rank", range(1, len(pos) + 1))
+    team_col = "primary_team_2025" if "primary_team_2025" in pos.columns else "team"
 
-        # Tier and risk filter row
-        cols2 = st.columns([1.5, 1.5, 1.5, 1.5])
-        with cols2[0]:
-            tiers = st.multiselect(
-                "Tier",
-                [
-                    "Elite Fantasy Profile",
-                    "Strong Starter",
-                    "Starter/Flex",
-                    "Depth/Volatile",
-                    "Low Projection",
-                ],
-                default=[],
-                key="fantasy_tiers",
-            )
-        with cols2[1]:
-            confidence = st.multiselect(
-                "Confidence",
-                ["High", "Medium", "Low"],
-                default=[],
-                key="fantasy_conf",
-            )
-        with cols2[2]:
-            breakout_only = st.checkbox(
-                "Breakout potential only", value=False, key="fantasy_breakout"
-            )
-        with cols2[3]:
-            sort_by = st.selectbox(
-                "Sort by",
-                [
-                    "Projected PPR (desc)",
-                    "Projected PPR (asc)",
-                    "Projection change vs 2025 (desc)",
-                    "Position rank",
-                ],
-                key="fantasy_sort",
-            )
+    ranking = pd.DataFrame({
+        "Rank": pos["Rank"],
+        "Player": pos["player_display_name"],
+        "Team": pos.get(team_col, ""),
+        "Proj PPR": pos["predicted_2026_fantasy_points_ppr"].round(1),
+        "PPR/G": pos["predicted_2026_ppr_per_game"].round(1),
+        "GP": pos["predicted_2026_games_played"].round(0),
+        "80% Low": pos["prediction_interval_low"].round(0),
+        "80% High": pos["prediction_interval_high"].round(0),
+        "Tier": pos.get("fantasy_projection_tier", ""),
+    })
+    if "projection_change_from_2025" in pos.columns:
+        ranking["vs 2025"] = pos["projection_change_from_2025"].round(1)
 
-        # Filter the dataframe
-        filtered = fantasy.copy()
-        if position_pills:
-            filtered = filtered[filtered["position"].isin(position_pills)]
-        if search_query:
-            mask = filtered["player_display_name"].astype(str).str.contains(
-                search_query, case=False, na=False
-            )
-            filtered = filtered[mask]
-        if tiers:
-            filtered = filtered[filtered["fantasy_projection_tier"].isin(tiers)]
-        if confidence:
-            filtered = filtered[filtered["confidence_level"].isin(confidence)]
-        if breakout_only:
-            filtered = filtered[filtered["breakout_potential"].eq("High")]
-        if sort_by == "Projected PPR (desc)":
-            filtered = filtered.sort_values(
-                "predicted_2026_fantasy_points_ppr", ascending=False
-            )
-        elif sort_by == "Projected PPR (asc)":
-            filtered = filtered.sort_values(
-                "predicted_2026_fantasy_points_ppr", ascending=True
-            )
-        elif sort_by == "Projection change vs 2025 (desc)":
-            filtered = filtered.sort_values(
-                "projection_change_from_2025", ascending=False
-            )
-        else:
-            filtered = filtered.sort_values("fantasy_position_rank")
-        if max_show != "All":
-            filtered = filtered.head(int(max_show))
+    st.subheader(f"Top 25 {position}s — 2026 projected PPR")
+    st.dataframe(ranking, width="stretch", hide_index=True)
+    st.download_button(
+        f"Download {position} rankings",
+        ranking.to_csv(index=False),
+        file_name=f"fantasy_rankings_2026_{position}.csv",
+        mime="text/csv",
+    )
 
-        if filtered.empty:
-            st.warning("No players match the selected filters.")
-            return
+    st.divider()
+    st.subheader("Weekly projection vs actual")
 
-        # Summary chips
-        st.markdown(
-            f"<div style='color:#5E6A75;font-size:0.86rem;margin-bottom:8px;'>"
-            f"Showing <strong>{len(filtered):,}</strong> players · "
-            f"Total projected PPR: <strong>{filtered['predicted_2026_fantasy_points_ppr'].sum():,.0f}</strong> · "
-            f"Avg: <strong>{filtered['predicted_2026_fantasy_points_ppr'].mean():.1f} PPR</strong>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
+    options = pos["player_id"].tolist()
+    labels = dict(zip(pos["player_id"], pos["player_display_name"]))
+    sel = st.selectbox(
+        "Player", options, format_func=lambda p: labels.get(p, p), key="rank_weekly_player"
+    )
 
-        if view_mode == "Player Cards":
-            cards = []
-            for _, row in filtered.iterrows():
-                name = str(row["player_display_name"])
-                pos = str(row["position"])
-                team = (
-                    str(row.get("primary_team_2025", row.get("primary_team", "—")))
-                )
-                projection = float(row["predicted_2026_fantasy_points_ppr"])
-                floor = (
-                    float(row["prediction_interval_low"])
-                    if "prediction_interval_low" in row
-                    else None
-                )
-                ceiling = (
-                    float(row["prediction_interval_high"])
-                    if "prediction_interval_high" in row
-                    else None
-                )
-                tier_label = str(row.get("fantasy_projection_tier", ""))
-                pos_rank = int(row.get("fantasy_position_rank", 0))
-                trend = row.get("projection_change_from_2025", None)
-                trend_val = float(trend) if trend is not None and not pd.isna(trend) else None
-                matchup = f"{pos}#{pos_rank}" if pos_rank else None
-                extra_note = None
-                if row.get("breakout_potential") == "High":
-                    extra_note = "🎯 Breakout target"
-                elif row.get("slump_potential") == "High":
-                    extra_note = "⚠️ Regression watch"
+    wk = weekly.copy()
+    if "method" in wk.columns:
+        wk = wk[wk["method"].eq("hist_gradient_boosting")]
+    wk = wk[wk["player_id"].astype(str).eq(str(sel))].copy()
+    if wk.empty:
+        st.info("No completed-game projections on record for this player.")
+        return
 
-                cards.append(
-                    player_card_html(
-                        name=name,
-                        position=pos,
-                        team=team,
-                        projection=projection,
-                        projection_unit="2026 PPR",
-                        floor=floor,
-                        ceiling=ceiling,
-                        tier_label=tier_label,
-                        matchup=matchup,
-                        trend_change=trend_val,
-                        extra_note=extra_note,
-                    )
-                )
-            player_card_grid(cards)
-        else:
-            display_cols = [
-                "player_display_name",
-                "position",
-                "primary_team_2025",
-                "predicted_2026_fantasy_points_ppr",
-                "fantasy_position_rank",
-                "fantasy_projection_tier",
-                "prediction_interval_low",
-                "prediction_interval_high",
-                "projection_change_from_2025",
-                "confidence_level",
-                "breakout_potential",
-                "slump_potential",
-                "draft_board_bucket",
-            ]
-            st.dataframe(
-                filtered[_available_columns(filtered, display_cols)],
-                width="stretch",
-                hide_index=True,
-            )
+    latest = int(pd.to_numeric(wk["season"], errors="coerce").max())
+    wk = wk[wk["season"].eq(latest)].sort_values("week")
+    proj = wk["prediction"].to_numpy()
+    actual = wk["target_fantasy_points_ppr"].to_numpy()
 
-    # ===== Weekly Tab =====
-    with tab_weekly:
-        if weekly.empty:
-            st.info(
-                "Weekly fantasy projections are missing. Run "
-                "`python scripts/run_pipeline.py --steps weekly_fantasy`."
-            )
-            return
-
-        main_method = "hist_gradient_boosting"
-        weekly_main = weekly[weekly["method"].eq(main_method)].copy()
-        if weekly_main.empty:
-            st.warning("No weekly projection rows found.")
-            return
-
-        cols = st.columns([1.4, 1.4, 1.5, 1.5])
-        with cols[0]:
-            seasons = sorted(weekly_main["season"].dropna().astype(int).unique(), reverse=True)
-            sel_season = st.selectbox(
-                "Season", seasons, key="weekly_season", index=0
-            )
-        with cols[1]:
-            weeks = sorted(
-                weekly_main[weekly_main["season"].eq(sel_season)]["week"]
-                .dropna()
-                .astype(int)
-                .unique()
-            )
-            default_week = weeks[-1] if weeks else 1
-            sel_week = st.selectbox(
-                "Week", weeks, index=len(weeks) - 1 if weeks else 0, key="weekly_week"
-            )
-        with cols[2]:
-            week_positions = st.multiselect(
-                "Position",
-                ["QB", "RB", "WR", "TE"],
-                default=["QB", "RB", "WR", "TE"],
-                key="weekly_pos",
-            )
-        with cols[3]:
-            week_search = st.text_input(
-                "Search player",
-                placeholder="e.g. Chase",
-                key="weekly_search",
-            )
-
-        wfilt = weekly_main[
-            weekly_main["season"].eq(sel_season) & weekly_main["week"].eq(sel_week)
-        ]
-        if week_positions:
-            wfilt = wfilt[wfilt["position"].isin(week_positions)]
-        if week_search:
-            wfilt = wfilt[
-                wfilt["player_display_name"]
-                .astype(str)
-                .str.contains(week_search, case=False, na=False)
-            ]
-
-        if wfilt.empty:
-            st.warning("No players match the selected filters.")
-            return
-
-        wfilt = wfilt.sort_values("prediction", ascending=False).head(50)
-
-        st.markdown(
-            f"<div style='color:#5E6A75;font-size:0.86rem;margin-bottom:8px;'>"
-            f"Season {sel_season} · Week {int(sel_week)} · Showing {len(wfilt):,} of top projected players"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
-        cards = []
-        for _, row in wfilt.iterrows():
-            pos = str(row["position"])
-            cards.append(
-                player_card_html(
-                    name=str(row["player_display_name"]),
-                    position=pos,
-                    team=f"{row.get('team', '—')} vs {row.get('opponent_team', '—')}",
-                    projection=float(row["prediction"]),
-                    projection_unit="PPR",
-                    floor=float(row.get("interval_low_80", float("nan"))) if "interval_low_80" in row else None,
-                    ceiling=float(row.get("interval_high_80", float("nan"))) if "interval_high_80" in row else None,
-                    tier_label=classify_tier_from_percentile(
-                        (wfilt["prediction"].rank(pct=True).loc[row.name])
-                    ),
-                    matchup=f"{row.get('team', '')} vs {row.get('opponent_team', '')}",
-                    trend_change=None,
-                    extra_note=(
-                        f"Actual: {row['target_fantasy_points_ppr']:.1f} PPR"
-                        if "target_fantasy_points_ppr" in row
-                        and not pd.isna(row["target_fantasy_points_ppr"])
-                        else None
-                    ),
-                )
-            )
-        player_card_grid(cards)
+    weekly_table = pd.DataFrame({
+        "Week": wk["week"].astype(int),
+        "Opp": wk.get("opponent_team", ""),
+        "Projected": wk["prediction"].round(1),
+        "Actual": wk["target_fantasy_points_ppr"].round(1),
+        "Error": (wk["target_fantasy_points_ppr"] - wk["prediction"]).round(1),
+    })
+    card_row([
+        ("Games", f"{len(wk)}", None),
+        ("Avg projected", f"{proj.mean():.1f}", None),
+        ("Avg actual", f"{actual.mean():.1f}", None),
+        ("RMSE", f"{float(np.sqrt(np.mean((actual - proj) ** 2))):.1f}", None),
+    ])
+    st.caption(f"{labels.get(sel, sel)} — {latest} season, projected vs actual PPR by game.")
+    st.dataframe(weekly_table, width="stretch", hide_index=True)
 
 
 def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
@@ -2507,7 +2286,7 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
             (
                 "Out-only events (comparison)",
                 "19",
-                "The stricter Session 1-2 trigger under the same eligibility.",
+                "The stricter Out-only trigger under the same eligibility.",
             ),
             (
                 "Post-period ATT",
@@ -2568,10 +2347,10 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
     with st.expander("Event-study coefficient table"):
         st.dataframe(event_study, width="stretch", hide_index=True)
 
-    with st.expander("Earlier Out-only analysis (Sessions 1-2, for context)"):
+    with st.expander("Earlier Out-only analysis (for context)"):
         st.markdown(
-            "Sessions 1-2 defined treatment as the formal QB *transition* with an "
-            "Out / Doubtful / Questionable status and found a null effect: by the "
+            "An earlier specification defined treatment as the formal QB *transition* "
+            "with an Out / Doubtful / Questionable status and found a null effect: by the "
             "time a QB is formally Out, his receivers have already been declining "
             "for weeks, so the Out flag lags the causal damage. That null is what "
             "motivated re-timing treatment to the first injury report. See "
@@ -2596,7 +2375,7 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
         "Jordan Love",
         "P(plays meaningfully) moves 0.611 → 0.513 once the model can see Green "
         "Bay had a recently-extended incumbent QB — the incumbent-context core "
-        "(Session 3) doing exactly what it was built to do.",
+        "doing exactly what it was built to do.",
     )
 
     with st.expander("Model spec", expanded=False):
@@ -2924,8 +2703,8 @@ def landing_page() -> None:
 
     with st.expander("How to use this app"):
         st.markdown(
-            "- Start with the **Fantasy Player Board** for weekly and live "
-            "projections.\n"
+            "- Start with the **Fantasy Rankings** for 2026 projections and "
+            "week-by-week accuracy.\n"
             "- Use the **Cap Allocation** page to compare player production to "
             "estimated cap cost.\n"
             "- Use the **Rookie Model** page to inspect draft and player "
@@ -3107,7 +2886,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
                 "(validation class)."
             )
         st.caption(
-            "Session 3 added a 3-feature incumbent-context core to the hurdle gate "
+            "A 3-feature incumbent-context core sharpens the hurdle gate "
             "(combine and broad-depth features were tested and dropped). The gain is "
             "concentrated in the blocked-QB cell."
         )
@@ -3168,7 +2947,7 @@ def main() -> None:
         [
             "Home (Landing)",
             "Cap Allocation Brief (Front Office)",
-            "Fantasy Player Board",
+            "Fantasy Rankings",
             NAV_PLAYER,
         ],
         key="nav_hero",
@@ -3215,7 +2994,7 @@ def main() -> None:
         # Default: render the selected hero page (landing page is the default).
         if hero == "Cap Allocation Brief (Front Office)":
             front_office_executive_report(data)
-        elif hero == "Fantasy Player Board":
+        elif hero == "Fantasy Rankings":
             espn_fantasy_view(data)
         elif hero == NAV_PLAYER:
             player_detail_page(data, player_index)
