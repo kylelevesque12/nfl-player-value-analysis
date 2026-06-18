@@ -6,7 +6,7 @@ Ten years of nflverse data, three questions: how much is a player actually worth
 
 ![Landing page preview](docs/images/landing_preview.svg)
 
-*A Streamlit app ties the four research threads together: a landing page with drill-in cards, a Fantasy Player Board with live projections, a Cap Allocation Brief, and a global player search → unified player detail view. (Preview above is a layout rendering; run the app locally for the live, interactive version.)*
+*A Streamlit app ties the four research threads together: a landing page with drill-in cards, a Fantasy Rankings page with top-25 projections by position, a Cap Allocation Brief, and a global player search → unified player detail view. (Preview above is a layout rendering; run the app locally for the live, interactive version.)*
 
 ## Four results worth knowing
 
@@ -171,14 +171,14 @@ streamlit run app/streamlit_app.py
 
 The app opens on a **landing page** with four drill-in cards (one per research thread), a methodology strip, and a how-to guide. From there:
 
-- **Fantasy Player Board** — weekly projections with conformal intervals, plus a *Current / next week* live-projection view (Session 7).
-- **Cap Allocation Brief** — replacement-level surplus on reconstructed cap-hit estimates (Session 4).
-- **Drill-down pages** — external benchmark, Bayesian rookie cold-start, the QB-injury causal study, the two-stage decomposition experiment, and methodology checks — all on a shared component layout (Session 9).
-- **Global player search** (always in the sidebar) → a **unified Player Detail view** that assembles every output for one player — weekly, live, surplus, rookie, causal — with clean "not available" states for missing modules (Session 10).
+- **Fantasy Rankings** — top-25 2026 projections by position (QB/RB/WR/TE) as sortable tables, plus a week-by-week projected-vs-actual breakdown for any ranked player.
+- **Cap Allocation Brief** — replacement-level surplus on reconstructed cap-hit estimates.
+- **Drill-down pages** — external benchmark, Bayesian rookie cold-start, the QB-injury causal study, the two-stage decomposition experiment, and methodology checks — all on a shared component layout.
+- **Global player search** (always in the sidebar) → a **unified Player Detail view** that assembles every output for one player — weekly, live, surplus, rookie, causal — with clean "not available" states for missing modules.
 
 ![Player Detail preview](docs/images/player_detail_preview.svg)
 
-The previews in this README are layout renderings of the real pages. To capture live screenshots, run the app locally and screenshot the landing page, Fantasy Player Board, Cap Allocation Brief, and a Player Detail view; the previews under [`docs/images/`](docs/images/) mirror those layouts.
+The previews in this README are layout renderings of the real pages. To capture live screenshots, run the app locally and screenshot the landing page, Fantasy Rankings, Cap Allocation Brief, and a Player Detail view; the previews under [`docs/images/`](docs/images/) mirror those layouts.
 
 ## Reproducing the pipeline
 
