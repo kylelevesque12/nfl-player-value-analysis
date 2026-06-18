@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 600" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+  <rect width="920" height="600" fill="#ffffff"/>
+  <rect x="0" y="0" width="210" height="600" fill="#f5f7fb"/>
+  <text x="24" y="42" font-size="15" font-weight="700" fill="#17202a">Player search</text>
+  <rect x="24" y="56" width="162" height="28" rx="6" fill="#ffffff" stroke="#1f4e79"/>
+  <text x="34" y="75" font-size="11" fill="#17202a">Justin Jefferson — WR — MIN</text>
+  <!-- header -->
+  <text x="240" y="48" font-size="24" font-weight="800" fill="#17202a">Justin Jefferson</text>
+  <text x="240" y="72" font-size="12" fill="#5b6b7b">Unified player view · WR · MIN · seasons 2020–2025</text>
+  <rect x="240" y="84" width="150" height="22" rx="5" fill="#ffffff" stroke="#cfd8e3"/>
+  <text x="250" y="99" font-size="10" fill="#1f4e79">← Back to dashboard</text>
+  <!-- KPI row (wrapped: 2 + 2 on narrow, shown as 4 here) -->
+  <g font-size="11">
+    <rect x="240" y="120" width="158" height="64" rx="8" fill="#f5f7fb" stroke="#dde5ee"/>
+    <text x="252" y="140" fill="#5b6b7b">Latest projected PPR</text>
+    <text x="252" y="166" font-size="20" font-weight="800" fill="#17202a">15.2</text>
+    <rect x="408" y="120" width="158" height="64" rx="8" fill="#f5f7fb" stroke="#dde5ee"/>
+    <text x="420" y="140" fill="#5b6b7b">Latest depth rank</text>
+    <text x="420" y="166" font-size="20" font-weight="800" fill="#17202a">1</text>
+    <rect x="576" y="120" width="158" height="64" rx="8" fill="#f5f7fb" stroke="#dde5ee"/>
+    <text x="588" y="140" fill="#5b6b7b">Best value-over-exp ($M)</text>
+    <text x="588" y="166" font-size="20" font-weight="800" fill="#17202a">9.0</text>
+    <rect x="744" y="120" width="152" height="64" rx="8" fill="#f5f7fb" stroke="#dde5ee"/>
+    <text x="756" y="140" fill="#5b6b7b">Causal QB events</text>
+    <text x="756" y="166" font-size="20" font-weight="800" fill="#17202a">0</text>
+  </g>
+  <!-- weekly section -->
+  <text x="240" y="214" font-size="14" font-weight="700" fill="#17202a">Weekly fantasy</text>
+  <rect x="240" y="224" width="656" height="150" rx="8" fill="#ffffff" stroke="#dde5ee"/>
+  <text x="256" y="244" font-size="10" fill="#9aa7b4">Projected vs actual PPR by game</text>
+  <polyline points="260,350 320,320 380,335 440,300 500,330 560,290 620,315 680,280 740,300 800,270 860,295" fill="none" stroke="#1f4e79" stroke-width="2"/>
+  <polyline points="260,358 320,300 380,345 440,330 500,310 560,320 620,300 680,305 740,285 800,300 860,275" fill="none" stroke="#157a6e" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="690" y="244" font-size="10" fill="#1f4e79">— projected</text>
+  <text x="790" y="244" font-size="10" fill="#157a6e">-- actual</text>
+  <!-- value/surplus + caveat -->
+  <text x="240" y="404" font-size="14" font-weight="700" fill="#17202a">Value &amp; cap surplus</text>
+  <rect x="240" y="414" width="656" height="58" rx="8" fill="#ffffff" stroke="#dde5ee"/>
+  <text x="256" y="436" font-size="10" fill="#5b6b7b">season · team · cap_hit_$M · value_score · efficiency_tier · salary_source</text>
+  <text x="256" y="456" font-size="10" fill="#17202a">2024 · MIN · 18.0 · 3.0 · High Efficiency · contract_terms_curve</text>
+  <rect x="240" y="482" width="656" height="34" rx="6" fill="#fff8e6" stroke="#e8d27a"/>
+  <text x="252" y="503" font-size="10" fill="#8a6d00">Reconstructed estimate — cap hit rebuilt from contract terms, not exact NFL cap accounting.</text>
+  <text x="240" y="556" font-size="10" fill="#9aa7b4">Layout preview of the Player Detail page. Sections show clean "not available" states when a player lacks data.</text>
+</svg>

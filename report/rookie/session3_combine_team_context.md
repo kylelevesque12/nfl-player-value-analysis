@@ -1,6 +1,6 @@
 # Session 3 — Combine & team-context features for the rookie hurdle
 
-## The problem I wanted to fix
+## The problem
 
 The rookie hurdle model's first stage asks a simple question: will this rookie
 *play meaningfully* (≥ 4 games) in year one? The baseline answers it with draft
@@ -23,10 +23,10 @@ So this session adds pre-season context the model was missing, in three families
    established incumbent, and whether that incumbent recently signed a meaningful
    extension.
 
-## How I kept it leakage-free
+## How leakage was avoided
 
 The guardrail for this session is strict: nothing may use the rookie's *own*
-first-season outcomes. I held to it in three concrete ways.
+first-season outcomes. The discipline held in three concrete ways.
 
 - **Combine is pre-draft** by definition, so it's safe on its face. It's joined
   through stable IDs only — combine's `pfr_id` (and `cfb_id` as a fallback)
@@ -68,7 +68,7 @@ explicit missingness flags), so no rookie is dropped for lacking a 40 time.
 The production hurdle is a PyMC hierarchical model. **PyMC was not available in
 the sandbox this evaluation ran in** (it's intentionally kept out of the main
 project venv), and these features target stage 1 specifically. So for fast,
-apples-to-apples feature comparison I used a logistic-regression surrogate on the
+apples-to-apples feature comparison, a logistic-regression surrogate runs on the
 same `played_meaningfully` target with the same rolling-by-rookie-year validation
 (2020–2025). The selected features are wired into the production model's
 `FEATURE_COLUMNS`, so the PyMC hurdle picks them up when run in the bayes venv.
@@ -111,7 +111,7 @@ Trained QB-only on rookies before each player's draft year, then predicted them:
 
 Love moves the right way and meaningfully — from leaning "will play" to a coin
 flip — once the model can see that Green Bay had an established, recently-extended
-incumbent. It doesn't crater to 0.2, and I didn't try to force it there; the
+incumbent. It doesn't crater to 0.2, and forcing it there wasn't the aim; the
 honest signal from three features on a small sample is a nudge, not a verdict.
 Mahomes barely moves, which is itself informative: his 2017 prediction trains on
 only the 2016 rookie class, far too little for the incumbent features to have

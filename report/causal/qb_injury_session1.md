@@ -20,7 +20,7 @@ A treatment event requires all of the following:
 1. A team's starting QB (≥50% pass-attempt share) changes between
    weeks W-1 and W within a single regular season (bye weeks are
    skipped correctly).
-2. The prior QB's transition is *injury-driven*. We classify it as
+2. The prior QB's transition is *injury-driven*. It is classified as
    `injury` if their official report_status that week is Out / IR /
    Doubtful / Questionable, as `injury_dnp` if their practice_status
    was Did Not Participate or Limited Participation, and as
@@ -86,7 +86,7 @@ observations.
 ### Statistical pre-trend interaction coefficients
 
 Within-player demeaned OLS in the pre-period; week_offset == -1 is
-the reference. The null we want to *not* reject: every `treated ×
+the reference. The null to *not* reject: every `treated ×
 week_offset` interaction coefficient equals zero.
 
 | Pre-week offset (vs -1) | n | Interaction coef | SE | t-stat | p-value (approx) |
@@ -112,8 +112,8 @@ attribute that pre-existing decline to the treatment.
 
 A naive DiD estimator run on this panel would overstate the
 true causal effect by including the pre-trend drift as part of
-the treatment-attributable drop. **We do not proceed to a naive
-DiD estimate.**
+the treatment-attributable drop. **No naive DiD estimate is
+produced.**
 
 ## Mitigation paths for session 2
 

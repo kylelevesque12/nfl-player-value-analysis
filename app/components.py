@@ -482,15 +482,19 @@ def recommendation_callout(category: str, label: str, body: str) -> None:
 # ---------------------------------------------------------------------------
 # KPI grid (Streamlit-native metrics in a clean row)
 # ---------------------------------------------------------------------------
-def kpi_grid(metrics: list[tuple[str, str, str | None]]) -> None:
-    """Render N st.metric tiles in a single row."""
-    cols = st.columns(len(metrics))
-    for col, (label, value, delta) in zip(cols, metrics):
-        with col:
-            if delta is not None:
-                st.metric(label, value, delta)
-            else:
-                st.metric(label, value)
+from app.layout import chunk_metrics  # noqa: E402  (pure, Streamlit-free helper)
+
+
+def kpi_grid(metrics: list[tuple[str, str, str | None]], max_per_row: int = 3) -> None:
+    """Render N st.metric tiles, wrapping into balanced rows on narrow widths."""
+    for row in chunk_metrics(metrics, max_per_row):
+        cols = st.columns(len(row))
+        for col, (label, value, delta) in zip(cols, row):
+            with col:
+                if delta is not None:
+                    st.metric(label, value, delta)
+                else:
+                    st.metric(label, value)
 
 
 # ---------------------------------------------------------------------------

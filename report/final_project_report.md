@@ -42,9 +42,9 @@ model is the accuracy engine** for point predictions. **The two-stage
 decomposition is an interpretability and uncertainty layer**: it produces a
 calibrated, *asymmetric* prediction interval (validated at 80.9% coverage) that is
 wide along the axis the model genuinely cannot predict, and it labels each player
-as role-driven or efficiency-driven — distinguishing "we are unsure about this
-player's role" from "we are unsure about his per-play quality." That distinction
-is real, validated, and useful even though it did not lower RMSE.
+as role-driven or efficiency-driven — separating role uncertainty (how big his
+role will be) from per-play-quality uncertainty (how efficient he'll be). That
+distinction is real, validated, and useful even though it did not lower RMSE.
 
 The repository delivers cleaned datasets, reusable `src/` modules, a reproducible
 command-line pipeline, validation and interpretation reports, a salary-efficiency
@@ -230,9 +230,9 @@ the resulting interval), and it holds up:
 Coverage lands essentially on target, and the variance attribution is the
 genuinely novel output: for skill positions, 80–98% of a player's value
 uncertainty comes from the efficiency axis the model cannot pin down. A front
-office reading "this projection is wide because we can't predict his efficiency,
-not his role" is getting information a single point estimate — or a single
-symmetric error bar — cannot convey. The independent benchmark stage corroborates
+office reading "this projection is wide because his efficiency is hard to
+predict, not his role" is getting information a single point estimate — or a
+single symmetric error bar — cannot convey. The independent benchmark stage corroborates
 the calibration story: distribution-free conformal intervals on the single model
 hit 81.1% coverage against the same 80% target.
 

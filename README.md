@@ -1,6 +1,12 @@
 # NFL Player Value Analysis
 
-Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can a weekly fantasy model consistently beat the naive baselines every forecast is measured against, and what do the negative results teach us about model architecture.
+[![tests](https://github.com/kylelevesque12/nfl-player-value-analysis/actions/workflows/tests.yml/badge.svg)](https://github.com/kylelevesque12/nfl-player-value-analysis/actions/workflows/tests.yml)
+
+Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can a weekly fantasy model consistently beat the naive baselines every forecast is measured against, and what do the negative results teach about model architecture.
+
+![Landing page preview](docs/images/landing_preview.svg)
+
+*A Streamlit app ties the four research threads together: a landing page with drill-in cards, a Fantasy Player Board with live projections, a Cap Allocation Brief, and a global player search → unified player detail view. (Preview above is a layout rendering; run the app locally for the live, interactive version.)*
 
 ## Four results worth knowing
 
@@ -22,15 +28,15 @@ The project covers three audiences. Pick the section that matches yours:
 | ESPN / DraftKings / FantasyPros | [Fantasy / DFS](#fantasy--dfs-perspective) | Weekly projector: 7-9% RMSE edge over naive baselines every season 2020-2025; competitive with a market-implied DK benchmark on 2020-2021 |
 | Research labs / methodology reviewers | [Methodology](#methodology--research-perspective) | Causal DiD with a null finding, rookie hurdle Bayes, four decomposition experiments |
 
-If you want the whole story start to finish, read the [final project report](report/final_project_report.md). If you want to play with the live numbers, run the [Streamlit dashboard](#interactive-dashboard).
+The whole story start to finish is in the [final project report](report/final_project_report.md). The live numbers run in the [Streamlit dashboard](#interactive-dashboard).
 
 ## Front office perspective
 
-> **How do we identify under-priced player-seasons relative to replacement-level cap cost?**
+> **How are under-priced player-seasons identified relative to replacement-level cap cost?**
 
 ### Replacement-level surplus framework
 
-For each `(season, position)` we estimate two baselines from the data: `replacement_salary_millions` (median bottom-quartile veteran-starter cost — the price of "next man up") and `replacement_value_score` (the value those replacement-level players actually deliver). For each player-season we compute the cap premium paid above replacement, the value delivered above replacement, and the dollar surplus — converting above-replacement value to dollars via the within-(season, position) slope of salary on value.
+For each `(season, position)`, two baselines are estimated from the data: `replacement_salary_millions` (median bottom-quartile veteran-starter cost — the price of "next man up") and `replacement_value_score` (the value those replacement-level players actually deliver). For each player-season, the cap premium paid above replacement, the value delivered above replacement, and the dollar surplus are computed — converting above-replacement value to dollars via the within-(season, position) slope of salary on value.
 
 **Top 5 replacement-level surplus seasons, 2016-2025**:
 
@@ -109,7 +115,7 @@ The fantasy model rests on three methodology decisions documented as their own r
 
 ## Methodology / research perspective
 
-> **What are the right modeling architectures for NFL player projection, and what do the negative results teach us?**
+> **What are the right modeling architectures for NFL player projection, and what do the negative results teach?**
 
 ### Causal DiD: QB injury → WR PPR
 
@@ -137,7 +143,7 @@ Across four independent attempts in this project, **explicit multiplicative deco
 3. Weekly position-specific HGB — lost to pooled HGB at every position
 4. Weekly WR/TE two-stage with structural constraint (target shares renormalized within team-week) — lost to pooled HGB by 7-8% even with shrinkage on the efficiency stage
 
-The cumulative evidence is a *finding*, not four separate anecdotes: for NFL fantasy and value projection, pooled tree-based models with engineered rolling features extract the relevant signals more efficiently than any explicit decomposition we've tried. Reports for each attempt include per-stage diagnostic detail explaining the mechanism. ([Season-level](report/two_stage_value.md) / [weekly WR/TE](report/two_stage_weekly.md))
+The cumulative evidence is a *finding*, not four separate anecdotes: for NFL fantasy and value projection, pooled tree-based models with engineered rolling features extract the relevant signals more efficiently than any explicit decomposition tested here. Reports for each attempt include per-stage diagnostic detail explaining the mechanism. ([Season-level](report/two_stage_value.md) / [weekly WR/TE](report/two_stage_weekly.md))
 
 ### Bayesian hierarchical methodology
 
@@ -156,14 +162,23 @@ PyMC has a numpy/pandas dependency conflict with the main project stack, so the 
 
 ## Interactive dashboard
 
-The Streamlit dashboard surfaces all three perspectives:
+Run it locally:
 
 ```bash
 pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
-Pages currently include front-office (value, salary, predictions, validation), fantasy (season-long, weekly with conformal intervals, model comparison), weekly win projections, and methodology / reports. A v2 rebuild is in progress to surface the newer methodology pieces (replacement-level surplus leaderboard, Bayesian rookie posteriors, causal QB-injury event study) — see [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md) for the plan.
+The app opens on a **landing page** with four drill-in cards (one per research thread), a methodology strip, and a how-to guide. From there:
+
+- **Fantasy Player Board** — weekly projections with conformal intervals, plus a *Current / next week* live-projection view (Session 7).
+- **Cap Allocation Brief** — replacement-level surplus on reconstructed cap-hit estimates (Session 4).
+- **Drill-down pages** — external benchmark, Bayesian rookie cold-start, the QB-injury causal study, the two-stage decomposition experiment, and methodology checks — all on a shared component layout (Session 9).
+- **Global player search** (always in the sidebar) → a **unified Player Detail view** that assembles every output for one player — weekly, live, surplus, rookie, causal — with clean "not available" states for missing modules (Session 10).
+
+![Player Detail preview](docs/images/player_detail_preview.svg)
+
+The previews in this README are layout renderings of the real pages. To capture live screenshots, run the app locally and screenshot the landing page, Fantasy Player Board, Cap Allocation Brief, and a Player Detail view; the previews under [`docs/images/`](docs/images/) mirror those layouts.
 
 ## Reproducing the pipeline
 
@@ -266,18 +281,16 @@ python -m pytest tests/ -q
 ## Limitations and gaps
 
 - **Salary track uses a reconstructed cap hit, not exact cap accounting.** The cost variable is a season-specific cap hit rebuilt from contract terms (prorated signing bonus + backloaded base), flagged per player-season. It is a principled estimate; the source contracts have no year-by-year cap breakdown, so it is not the same as a true OverTheCap cap hit.
-- **DK benchmark coverage stops in 2021.** RotoGuru's free archive doesn't go later. Extending requires a paid source.
-- **No depth-chart rank.** nflverse dropped the numeric `list_rank` field around 2024. Deriving rank from row-order is the next feature-engineering target.
+- **DK benchmark coverage stops in 2021.** RotoGuru's free archive doesn't go later, so the market head-to-head is a 2020-2021 sample only; the all-years claim rests on the naive-baseline skill score instead. Extending requires a paid source ([feasibility note](report/fantasy/external_projection_benchmark_feasibility.md)).
+- **Causal result is suggestive, not definitive.** Re-timing treatment to the first injury report surfaces a small effect (ATT ≈ −0.58 PPG, p ≈ 0.04) the Out-only design missed, but with ~104 events it is underpowered and the pre-period isn't perfectly flat. Reported as suggestive.
 - **Injury attach at 17% coverage.** Only injured players appear on the report. The QB-injury causal study works around this by joining at the team-week level; the fantasy model treats missing injury status as "healthy" and tolerates the resulting noise.
-- **Streamlit dashboard is currently a draft layer.** It surfaces the older modules but hasn't kept pace with replacement-level surplus, Bayesian rookie projections, the causal QB-injury findings, or the two-stage weekly experiment. A full rebuild is the next infrastructure investment — see [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
-- **No causal session 3.** The session 1+2 finding (QB Out is a lagging indicator) implies the *real* causal moment is the first week of injury-report appearance. Re-running the DiD on that treatment definition is the open follow-up.
 
-## Next phase
+## What's done and what's left
 
-Three concrete moves, in priority order:
+The modeling and app work is complete: leakage-safe weekly features (depth rank now rebuilt from play-by-play after nflverse dropped `list_rank`), reconstructed cap-hit surplus, rookie incumbent context, the first-injury-report causal study, live weekly projections, and a full Streamlit app (landing page, shared detail-page layout, global player search). The session-by-session build log lives in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
 
-1. **Full Streamlit dashboard rebuild** to surface all three perspectives — the v2 plan replaces the current draft layer.
-2. **Causal session 3** — re-identify treatment as first-injury-report-appearance (not formal Out). Reuses all session-1/2 infrastructure.
-3. **Real cap hit replacing APY** in the salary track — unblocks audit-grade front-office findings.
+What remains is optional and external, not blocking:
 
-The full multi-session roadmap (including Tier 3 specializations) lives in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
+1. **Paid external projections** (FantasyPros / ESPN historical) to extend the market benchmark past 2021.
+2. **True OverTheCap year-by-year cap data** to replace the reconstructed estimate with audit-grade cap hits.
+3. **Live app screenshots / Streamlit Community Cloud deploy** — the README previews are layout renderings; a hosted demo is the last presentation step.

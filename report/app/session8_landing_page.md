@@ -2,10 +2,10 @@
 
 ## What changed
 
-The app used to drop you straight onto the Cap Allocation Brief, which is a great
-page if you already know what the project is but a confusing first screen if you
-don't. This session replaces that default with a real landing page that says what
-the project is and hands you four obvious doors into it.
+The app used to open straight on the Cap Allocation Brief — fine for someone who
+already knows the project, a confusing first screen otherwise. This session
+replaces that default with a real landing page that says what the project is and
+offers four obvious doors into it.
 
 The landing page has four parts:
 

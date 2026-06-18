@@ -19,19 +19,19 @@ verification:
 So nothing needed to be deleted or newly archived. The one genuinely dead code
 path that remains is the unrouted legacy app functions (`overview_page`,
 `front_office_page`, etc.) inside `app/streamlit_app.py` — they are not reachable
-from `main()`. I left them in place rather than carving functions out of a
-3,000-line file (per the "flag, don't delete when uncertain" guardrail) but
-corrected the one stale `inflated_apy` caption they contained. Removing them
-cleanly is a small, self-contained follow-up.
+from `main()`. They were left in place rather than carved out of a 3,000-line file
+(per the "flag, don't delete when uncertain" guardrail), but the one stale
+`inflated_apy` caption they contained was corrected. Removing them cleanly is a
+small, self-contained follow-up.
 
 ## The salary-data inconsistency (fixed)
 
 The most important catch: the committed `salary_efficiency_2016_2025.csv` predated
 Session 4 — its `salary_source` was still `inflated_apy`, so the app's surplus and
 player-detail pages were displaying the *old* flat-APY numbers while the code and
-captions said "reconstructed cap hit." I regenerated the salary outputs
+captions said "reconstructed cap hit." Regenerating the salary outputs
 (`build_salary_efficiency_tables` + `build_salary_finding_tables` — deterministic,
-no model training) so the committed data now matches the Session 4 code:
+no model training) brought the committed data back in line with the Session 4 code:
 `salary_source = contract_terms_curve`, and the surplus board leads with **Brock
 Purdy 2023 at $35.4M**, the value documented in the Session 4 report. This regenerated
 the salary-efficiency and replacement-level output tables.

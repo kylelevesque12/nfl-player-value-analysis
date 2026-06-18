@@ -18,15 +18,15 @@ cap hit, which is what this session builds.
 `historical_contracts.csv` (nflverse / OverTheCap) is contract-level, not
 cap-accounting-level. For each deal it has total `value`, `guaranteed`, `apy`,
 `years`, and `year_signed` (plus inflation-adjusted versions), but **no
-year-by-year base salary or signing-bonus schedule**. So I cannot parse a true
-cap hit — there is no ground-truth per-year breakdown in the file. I'm explicit
-about this throughout: every reconstructed number is an *estimate from contract
-terms*, flagged as such, never presented as a parsed cap figure.
+year-by-year base salary or signing-bonus schedule**. So a true cap hit can't be
+parsed — there is no ground-truth per-year breakdown in the file. This is explicit
+throughout: every reconstructed number is an *estimate from contract terms*,
+flagged as such, never presented as a parsed cap figure.
 
 ## The reconstruction
 
-For each season a player is under contract, I compute the cap hit for that
-contract-year as:
+For each season a player is under contract, the cap hit for that contract-year is
+computed as:
 
 > **cap hit(year k) = prorated signing bonus + backloaded base salary**
 
@@ -100,9 +100,9 @@ real cap hits were used. It doesn't — it dips slightly (37.4 → 35.4). His ro
 cap hit barely changed (the deal was already tiny and near-flat), but compressing
 the *top* of the QB market lowered the position-season price-per-value slope used
 to dollarize his production, which trims his dollar surplus a hair. He remains the
-single largest surplus player-season in the dataset either way. I'm reporting what
-the pipeline actually produced rather than forcing the hoped-for direction, and I
-did not hard-code Purdy anywhere — the same curve runs for every contract.
+single largest surplus player-season in the dataset either way. The number here is
+what the pipeline actually produced rather than the hoped-for direction, and Purdy
+is not hard-coded anywhere — the same curve runs for every contract.
 
 ## Decision
 

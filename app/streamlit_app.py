@@ -226,10 +226,16 @@ def _available_columns(df: pd.DataFrame, cols: list[str]) -> list[str]:
     return [col for col in cols if col in df.columns]
 
 
-def card_row(metrics: list[tuple[str, str, str | None]]) -> None:
-    columns = st.columns(len(metrics))
-    for column, (label, value, help_text) in zip(columns, metrics):
-        column.metric(label, value, help=help_text)
+def card_row(metrics: list[tuple[str, str, str | None]], max_per_row: int = 3) -> None:
+    """KPI tiles that wrap into balanced rows so they stay readable on tablet /
+    phone widths (Streamlit stacks columns fully below its small-screen
+    breakpoint; this keeps the mid-width range tidy)."""
+    from app.layout import chunk_metrics
+
+    for row in chunk_metrics(metrics, max_per_row):
+        columns = st.columns(len(row))
+        for column, (label, value, help_text) in zip(columns, row):
+            column.metric(label, value, help=help_text)
 
 
 def show_missing_data_warning(missing: list[str]) -> None:
@@ -1938,8 +1944,8 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
 
     st.title("Cap Allocation Brief")
     st.caption(
-        "Where the cap dollars actually went, and what they bought. "
-        "Findings are organized for a GM scanning the page in three minutes."
+        "Where the cap dollars went, and what they bought — replacement-level "
+        "surplus priced against reconstructed cap-hit estimates."
     )
 
     if top_surplus.empty:
@@ -2040,9 +2046,9 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
     )
 
     # ------------------------------------------------------------------
-    # What we found — narrative blocks
+    # Findings — narrative blocks
     # ------------------------------------------------------------------
-    st.markdown("## What we found")
+    st.markdown("## Findings")
 
     st.markdown("### 1. Rookie-deal QBs are the largest source of cap surplus")
     cols = st.columns([1.3, 1])
@@ -2209,10 +2215,10 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
         recommendation_callout(
             "opportunity",
             "Roster construction",
-            "Anchor allocation around a rookie-deal QB. If you have one, spend "
-            "the savings on top-tier WR talent. If you don't, target a draftable "
-            "QB in rounds 2-4 — the upside from a Purdy/Browning/Nix outcome is "
-            "asymmetric.",
+            "Anchor allocation around a rookie-deal QB. With one in place, the "
+            "savings flow to top-tier WR talent; without one, a draftable QB in "
+            "rounds 2-4 carries asymmetric upside — a Purdy / Browning / Nix "
+            "outcome.",
         )
         recommendation_callout(
             "opportunity",
@@ -2725,12 +2731,12 @@ def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
             "Stage 1 (renormalized target share) beats a predict-the-mean "
             "baseline by 34% — the structural constraint actually carries "
             "signal. Stages 2 and 3 (team attempts, PPR per target) come in "
-            "essentially flat against the mean. When you multiply noisy "
-            "estimates through the product, you compound error the pooled "
-            "model avoids by learning the relevant interactions implicitly.\n\n"
+            "essentially flat against the mean. Multiplying noisy estimates "
+            "through the product compounds error the pooled model avoids by "
+            "learning the relevant interactions implicitly.\n\n"
             "The shrunk-stage-3 variant — replacing the learned efficiency "
             "model with the position-season mean — beats the full learned "
-            "version in every fold, which tells you the unshrunk stage was "
+            "version in every fold, which shows the unshrunk stage was "
             "adding error rather than information. Even after that "
             "prescription, the structurally-constrained product still loses "
             "by 7-8%.\n\n"
@@ -2738,7 +2744,7 @@ def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
             "lose to a pooled HGB. Pooled tree models on engineered rolling "
             "features extract the team-attempts and per-target-efficiency "
             "signals more efficiently than any multiplicative decomposition "
-            "we've tried."
+            "tested here."
         )
 
     if method_summary.empty:
@@ -3185,8 +3191,8 @@ def main() -> None:
     )
     st.sidebar.divider()
     st.sidebar.caption(
-        "Hero pages are written for a reader. Drill-down pages dig into "
-        "specific methodology and raw outputs. Rebuild data with "
+        "Hero pages summarize the findings; drill-down pages cover the "
+        "methodology and raw outputs. Rebuild data with "
         "`python scripts/run_pipeline.py`."
     )
 

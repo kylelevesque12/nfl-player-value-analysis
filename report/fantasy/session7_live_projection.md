@@ -1,10 +1,10 @@
 # Session 7 — Live weekly projections + per-position conformal intervals
 
-## What I built
+## What was built
 
 Up to now the weekly model could only score games that had already happened —
 every modeling row carried its realized PPR target. That's fine for a backtest
-but useless if you actually want to know what to expect *this* Sunday. So this
+but useless for knowing what to expect *this* Sunday. So this
 session adds the infrastructure to project the upcoming week before it's played,
 plus the per-position interval fix that Session 6 pointed at.
 
@@ -18,8 +18,8 @@ Two pieces:
 
 ## How a future row is synthesized
 
-There is no box score for a game that hasn't happened, so I can't just look the
-row up — I have to build it. For each active player (fantasy-relevant position,
+There is no box score for a game that hasn't happened, so the row can't just be
+looked up — it has to be built. For each active player (fantasy-relevant position,
 appeared in the last three weeks), the row is assembled from two clearly separated
 sources:
 
@@ -66,8 +66,8 @@ no rows needed the fallback.
 
 A data-boundary note: the dataset ends on a completed 2025 regular season, so the
 literal "next week" is the playoffs (not a regular-season slate) and the live
-builder correctly returns nothing for it. To demonstrate the capability I point
-the builder "as of" week 17 and project week 18 — 443 players, one row each. The
+builder correctly returns nothing for it. To demonstrate the capability, the
+builder is pointed "as of" week 17 to project week 18 — 443 players, one row each. The
 top of that board is sensible (Trevor Lawrence 21.2, Gibbs / Bijan ~20.7, Ja'Marr
 Chase 19.3), which is the right smell test for a pregame model.
 

@@ -29,7 +29,7 @@ for receivers whose QBs are about to get hurt.
 
 ## Estimation results
 
-We report two complementary estimators on both panels. The choice of
+Two complementary estimators are reported on both panels. The choice of
 *reference* matters for the answer:
 
 - **Event-study (cell-mean DiD)** uses week -1 (the week before the
@@ -88,7 +88,7 @@ producing.
 
 ## What this means for the analysis design
 
-The DiD was correctly specified for the question we asked: 'what
+The DiD was correctly specified for the question asked: 'what
 happens to WR PPR after the formal QB injury designation?' The
 answer is *not much, because the damage has already happened*.
 
@@ -103,11 +103,11 @@ transition event, which is a session 3 build.
 ## Portfolio-level honest verdict
 
 This is the kind of finding that distinguishes a careful causal
-analysis from a 'naive regression in a trenchcoat'. We hypothesized
-that QB injury causes a WR PPR drop. We built the DiD design
-rigorously, found a parallel-trends violation in session 1, ran the
-pre-registered mitigations in session 2, and — having gotten clean
-estimates — found the conventional-wisdom hypothesis is not
+analysis from a 'naive regression in a trenchcoat'. The hypothesis
+was that QB injury causes a WR PPR drop. The DiD design was built
+rigorously, a parallel-trends violation surfaced in session 1, the
+pre-registered mitigations ran in session 2, and — with clean
+estimates in hand — the conventional-wisdom hypothesis turned out not
 supported by the data when the treatment is defined as the formal
 injury designation. The mechanism is endogenous timing: by the time
 the QB is formally Out, the causal damage has already happened.

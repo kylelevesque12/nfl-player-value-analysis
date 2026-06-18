@@ -1,9 +1,9 @@
 # External projection benchmark — feasibility spike
 
-A short, read-only spike to answer one question: can we fairly benchmark the
-weekly fantasy model against a top external projection source like FantasyPros or
-ESPN? No production code was changed; this is just a look at what we have and what
-it would take.
+A short, read-only spike to answer one question: can the weekly fantasy model be
+fairly benchmarked against a top external projection source like FantasyPros or
+ESPN? No production code was changed; this is just a look at what's available and
+what it would take.
 
 ## What's already in the repo
 
@@ -47,8 +47,8 @@ and its coverage stops at 2021, so the benchmark says nothing about 2022–2025.
 
 ## FantasyPros / ESPN: what acquiring it would require
 
-Because no real FantasyPros/ESPN data is local, and per the spike's guardrails, I
-did **not** build a scraper. Here's what a real benchmark against them would take.
+Because no real FantasyPros/ESPN data is local, and per the spike's guardrails, no
+scraper was built. Here's what a real benchmark against them would take.
 
 - **Source.** FantasyPros weekly consensus projections (or ECR), or ESPN weekly
   projections.
@@ -63,15 +63,15 @@ did **not** build a scraper. Here's what a real benchmark against them would tak
   archive over time.
 - **Paid/API access.** Yes for FantasyPros historical depth.
 - **Likely join keys.** `(season, week, gsis_id)`, same as today. The catch: both
-  sources key on their own player IDs or names, so we'd need a name+team+position →
-  `gsis_id` bridge (the repo already does this for the DK file), which introduces
-  match-rate and selection risk.
+  sources key on their own player IDs or names, so a name+team+position →
+  `gsis_id` bridge would be needed (the repo already does this for the DK file),
+  which introduces match-rate and selection risk.
 - **Fairness risks.** (1) The projection must be the *pregame* value, not a
   post-game revision — otherwise it's not a fair forecast. (2) Scoring must be exact
-  PPR to match our target. (3) Fuzzy name matching can drop or duplicate players and
+  PPR to match the target. (3) Fuzzy name matching can drop or duplicate players and
   bias which player-weeks end up in the matched sample. (4) FantasyPros consensus
-  aggregates many experts and is a genuinely strong bar; we'd want to confirm the
-  matched universe is the same player-weeks the model is scored on, not a
+  aggregates many experts and is a genuinely strong bar; the matched universe would
+  need to be confirmed as the same player-weeks the model is scored on, not a
   cherry-picked subset.
 
 ## Recommendation
@@ -89,7 +89,7 @@ FantasyPros/ESPN projections later — don't scrape in this spike.** The reasoni
   projection source.
 - Until that data is acquired through a fair, stable channel (paid API or
   prospective weekly snapshots), forcing a brittle scrape would risk an unfair or
-  unstable benchmark — worse than the clean DK one we already have.
+  unstable benchmark — worse than the clean DK one already in place.
 
 No build was done in this spike beyond this note. The concrete next step, when
 prioritized, is to obtain a historical FantasyPros consensus file (paid API or

@@ -1,15 +1,14 @@
 # Session 6 — Ensemble stacking & quantile intervals (a negative + a near-miss)
 
-## What I was testing
+## What was tested
 
 The Session 1 weekly model is a single pooled HistGradientBoosting regressor with
-symmetric conformal prediction intervals. Two natural questions: can I squeeze out
-more accuracy by *stacking* several models, and can I get better-shaped intervals
-from *quantile* gradient boosting than from the one-size-fits-all conformal
-halfwidth? I built an off-production experiment harness
-(`src/weekly_ensemble_experiment.py`) so I could answer both without touching the
-production model — the rule for this session was that nothing ships unless it
-clearly wins.
+symmetric conformal prediction intervals. Two natural questions: can *stacking*
+several models squeeze out more accuracy, and can *quantile* gradient boosting
+produce better-shaped intervals than the one-size-fits-all conformal halfwidth? An
+off-production experiment harness (`src/weekly_ensemble_experiment.py`) answers
+both without touching the production model — the rule for this session was that
+nothing ships unless it clearly wins.
 
 Everything runs on the exact Session 1 leakage-safe frame, feature list, target,
 folds, and position groups. No NGS/PFR features (a guard test enforces that), no
@@ -49,7 +48,7 @@ this by spying on every base-prediction call.
 | linear Ridge | 6.037 | −1.66% | 4.403 | 7.789 | 6.055 | 6.026 | 4.874 |
 
 The stacked ensemble beats the pooled baseline by **0.07% on RMSE** — an order of
-magnitude below the 0.5% threshold I set for keeping a more complex model. The
+magnitude below the 0.5% threshold for keeping a more complex model. The
 meta-model essentially learns to lean almost entirely on the pooled HGB, because
 the other two base learners are strictly worse: the position-specific model loses
 ~1% (the per-position sample splits hurt more than the specialization helps, the
@@ -61,9 +60,9 @@ squared error. Not enough to justify shipping three models where one will do.
 
 ## Intervals: quantile GB vs conformal
 
-I built quantile HGB models at 0.10/0.25/0.75/0.90 to form 80% and 50% intervals
-and compared them to the production conformal intervals (symmetric, calibrated on
-held-out residuals) at the same nominal coverage.
+Quantile HGB models at 0.10/0.25/0.75/0.90 form 80% and 50% intervals, compared
+to the production conformal intervals (symmetric, calibrated on held-out
+residuals) at the same nominal coverage.
 
 | Level | Method | Empirical coverage (target) | Mean width |
 |---|---|---:|---:|
@@ -76,7 +75,7 @@ Overall, conformal is the better-calibrated and tighter method: at 50% it nails
 the target almost exactly (0.495) and is narrower; at 80% it sits a hair under
 target (0.786) and is narrower than quantile, which over-covers (0.832) by being
 wider. On the headline overall tradeoff, quantile is "wider without better
-coverage" — the negative-result case in my decision rule.
+coverage" — the negative-result case in the decision rule.
 
 But the by-position breakdown at 80% is where it gets interesting:
 
@@ -104,15 +103,15 @@ complexity-for-nothing the decision rule warns against. Documented negative
 result.
 
 **Intervals:** leave production on conformal. Quantile intervals are wider and
-over-cover on the overall tradeoff, which fails the keep test. I'm *not* keeping
-them — but I am flagging the real finding underneath: the production conformal
+over-cover on the overall tradeoff, which fails the keep test. Neither is kept —
+but the real finding underneath stands: the production conformal
 interval is meaningfully miscalibrated for QBs (60% vs 80%). The cheapest honest
 fix is not quantile GB at all but **per-position conformal halfwidths** — compute
 the calibration residual quantile within each position rather than globally. That
 would fix QB coverage without the across-the-board width inflation quantile GB
 brings. That's a targeted interval upgrade worth doing, but it's outside this
-session's "ensemble vs quantile" scope, so I'm leaving it as a noted next step
-rather than smuggling it in here.
+session's "ensemble vs quantile" scope, so it's left as a noted next step rather
+than smuggled in here.
 
 Net: production is unchanged. The experiment earned its keep by ruling out two
 plausible-sounding upgrades and surfacing the one interval problem actually worth

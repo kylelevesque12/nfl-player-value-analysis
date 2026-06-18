@@ -6,7 +6,7 @@ The detail pages had drifted apart. Some led with a title and a wall of
 `st.dataframe`s, some had KPI rows, some had executive context and some didn't —
 and worse, a few were still describing pre-Session-4/5 behavior (the surplus page
 called the cost variable `inflated_apy`, the causal page showed the old Out-only
-null, the benchmark page led with a "beat the market" claim we'd already scoped
+null, the benchmark page led with a "beat the market" claim already scoped
 down). This session pulls every routed detail page onto one structure and brings
 the copy up to the current, committed results.
 

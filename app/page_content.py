@@ -19,7 +19,7 @@ DETAIL_PAGES: dict[str, dict] = {
         "title": "Replacement-Level Surplus",
         "purpose": "Front-office view: value a player delivered above a freely available replacement, priced against a season-specific reconstructed cap hit.",
         "summary": [
-            "For each (season, position) we estimate the cap cost and value of a 'next man up' replacement; a player's dollar surplus is their value-over-replacement (priced via the within-(season, position) salary-on-value slope) minus the cap premium they cost above replacement.",
+            "For each (season, position), the framework estimates the cap cost and value of a 'next man up' replacement; a player's dollar surplus is their value-over-replacement (priced via the within-(season, position) salary-on-value slope) minus the cap premium they cost above replacement.",
             "Brock Purdy's 2023 season is the largest single-season surplus in 2016-2025; rookie-deal QBs dominate the top of the board because their reconstructed cap hits are tiny relative to their production.",
             "The RB market shows a negative implicit price for value at the position level — the well-documented RB-market inefficiency.",
         ],

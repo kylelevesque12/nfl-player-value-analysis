@@ -4,7 +4,7 @@
 
 Sessions 1-2 defined treatment as the formal QB injury event — the week a
 starting QB was ruled Out and replaced — and landed on an honest null: WR
-PPR didn't drop after the designation. The mechanism I proposed there was
+PPR didn't drop after the designation. The mechanism proposed there was
 endogenous timing. By the time a QB is formally Out, he has usually been
 playing hurt for weeks, and his receivers have already been sliding. The
 formal Out is a *lagging* indicator. So the obvious follow-up, and the
@@ -62,7 +62,7 @@ No pre-period interaction is significant at 5%, so the fixed-effect
 parallel-trends test **passes** — cleaner than session 1, where it
 failed. One honest caveat: the cell-mean event study below shows the
 treated-minus-control gap is already a touch elevated at -3, so the
-pre-period isn't perfectly flat. I read trends as plausible but not
+pre-period isn't perfectly flat. Trends read as plausible but not
 pristine.
 
 ## Treatment effects
@@ -93,8 +93,7 @@ is consistent with the mechanism session 2 hypothesized: the causal damage
 clusters around when a QB's health first becomes shaky, not around the
 formal Out weeks later. It is real but modest — a fraction of a fantasy
 point per receiver per week — and the marginal p-values plus the slightly
-elevated -3 pre-period gap mean I would not sell this as a clean headline
-causal estimate.
+elevated -3 pre-period gap mean this is not a clean headline causal estimate.
 
 ## Limitations
 
@@ -111,7 +110,7 @@ causal estimate.
 **Underpowered-but-suggestive negative effect, not a clean headline.**
 Re-timing treatment to the first injury-report appearance does move the
 result off the Out-only null toward a small (~0.6–1.0 PPG) post-period WR
-decline, in the direction the session-2 mechanism predicted. I report it as
+decline, in the direction the session-2 mechanism predicted. It reads as
 suggestive evidence that limited QB availability matters before formal
 absence — while being explicit that the effect is modest, the design is
 only moderately powered, and the pre-period is plausible rather than

@@ -86,7 +86,7 @@ and the naive forecast — "next period equals the most recent observation," or 
 recent average — is the canonical benchmark. Hyndman & Athanasopoulos
 (*Forecasting: Principles and Practice*) build their recommended scale-free error
 metric, the Mean Absolute Scaled Error, directly on the naive forecast's error:
-a score below 1 means you beat naive, above 1 means you lost to it. The framing is
+a score below 1 beats naive, above 1 loses to it. The framing is
 explicit — "every method must beat naive" — and a skill score is precisely the
 proportional improvement of a method over that reference. So a 7-9% RMSE reduction
 versus the recent-form and season-to-date averages is not an arbitrary yardstick;

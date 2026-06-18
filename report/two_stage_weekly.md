@@ -52,8 +52,8 @@ Both two-stage variants lose to the pooled HGB in every fold. That
 is a third honest negative result in this project's decomposition
 pattern (season-level two-stage value lost in 2024; weekly position-
 specific HGB lost at every position; this one loses again). What
-makes it different is the per-stage diagnostic table above: it tells
-us *why* it loses, structurally.
+makes it different is the per-stage diagnostic table above: it shows
+*why* it loses, structurally.
 
 - **Stage 1 (target share) is genuinely informative.** The renormalized
   predictions beat the mean baseline by ~34% on RMSE. The structural
@@ -82,7 +82,7 @@ The cumulative evidence across four decomposition attempts in this
 project is now a real *finding*: for weekly fantasy point projection,
 tree-based pooled models on engineered rolling features extract the
 team-attempts and per-target-efficiency signals more efficiently
-than any explicit multiplicative decomposition we have tried. Adding
+than any explicit multiplicative decomposition tested in this project. Adding
 structural constraints (target-share renormalization, position-mean
 shrinkage) helps the decomposition somewhat but does not close the
 gap. The pooled HGB's implicit feature interactions are the right
