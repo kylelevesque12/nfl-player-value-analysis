@@ -498,7 +498,7 @@ def kpi_grid(metrics: list[tuple[str, str, str | None]], max_per_row: int = 3) -
 
 
 # ---------------------------------------------------------------------------
-# Session 9 page-scaffold helpers (thin wrappers; reuse existing CSS/components)
+# Page-scaffold helpers (thin wrappers; reuse existing CSS/components)
 # ---------------------------------------------------------------------------
 def page_header(title: str, purpose: str) -> None:
     """Standard detail-page header: title + one-sentence purpose."""

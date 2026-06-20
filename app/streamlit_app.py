@@ -444,27 +444,11 @@ def load_all_data() -> dict[str, pd.DataFrame]:
     files = {
         "predictions": "2026_player_value_predictions.csv",
         "salary": "salary_efficiency_2016_2025.csv",
-        "salary_top": "salary_findings_top_surplus_players.csv",
-        "salary_team": "salary_findings_team_season.csv",
         "salary_diag": "salary_efficiency_merge_diagnostics.csv",
-        "value_validation": "2026_value_validation_by_position.csv",
         "interval_validation": "2026_prediction_interval_validation.csv",
-        "availability_validation": "2026_availability_validation_metrics.csv",
         "methodology": "methodology_checks.csv",
-        "feature_importance": "model_interpretation_feature_importance.csv",
-        "position_models": "position_model_comparison_summary.csv",
-        "context_summary": "context_feature_group_summary.csv",
-        "advanced_summary": "advanced_modeling_validation_summary.csv",
-        "advanced_shap": "advanced_modeling_shap_importance.csv",
-        "advanced_shap_groups": "advanced_modeling_shap_group_importance.csv",
-        "advanced_trials": "advanced_modeling_optuna_trials.csv",
         "fantasy": "2026_fantasy_football_projections.csv",
-        "fantasy_validation": "fantasy_projection_validation_by_position.csv",
-        "fantasy_model_comparison": "fantasy_model_comparison.csv",
         "weekly_fantasy": "weekly_fantasy_validation_predictions.csv",
-        "weekly_fantasy_summary": "weekly_fantasy_method_summary.csv",
-        "weekly_fantasy_by_position": "weekly_fantasy_by_position.csv",
-        "weekly_fantasy_conformal": "weekly_fantasy_conformal_coverage.csv",
         "weekly_fantasy_live": "weekly_fantasy_live_projection.csv",
         # Replacement-level surplus (front-office headline)
         "replacement_baselines": "salary_findings_replacement_baselines.csv",
@@ -481,12 +465,7 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "rookie_bayes_validation_metrics": "rookie_bayes_validation_metrics.csv",
         "rookie_bayes_validation_predictions": "rookie_bayes_validation_predictions.csv",
         # Causal QB-injury investigation (methodology)
-        "causal_treatment_events": "causal_qb_injury_treatment_events.csv",
-        "causal_event_study_unmatched": "causal_qb_injury_event_study_unmatched.csv",
-        "causal_att_unmatched": "causal_qb_injury_att_unmatched.csv",
-        "causal_2x2_did_unmatched": "causal_qb_injury_2x2_did_unmatched.csv",
-        "causal_pre_period_means": "causal_qb_injury_pre_period_means.csv",
-        # Session 5: first-injury-report treatment (the current causal result)
+        # First-injury-report treatment (the current causal result)
         "causal_s3_att": "causal_s3_att.csv",
         "causal_s3_eligibility": "causal_s3_eligibility.csv",
         "causal_s3_events": "causal_s3_first_report_events.csv",
@@ -510,7 +489,6 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
     fantasy = data["fantasy"]
     weekly = data["weekly_fantasy"]
 
-    st.title("Fantasy Rankings")
     st.caption("2026 PPR projections by position, and week-by-week projection accuracy.")
 
     if fantasy.empty:
@@ -1182,7 +1160,7 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
 
 
 def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
-    """Methodology piece: causal DiD on QB injury report → WR PPR (Session 5)."""
+    """Methodology piece: causal DiD on QB injury report -> WR PPR."""
     content = DETAIL_PAGES["causal"]
     att = data.get("causal_s3_att", pd.DataFrame())
     eligibility = data.get("causal_s3_eligibility", pd.DataFrame())
@@ -1554,7 +1532,7 @@ def reports_page() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Landing page (Session 8), pure content/config lives in app/landing_content.py
+# Landing page: pure content/config lives in app/landing_content.py
 # ---------------------------------------------------------------------------
 from app.landing_content import (  # noqa: E402
     LANDING_TITLE,
@@ -1670,7 +1648,7 @@ def landing_page() -> None:
 
 def render_player_search(index: pd.DataFrame) -> None:
     """Always-visible sidebar player search. Selecting a player navigates to the
-    unified Player Detail view (reuses the Session 8 deferred-nav pattern)."""
+    unified Player Detail view (reuses the deferred-nav pattern)."""
     st.sidebar.divider()
     st.sidebar.markdown("### Player search")
     if index is None or index.empty:
@@ -2054,14 +2032,10 @@ def main() -> None:
         in {
             "predictions",
             "salary",
-            "value_validation",
             "interval_validation",
             "methodology",
-            "feature_importance",
             "fantasy",
-            "fantasy_model_comparison",
             "weekly_fantasy",
-            "weekly_fantasy_summary",
         }
     ]
     show_missing_data_warning(missing)

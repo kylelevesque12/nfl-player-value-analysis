@@ -1,12 +1,9 @@
-"""Pure (Streamlit-free) copy + caveat config for the migrated detail pages.
+"""Pure (Streamlit-free) copy + caveat config for the detail pages.
 
-Session 9 standardizes every detail page onto one structure, title + purpose,
-executive summary, KPI row, a concise visual/table, a caveat callout, optional
-detail expanders, and a footer. The textual content lives here so it can be
-unit-tested without a Streamlit runtime and kept consistent and current. The
-copy reflects the latest committed results (Sessions 3-5 and the re-scoped
-external benchmark), correcting several pages that still described pre-Session-4
-behavior.
+Every detail page uses one structure: title + purpose, executive summary, KPI
+row, a concise visual/table, a caveat callout, optional detail expanders, and a
+footer. The textual content lives here so it can be unit-tested without a
+Streamlit runtime and kept consistent with the latest committed results.
 
 Each entry: title, purpose (one sentence), summary (executive-summary bullets),
 caveat {label, body} (a limitation that must stay visible), footer (source note).

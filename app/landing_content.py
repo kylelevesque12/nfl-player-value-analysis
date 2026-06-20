@@ -1,8 +1,7 @@
 """Pure (Streamlit-free) content + navigation config for the landing page.
 
-Kept separate from ``streamlit_app.py`` so the card copy, methodology labels, and
-navigation targets can be unit-tested without a Streamlit runtime, and so they're
-trivial to migrate into the component system in Session 9.
+Kept separate from ``streamlit_app.py`` so the copy, methodology labels, and
+navigation targets can be unit-tested without a Streamlit runtime.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Global player search index + unified player-detail assembly (Session 10).
+"""Global player search index + unified player-detail assembly.
 
 All functions here are pure: they take the already-loaded output DataFrames (the
 same ones `load_all_data` caches) and return plain frames/dicts. No file I/O, no
