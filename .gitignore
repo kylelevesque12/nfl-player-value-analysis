@@ -132,3 +132,7 @@ mlruns/
 .vscode/
 .idea/
 .claude/
+
+# Office temp/lock files
+~$*
+PROJECT_REFERENCE.docx
