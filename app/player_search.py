@@ -122,7 +122,7 @@ def build_player_index(
 
 
 def display_label(row: pd.Series | dict) -> str:
-    """e.g. 'Justin Jefferson — WR — MIN'."""
+    """e.g. 'Justin Jefferson · WR · MIN'."""
     name = row.get(NAME) or row.get(ID) or "Unknown"
     pos = row.get(POS)
     team = row.get(TEAM)
@@ -131,7 +131,7 @@ def display_label(row: pd.Series | dict) -> str:
         parts.append(str(pos))
     if team is not None and pd.notna(team):
         parts.append(str(team))
-    return " — ".join(parts)
+    return " · ".join(parts)
 
 
 def search_players(index: pd.DataFrame, query: str, limit: int = 30) -> pd.DataFrame:

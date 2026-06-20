@@ -1,6 +1,6 @@
 """Pure (Streamlit-free) copy + caveat config for the migrated detail pages.
 
-Session 9 standardizes every detail page onto one structure — title + purpose,
+Session 9 standardizes every detail page onto one structure, title + purpose,
 executive summary, KPI row, a concise visual/table, a caveat callout, optional
 detail expanders, and a footer. The textual content lives here so it can be
 unit-tested without a Streamlit runtime and kept consistent and current. The
@@ -21,11 +21,11 @@ DETAIL_PAGES: dict[str, dict] = {
         "summary": [
             "For each (season, position), the framework estimates the cap cost and value of a 'next man up' replacement; a player's dollar surplus is their value-over-replacement (priced via the within-(season, position) salary-on-value slope) minus the cap premium they cost above replacement.",
             "Brock Purdy's 2023 season is the largest single-season surplus in 2016-2025; rookie-deal QBs dominate the top of the board because their reconstructed cap hits are tiny relative to their production.",
-            "The RB market shows a negative implicit price for value at the position level — the well-documented RB-market inefficiency.",
+            "The RB market shows a negative implicit price for value at the position level, the well-documented RB-market inefficiency.",
         ],
         "caveat": {
             "label": "Reconstructed estimate",
-            "body": "Cap cost is a season-specific cap hit reconstructed from contract terms (prorated signing bonus + backloaded base, in inflation-adjusted millions) — an estimate, not exact NFL cap accounting, since the source data has no year-by-year cap breakdown. Every player-season carries a cap_hit_quality_flag.",
+            "body": "Cap cost is a season-specific cap hit reconstructed from contract terms (prorated signing bonus + backloaded base, in inflation-adjusted millions), an estimate, not exact NFL cap accounting, since the source data has no year-by-year cap breakdown. Every player-season carries a cap_hit_quality_flag.",
         },
         "footer": "Source: nflverse / OverTheCap historical contracts + player_value_scores. Cap hits via src/cap_hit_reconstruction.py.",
     },
@@ -33,9 +33,9 @@ DETAIL_PAGES: dict[str, dict] = {
         "title": "External Benchmark: weekly model vs the market",
         "purpose": "How the weekly model compares to a market-implied projection on the one window where a free benchmark exists.",
         "summary": [
-            "The model's primary, all-years claim is a 7-9% RMSE reduction versus the naive forecasting baselines (recent-form and season-to-date averages) — the standard bar any forecast must clear — sustained in every season 2020-2025.",
+            "The model's primary, all-years claim is a 7-9% RMSE reduction versus the naive forecasting baselines (recent-form and season-to-date averages), the standard bar any forecast must clear, sustained in every season 2020-2025.",
             "On the 2020-2021 window where a free market-implied benchmark exists (DraftKings closing-line salaries via RotoGuru), the model is competitive-to-slightly-ahead of the DK-implied projection on 11,191 matched player-weeks.",
-            "This is a scoped, secondary check — not a claim of beating live DraftKings, FantasyPros, or ESPN in recent years.",
+            "This is a scoped, secondary check, not a claim of beating live DraftKings, FantasyPros, or ESPN in recent years.",
         ],
         "caveat": {
             "label": "Limited benchmark",
@@ -48,8 +48,8 @@ DETAIL_PAGES: dict[str, dict] = {
         "purpose": "Does a starting QB's first injury-report appearance cause a measurable change in his receivers' fantasy production?",
         "summary": [
             "Defining treatment as the formal Out designation produces a null: by the time a QB is ruled Out he has usually been playing hurt for weeks, so the Out flag lags the causal damage.",
-            "Re-timing treatment to the first week the established starter appears on the injury report at all — any status — expands the event set from 19 (Out-only) to 104 and surfaces a small post-period decline.",
-            "Pooled post-period ATT is about -0.58 PPG (p ~= 0.04), concentrated one game after the first report — consistent with the mechanism that damage clusters around when QB health first becomes shaky.",
+            "Re-timing treatment to the first week the established starter appears on the injury report at all, any status, expands the event set from 19 (Out-only) to 104 and surfaces a small post-period decline.",
+            "Pooled post-period ATT is about -0.58 PPG (p ~= 0.04), concentrated one game after the first report, consistent with the mechanism that damage clusters around when QB health first becomes shaky.",
         ],
         "caveat": {
             "label": "Suggestive / underpowered",
@@ -62,12 +62,12 @@ DETAIL_PAGES: dict[str, dict] = {
         "purpose": "Project rookies who have no rolling history, and sharpen the 'will he play?' gate with pre-season incumbent context.",
         "summary": [
             "A hierarchical Bayesian model (partial pooling across positions) solves the cold-start problem and hits near-nominal posterior interval coverage in every rookie class.",
-            "A focused incumbent-context core (established incumbent, recent extension, prior-year starting-QB production) sharpens the hurdle stage — the QB 'is he blocked?' cell.",
+            "A focused incumbent-context core (established incumbent, recent extension, prior-year starting-QB production) sharpens the hurdle stage, the QB 'is he blocked?' cell.",
             "Jordan Love's modeled P(plays) moves the right way once the model can see Green Bay had a recently-extended incumbent: 0.611 -> 0.513.",
         ],
         "caveat": {
             "label": "Scope of the gain",
-            "body": "Combine athletic-testing features and the broader veteran-depth features were tested and dropped — they did not beat draft capital. Only a 3-feature incumbent core was kept. The aggregate QB AUC gain is small; the value is concentrated in the rare blocked-QB cell (Love, Mahomes), so this is a targeted improvement, not a big across-the-board lift.",
+            "body": "Combine athletic-testing features and the broader veteran-depth features were tested and dropped, they did not beat draft capital. Only a 3-feature incumbent core was kept. The aggregate QB AUC gain is small; the value is concentrated in the rare blocked-QB cell (Love, Mahomes), so this is a targeted improvement, not a big across-the-board lift.",
         },
         "footer": "Source: src/rookie_bayes.py + src/rookie_context_features.py. Report: report/rookie/session3_combine_team_context.md.",
     },
@@ -77,7 +77,7 @@ DETAIL_PAGES: dict[str, dict] = {
         "summary": [
             "The two-stage multiplicative product loses to the pooled HGB in every validation fold.",
             "The per-stage diagnostic shows why: stage 1 (renormalized target share) carries real signal, but stages 2-3 are near-noise, and multiplying noisy estimates compounds error the pooled model avoids.",
-            "This is one of several decomposition experiments kept on the record specifically because they lost — negative results are documented, not hidden.",
+            "This is one of several decomposition experiments kept on the record specifically because they lost, negative results are documented, not hidden.",
         ],
         "caveat": {
             "label": "Documented negative result",
@@ -87,7 +87,7 @@ DETAIL_PAGES: dict[str, dict] = {
     },
     "methodology": {
         "title": "Methodology & Trust Signals",
-        "purpose": "The models behind each result, and the checks that make those results defensible — not a proof of correctness, but the guardrails against common failure modes.",
+        "purpose": "The models behind each result, and the checks that make those results defensible, not a proof of correctness, but the guardrails against common failure modes.",
         "summary": [
             "Models by task: weekly fantasy points use histogram-based gradient-boosted regression trees (HistGradientBoosting) on engineered rolling role features; rookie projections use a hierarchical Bayesian model with partial pooling across positions; the QB-injury question uses difference-in-differences / event-study estimation. Gradient boosting is strong on tabular, non-linear interactions; the Bayesian model is strong at the cold-start problem and honest interval coverage; DiD isolates a causal effect under stated assumptions.",
             "Known limitations: weekly intervals under-cover heavy-tailed QB scoring even after per-position calibration; the causal estimate is moderately powered and sits near the 5% border; reconstructed cap hits are estimates, not exact NFL accounting.",

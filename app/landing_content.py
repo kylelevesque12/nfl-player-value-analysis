@@ -14,7 +14,7 @@ LANDING_SUBTITLE = (
     "analysis of quarterback injury reports."
 )
 
-# Navigation targets — must match the sidebar radio option strings exactly.
+# Navigation targets, must match the sidebar radio option strings exactly.
 # A single sidebar selects one section; each section pairs a short explanation
 # with its tool and results.
 NAV_HOME = "Home"
@@ -82,7 +82,7 @@ def landing_cards() -> list[dict]:
             "points": [
                 "An Out-only treatment found little signal.",
                 "First-report treatment expanded events from 19 to 104.",
-                "Post-period ATT was about −0.58 PPG — suggestive and underpowered.",
+                "Post-period ATT was about −0.58 PPG, suggestive and underpowered.",
             ],
             "button": "Open Causal Study",
             "target": NAV_CAUSAL,

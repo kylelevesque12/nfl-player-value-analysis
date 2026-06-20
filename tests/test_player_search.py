@@ -73,7 +73,7 @@ def test_search_is_case_insensitive_and_substring(frames):
 def test_search_returns_expected_display_labels(frames):
     idx = ps.build_player_index(**frames)
     hit = ps.search_players(idx, "one").iloc[0]
-    assert hit["label"] == "Player One — WR — MIN"
+    assert hit["label"] == "Player One · WR · MIN"
 
 
 def test_selecting_a_player_resolves_to_stable_id(frames):
