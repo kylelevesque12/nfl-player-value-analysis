@@ -16,6 +16,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import plotly.express as px  # noqa: E402
 import streamlit as st  # noqa: E402
+import streamlit.components.v1 as components  # noqa: E402
 
 
 PROJECT_ROOT = _PROJECT_ROOT
@@ -246,6 +247,43 @@ def inject_theme_css() -> None:
             color: #fff; border-radius: 999px; padding: 0.15rem 0.7rem;
             font-size: 0.8rem; margin-right: 0.4rem; margin-top: 0.6rem;
         }
+
+        /* Branded section header (eyebrow + title + subtitle). */
+        .sec-head {
+            border-left: 5px solid var(--brand-blue);
+            padding: 0.15rem 0 0.15rem 0.85rem;
+            margin: 0.2rem 0 1.0rem;
+        }
+        .sec-eyebrow {
+            text-transform: uppercase; letter-spacing: 0.08em;
+            font-size: 0.72rem; font-weight: 700; color: var(--brand-sky);
+        }
+        .sec-title { font-size: 1.7rem; font-weight: 800; color: var(--brand-navy);
+                     line-height: 1.15; }
+        .sec-sub { color: #5b6b7c; font-size: 1.0rem; margin-top: 0.15rem; }
+
+        /* A clear callout box for the 'full write-up' pointer. */
+        .writeup-hint {
+            background: var(--brand-tint);
+            border: 1px solid #d6e2f0;
+            border-radius: 10px;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.92rem;
+            color: #284b6e;
+            margin: 0.4rem 0 0.2rem;
+        }
+
+        /* Dataframe header: brand tint so tables read cleanly. */
+        .stDataFrame thead tr th { background: var(--brand-tint) !important; }
+
+        /* Expanders: subtle border + tinted header so they're noticeable. */
+        details, .streamlit-expanderHeader, [data-testid="stExpander"] {
+            border-radius: 10px;
+        }
+        [data-testid="stExpander"] summary { font-weight: 600; }
+
+        /* Links pick up the brand color. */
+        .main a { color: var(--brand-blue); }
         </style>
         """,
         unsafe_allow_html=True,
@@ -254,6 +292,52 @@ def inject_theme_css() -> None:
 
 inject_components_css()
 inject_theme_css()
+
+
+def section_header(eyebrow: str, title: str, subtitle: str = "") -> None:
+    """Styled section header: a small colored eyebrow label, a bold title, and an
+    optional one-line subtitle. Gives each section a consistent, branded top."""
+    sub = f'<div class="sec-sub">{subtitle}</div>' if subtitle else ""
+    st.markdown(
+        f"""
+        <div class="sec-head">
+            <div class="sec-eyebrow">{eyebrow}</div>
+            <div class="sec-title">{title}</div>
+            {sub}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _scroll_top_on_tab_change() -> None:
+    """Scroll the main panel back to the top when a tab is clicked, so switching
+    tabs doesn't leave the reader stranded mid-page."""
+    components.html(
+        """
+        <script>
+        const doc = window.parent.document;
+        doc.querySelectorAll('button[data-baseweb="tab"]').forEach(function (btn) {
+            if (!btn.dataset.scrollbound) {
+                btn.dataset.scrollbound = '1';
+                btn.addEventListener('click', function () {
+                    setTimeout(function () {
+                        const main = doc.querySelector('section.main')
+                            || doc.querySelector('[data-testid="stMain"]')
+                            || doc.querySelector('[data-testid="stAppViewContainer"]');
+                        if (main && main.scrollTo) {
+                            main.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                            window.parent.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    }, 60);
+                });
+            }
+        });
+        </script>
+        """,
+        height=0,
+    )
 
 
 @st.cache_data
@@ -279,11 +363,20 @@ def _reference_text() -> str:
     return load_markdown("PROJECT_REFERENCE.md", file_mtime(path))
 
 
-def _full_writeup_expander(key: str, label: str = "Full write-up") -> None:
-    """Render an expandable panel with the reference sections backing this app
-    section. No-ops if the reference file is missing."""
+def _full_writeup_expander(
+    key: str,
+    label: str = "Open the full write-up: models, metrics, methods & limitations",
+) -> None:
+    """Render a clear pointer plus an expandable panel with the reference sections
+    backing this app section. No-ops if the reference file is missing."""
     detail = section_reference_markdown(_reference_text(), key)
     if detail:
+        st.markdown(
+            '<div class="writeup-hint">Want the depth? The full write-up below '
+            "explains the models, metrics, methods, and limitations for this section "
+            "in plain terms.</div>",
+            unsafe_allow_html=True,
+        )
         with st.expander(label):
             st.markdown(detail)
 
@@ -1738,22 +1831,51 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
     pos.insert(0, "Rank", range(1, len(pos) + 1))
     team_col = "primary_team_2025" if "primary_team_2025" in pos.columns else "team"
 
+    low = pos["prediction_interval_low"].round(0)
+    high = pos["prediction_interval_high"].round(0)
+    tier_short = (
+        pos.get("fantasy_projection_tier", pd.Series([""] * len(pos)))
+        .astype(str)
+        .str.replace(" Fantasy Profile", "", regex=False)
+        .str.replace(" Profile", "", regex=False)
+    )
     ranking = pd.DataFrame({
-        "Rank": pos["Rank"],
+        "Rank": pos["Rank"].astype(int),
         "Player": pos["player_display_name"],
         "Team": pos.get(team_col, ""),
         "Proj PPR": pos["predicted_2026_fantasy_points_ppr"].round(1),
         "PPR/G": pos["predicted_2026_ppr_per_game"].round(1),
-        "GP": pos["predicted_2026_games_played"].round(0),
-        "80% Low": pos["prediction_interval_low"].round(0),
-        "80% High": pos["prediction_interval_high"].round(0),
-        "Tier": pos.get("fantasy_projection_tier", ""),
+        "GP": pos["predicted_2026_games_played"].round(0).astype(int),
+        "80% range": [f"{lo:.0f}–{hi:.0f}" for lo, hi in zip(low, high)],
+        "Tier": tier_short,
     })
     if "projection_change_from_2025" in pos.columns:
-        ranking["vs 2025"] = pos["projection_change_from_2025"].round(1)
+        ranking["Δ vs '25"] = pos["projection_change_from_2025"].round(1)
 
+    proj_max = float(pos["predicted_2026_fantasy_points_ppr"].max() or 1.0)
     st.subheader(f"Top 25 {position}s: 2026 projected PPR")
-    st.dataframe(ranking, width="stretch", hide_index=True)
+    st.dataframe(
+        ranking,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Rank": st.column_config.NumberColumn("Rank", width="small"),
+            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "Team": st.column_config.TextColumn("Team", width="small"),
+            "Proj PPR": st.column_config.ProgressColumn(
+                "Proj PPR",
+                help="Projected 2026 PPR points",
+                format="%.1f",
+                min_value=0.0,
+                max_value=proj_max,
+            ),
+            "PPR/G": st.column_config.NumberColumn("PPR/G", width="small", format="%.1f"),
+            "GP": st.column_config.NumberColumn("GP", width="small", format="%d"),
+            "80% range": st.column_config.TextColumn("80% range", width="small"),
+            "Tier": st.column_config.TextColumn("Tier", width="small"),
+            "Δ vs '25": st.column_config.NumberColumn("Δ vs '25", width="small", format="%+.1f"),
+        },
+    )
     st.download_button(
         f"Download {position} rankings",
         ranking.to_csv(index=False),
@@ -3059,9 +3181,10 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
 # Integrated sections: each pairs a short explanation with its tool(s)
 # ---------------------------------------------------------------------------
 def player_value_section(data: dict[str, pd.DataFrame]) -> None:
-    st.title("Player Value & Cap")
-    st.caption(
-        "How much value each player produced, and whether the contract pays for it."
+    section_header(
+        "Front office",
+        "Player Value & Cap",
+        "How much value each player produced, and whether the contract pays for it.",
     )
     st.markdown(
         "Player value is measured with **EPA** (expected points added), how much "
@@ -3073,21 +3196,24 @@ def player_value_section(data: dict[str, pd.DataFrame]) -> None:
         "less against the cap than his average implies. **Surplus** is value above "
         "what a freely available replacement would give for that cost. Cheap "
         "rookie-contract QBs (Brock Purdy) dominate, and the running-back market "
-        "tends to overpay veterans."
+        "tends to overpay veterans. A full write-up of the method, metrics, and "
+        "limitations sits at the bottom of this section."
     )
     tab1, tab2 = st.tabs(["Cap surplus brief", "Replacement-level detail"])
     with tab1:
         front_office_executive_report(data)
     with tab2:
         replacement_level_page(data)
+    _scroll_top_on_tab_change()
     st.divider()
     _full_writeup_expander("value")
 
 
 def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
-    st.title("Fantasy Rankings")
-    st.caption(
-        "2026 projections by position, week-by-week accuracy, and how the model is graded."
+    section_header(
+        "Fantasy",
+        "Fantasy Rankings",
+        "2026 projections by position, week-by-week accuracy, and how the model is graded.",
     )
     st.markdown(
         "Two models feed this section. Season-long 2026 totals come from an "
@@ -3099,7 +3225,8 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
         "against a strong naive baseline (a player's recent-game average), which the "
         "weekly model beats by a steady **7–9%** across six seasons, and against a "
         "DraftKings-implied market line on 2020–2021, where it is competitive to "
-        "slightly ahead."
+        "slightly ahead. A full write-up of both models, the metrics, and the "
+        "limitations sits at the bottom of this section."
     )
     tab1, tab2, tab3 = st.tabs(
         ["Rankings", "Accuracy & benchmark", "Decomposition experiment"]
@@ -3110,6 +3237,7 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
         external_benchmark_page(data)
     with tab3:
         two_stage_weekly_page(data)
+    _scroll_top_on_tab_change()
     st.divider()
     _full_writeup_expander("fantasy")
 
