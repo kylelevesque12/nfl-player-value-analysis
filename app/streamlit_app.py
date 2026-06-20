@@ -24,10 +24,10 @@ REPORT_DIR = PROJECT_ROOT / "report"
 
 
 st.set_page_config(
-    page_title="NFL Player Value Dashboard",
+    page_title="NFL Player Value & Fantasy Forecasting",
     page_icon="NFL",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 px.defaults.template = "plotly_white"
@@ -166,6 +166,7 @@ from app.components import (
 )
 from app.page_content import DETAIL_PAGES
 from app import player_search as ps
+from app.section_content import section_reference_markdown, reference_markdown
 
 NAV_PLAYER = "Player Detail"
 
@@ -186,6 +187,22 @@ def load_markdown(relative_path: str, modified_at: float) -> str:
     if not path.exists():
         return ""
     return path.read_text()
+
+
+def _reference_text() -> str:
+    """The clean, plain-language project reference (PROJECT_REFERENCE.md), used to
+    populate each section's 'Full write-up' panel."""
+    path = PROJECT_ROOT / "PROJECT_REFERENCE.md"
+    return load_markdown("PROJECT_REFERENCE.md", file_mtime(path))
+
+
+def _full_writeup_expander(key: str, label: str = "Full write-up") -> None:
+    """Render an expandable panel with the reference sections backing this app
+    section. No-ops if the reference file is missing."""
+    detail = section_reference_markdown(_reference_text(), key)
+    if detail:
+        with st.expander(label):
+            st.markdown(detail)
 
 
 def file_mtime(path: Path) -> float:
@@ -2653,7 +2670,6 @@ from app.landing_content import (  # noqa: E402
     NAV_CAUSAL,
     NAV_METHOD,
     SECTIONS,
-    landing_cards,
     methodology_strip_labels,
 )
 
@@ -2676,43 +2692,71 @@ def _handle_landing_nav() -> None:
 def landing_page() -> None:
     st.title(LANDING_TITLE)
     st.subheader(LANDING_SUBTITLE)
-    st.caption(
-        "Phase 1 research is complete: each card below links to a working view. "
-        "Reports are written as research notes, including the experiments that "
-        "did not make production."
+    st.markdown(
+        "This project does two jobs with the same NFL data, covering quarterbacks, "
+        "running backs, receivers, and tight ends from 2016 to 2025.\n\n"
+        "The **front-office job** measures how much value a player produced, forecasts "
+        "how that value carries into the next season, and compares it to contract cost "
+        "to show who is overpaid or underpaid. The **fantasy job** projects PPR fantasy "
+        "points — both season-long totals for the upcoming year and week-by-week scores "
+        "during a season — and presents them as rankings a manager can act on. Around "
+        "both sits a research layer: a causal study of quarterback injuries, a Bayesian "
+        "model for rookies with no NFL history, and an external market benchmark."
     )
-    st.divider()
+    st.markdown(
+        "The guiding principle is **honest evaluation**. Every model is graded against a "
+        "strong, hard-to-beat simple baseline rather than against zero, results that did "
+        "not work are kept on the record instead of hidden, and every projection ships "
+        "with a clear statement of how uncertain it is."
+    )
 
-    cards = landing_cards()
-    top = st.columns(2)
-    bottom = st.columns(2)
-    for col, card in zip(list(top) + list(bottom), cards):
+    st.divider()
+    st.markdown("### Headline findings")
+    st.markdown(
+        "- Season value is hard to predict beyond a smart baseline, so the value model "
+        "is best used for sorting players into tiers, not exact ranks.\n"
+        "- Player value splits into a **role** half (very predictable) and a per-play "
+        "**efficiency** half (nearly random), except at quarterback, where efficiency is "
+        "real and stable. This is the project's central insight.\n"
+        "- The weekly fantasy model beats every simple baseline by a steady **7–9%** "
+        "across six seasons and edges the DraftKings market line on 2020–2021.\n"
+        "- Reconstructed season cap hits make the salary analysis credible; cheap young "
+        "quarterbacks dominate surplus, and the running-back market overpays veterans.\n"
+        "- Quarterback injury has a **modest, suggestive** negative effect on receiver "
+        "scoring once timed to the first injury report — not the collapse fans assume."
+    )
+
+    st.divider()
+    st.markdown("### Where to go")
+    st.caption("Pick a section in the sidebar, or jump straight in:")
+    targets = [
+        (NAV_FANTASY, "Fantasy Rankings"),
+        (NAV_CAP, "Player Value & Cap"),
+        (NAV_ROOKIE, "Rookies"),
+        (NAV_CAUSAL, "QB Injury Study"),
+        (NAV_METHOD, "Methodology & Sources"),
+    ]
+    cols = st.columns(len(targets))
+    for col, (target, label) in zip(cols, targets):
         with col:
-            with st.container(border=True):
-                st.markdown(f"**{card['tag']}**")
-                st.markdown(f"#### {card['headline']}")
-                for pt in card["points"]:
-                    st.markdown(f"- {pt}")
-                if st.button(card["button"], key=f"landing_{card['target']}", use_container_width=True):
-                    _go_to(card["target"])
+            if st.button(label, key=f"home_go_{target}", use_container_width=True):
+                _go_to(target)
 
     st.divider()
     st.caption(" · ".join(f"✓ {label}" for label in methodology_strip_labels()))
 
+    overview = reference_markdown(_reference_text(), [1, 2, 3, 12])
+    if overview:
+        with st.expander("Read the full project overview"):
+            st.markdown(overview)
+
     with st.expander("How to use this app"):
         st.markdown(
-            "Each section in the sidebar pairs a short, plain-language explanation "
-            "with its tool and results:\n\n"
-            "- **Fantasy Rankings** — 2026 projections by position and week-by-week "
-            "accuracy.\n"
-            "- **Player Value & Cap** — production value versus estimated cap cost.\n"
-            "- **Rookies** — projecting players with no NFL history.\n"
-            "- **QB Injury Study** — whether QB injury-report timing moves receiver "
-            "scoring.\n"
-            "- **Methodology & Sources** — safeguards, how the models are graded, and "
-            "the full project reference.\n\n"
-            "Findings are written as research notes, including the experiments that "
-            "did not make production."
+            "Each section in the sidebar pairs a plain-language explanation with its "
+            "tool and results, and carries a **Full write-up** panel with the deeper "
+            "detail (models, metrics, methods, limitations). The **Methodology & "
+            "Sources** section holds the safeguards, how the models are graded, the data "
+            "and reference sources, and the complete project reference to download."
         )
 
 
@@ -2941,6 +2985,8 @@ def player_value_section(data: dict[str, pd.DataFrame]) -> None:
         front_office_executive_report(data)
     with tab2:
         replacement_level_page(data)
+    st.divider()
+    _full_writeup_expander("value")
 
 
 def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
@@ -2969,6 +3015,20 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
         external_benchmark_page(data)
     with tab3:
         two_stage_weekly_page(data)
+    st.divider()
+    _full_writeup_expander("fantasy")
+
+
+def rookie_section(data: dict[str, pd.DataFrame]) -> None:
+    rookie_bayes_page(data)
+    st.divider()
+    _full_writeup_expander("rookie")
+
+
+def causal_section(data: dict[str, pd.DataFrame]) -> None:
+    causal_qb_injury_page(data)
+    st.divider()
+    _full_writeup_expander("causal")
 
 
 def _sources_block() -> None:
@@ -2998,6 +3058,8 @@ def _sources_block() -> None:
 
 def methodology_sources_section(data: dict[str, pd.DataFrame]) -> None:
     methodology_page(data)
+    st.divider()
+    _full_writeup_expander("methodology", "Models, safeguards, limitations & roadmap (full write-up)")
     st.divider()
     _sources_block()
     st.divider()
@@ -3071,9 +3133,9 @@ def main() -> None:
     elif section == NAV_FANTASY:
         fantasy_section(data)
     elif section == NAV_ROOKIE:
-        rookie_bayes_page(data)
+        rookie_section(data)
     elif section == NAV_CAUSAL:
-        causal_qb_injury_page(data)
+        causal_section(data)
     elif section == NAV_PLAYER:
         player_detail_page(data, player_index)
     elif section == NAV_METHOD:

@@ -7,7 +7,7 @@ trivial to migrate into the component system in Session 9.
 
 from __future__ import annotations
 
-LANDING_TITLE = "NFL Player Value & Fantasy Projection Lab"
+LANDING_TITLE = "NFL Player Value & Fantasy Forecasting"
 LANDING_SUBTITLE = (
     "A portfolio research app combining weekly fantasy forecasting, "
     "contract-adjusted surplus value, rookie opportunity modeling, and causal "

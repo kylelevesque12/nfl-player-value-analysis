@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch the NFL Player Value & Fantasy Projection Lab Streamlit app locally.
+# Launch the NFL Player Value & Fantasy Forecasting Streamlit app locally.
 #
 # Usage:
 #   ./run_app.sh
