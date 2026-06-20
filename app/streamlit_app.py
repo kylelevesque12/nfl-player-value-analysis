@@ -1275,10 +1275,10 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
     from app.components import recommendation_callout
     recommendation_callout(
         "opportunity",
-        "Jordan Love",
-        "P(plays meaningfully) moves 0.611 → 0.513 once the model can see Green "
-        "Bay had a recently-extended incumbent QB, the incumbent-context core "
-        "doing exactly what it was built to do.",
+        "Blocked rookie quarterbacks",
+        "When a rookie is drafted behind an established, recently-extended starter, "
+        "the incumbent-context core lowers his projected chance of playing "
+        "meaningfully, which is the signal it was built to capture.",
     )
 
     with st.expander("Model spec", expanded=False):

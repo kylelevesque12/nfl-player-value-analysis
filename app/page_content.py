@@ -60,11 +60,11 @@ DETAIL_PAGES: dict[str, dict] = {
         "summary": [
             "A hierarchical Bayesian model (partial pooling across positions) solves the cold-start problem and hits near-nominal posterior interval coverage in every rookie class.",
             "A focused incumbent-context core (established incumbent, recent extension, prior-year starting-QB production) sharpens the hurdle stage, the QB 'is he blocked?' cell.",
-            "Jordan Love's modeled P(plays) moves the right way once the model can see Green Bay had a recently-extended incumbent: 0.611 -> 0.513.",
+            "A rookie drafted behind an established, recently-extended starter sees his modeled chance of playing drop, which is the depth-chart signal the core was built to capture.",
         ],
         "caveat": {
             "label": "Scope of the gain",
-            "body": "Combine athletic-testing features and the broader veteran-depth features were tested and dropped, they did not beat draft capital. Only a 3-feature incumbent core was kept. The aggregate QB AUC gain is small; the value is concentrated in the rare blocked-QB cell (Love, Mahomes), so this is a targeted improvement, not a big across-the-board lift.",
+            "body": "Combine athletic-testing features and the broader veteran-depth features were tested and dropped, they did not beat draft capital. Only a 3-feature incumbent core was kept. The aggregate QB AUC gain is small; the value is concentrated in the rare blocked-QB cell, so this is a targeted improvement, not a big across-the-board lift.",
         },
         "footer": "Source: src/rookie_bayes.py + src/rookie_context_features.py. Report: report/rookie/session3_combine_team_context.md.",
     },

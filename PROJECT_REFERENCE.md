@@ -545,11 +545,11 @@ least 4 games)?* before projecting how well.
 The kept improvement is a focused **3-feature "is anyone in his way?" core**, 
 is there an established incumbent, did that incumbent just sign an extension, and how
 productive was the prior starter, all measured from the year *before* the rookie
-arrived. It nudges the marquee case correctly: **Jordan Love's chance-of-playing drops
-from 0.61 to 0.51** once the model sees he was drafted behind a freshly-extended Aaron
-Rodgers. Combine workout numbers and a broader team-context set were tested and
+arrived. The effect is intuitive: a rookie drafted behind an established, recently-extended
+starter has his projected chance of playing pulled down, which the prior draft-capital-only
+model could not see. Combine workout numbers and a broader team-context set were tested and
 **dropped**, they overfit and never beat raw draft position (which already bakes in how
-a player tested). An honest, small, targeted gain rather than an oversold one.
+a player tested). A small, targeted gain rather than an oversold one.
 
 ---
 
@@ -652,7 +652,7 @@ The same habits run through every thread:
 - QB injury has a **modest, suggestive** negative effect on receiver scoring once the
   injury is timed to the first report, not the dramatic collapse fans assume.
 - A small "is anyone in his way?" signal correctly tempers rookie-QB playing-time
-  predictions (Jordan Love), where flashier features overfit and were cut.
+  predictions, where flashier features overfit and were cut.
 
 ---
 

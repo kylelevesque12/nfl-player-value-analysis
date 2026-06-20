@@ -70,7 +70,7 @@ def landing_cards() -> list[dict]:
             "points": [
                 "Combine features were tested but not kept.",
                 "A focused incumbent-context core improved the QB rookie case.",
-                "Jordan Love P(plays) moved from 0.611 to 0.513.",
+                "Rookies blocked by an established starter are projected to play less.",
             ],
             "button": "Open Rookie Model",
             "target": NAV_ROOKIE,

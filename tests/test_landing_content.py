@@ -55,5 +55,5 @@ def test_methodology_strip_has_expected_labels():
 
 def test_headline_findings_are_present_and_consistent():
     blob = " ".join(p for c in lc.landing_cards() for p in c["points"])
-    for token in ["1.27%", "Brock Purdy", "0.611", "0.513", "19 to 104", "0.58"]:
+    for token in ["1.27%", "Brock Purdy", "incumbent-context", "19 to 104", "0.58"]:
         assert token in blob, f"missing headline finding: {token}"
