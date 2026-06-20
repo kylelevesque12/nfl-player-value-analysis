@@ -40,21 +40,33 @@ def split_reference(text: str) -> dict[int, dict[str, str]]:
     return out
 
 
+_HEADING_NUMBER = re.compile(r"^(#{2,6})\s+\d+(?:\.\d+)*\.?\s+", re.MULTILINE)
+
+
+def _strip_heading_numbers(md: str) -> str:
+    """Remove leading section numbers from markdown headings so embedded
+    write-ups read as clean subheadings (e.g. '### 4.1 The metric' -> '### The
+    metric') rather than scattered numbered fragments."""
+    return _HEADING_NUMBER.sub(r"\1 ", md)
+
+
 def reference_markdown(
     text: str, numbers: list[int], include_heading: bool = True
 ) -> str:
     """Return the concatenated markdown for the given reference section numbers,
-    in the order requested. Missing sections are skipped."""
+    in the order requested. Section numbers are stripped from headings, and each
+    section is rendered as a clean '### Title' block. Missing sections skipped."""
     sections = split_reference(text)
     parts: list[str] = []
     for n in numbers:
         sec = sections.get(n)
         if not sec:
             continue
+        body = _strip_heading_numbers(sec["body"])
         if include_heading:
-            parts.append(f"## {n}. {sec['title']}\n\n{sec['body']}")
+            parts.append(f"### {sec['title']}\n\n{body}")
         else:
-            parts.append(sec["body"])
+            parts.append(body)
     return "\n\n".join(parts)
 
 

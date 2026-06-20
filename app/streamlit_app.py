@@ -166,11 +166,94 @@ from app.components import (
 )
 from app.page_content import DETAIL_PAGES
 from app import player_search as ps
-from app.section_content import section_reference_markdown, reference_markdown
+from app.section_content import (
+    section_reference_markdown,
+    reference_markdown,
+    split_reference,
+)
 
 NAV_PLAYER = "Player Detail"
 
+
+def inject_theme_css() -> None:
+    """Brand color + polish layered on top of the base component CSS."""
+    st.markdown(
+        """
+        <style>
+        :root {
+            --brand-navy: #0d2b45;
+            --brand-blue: #1565C0;
+            --brand-sky: #4a90d9;
+            --brand-tint: #eef3f9;
+        }
+        /* Section headings get brand color + a light rule. */
+        .main h1 { color: var(--brand-navy); font-weight: 800; letter-spacing: -0.01em; }
+        .main h2 { color: var(--brand-blue); border-bottom: 2px solid #dce6f2;
+                   padding-bottom: 0.25rem; }
+        .main h3 { color: #1b3a5b; }
+
+        /* Sidebar: deep navy gradient with light text for a bit of flash. */
+        section[data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #0d2b45 0%, #143a5e 100%);
+        }
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3 { color: #eaf1f8 !important; }
+        /* Keep dropdown/search controls readable (dark text on white). */
+        section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+            background: #ffffff; color: #16263a;
+        }
+        section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #16263a; }
+
+        /* Metric KPIs: card with a brand accent bar. */
+        div[data-testid="stMetric"] {
+            background: var(--brand-tint);
+            border-left: 4px solid var(--brand-blue);
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+        }
+
+        /* Tabs: brand underline on the active tab. */
+        .stTabs [data-baseweb="tab-list"] { gap: 0.25rem; }
+        .stTabs [aria-selected="true"] { color: var(--brand-blue) !important; }
+
+        /* Buttons: rounded, brand-tinted. */
+        .stButton > button {
+            border-radius: 9px;
+            border: 1px solid #cdd9e8;
+            font-weight: 600;
+        }
+        .stButton > button:hover {
+            border-color: var(--brand-blue);
+            color: var(--brand-blue);
+        }
+
+        /* Hero banner used on the Home page. */
+        .hero {
+            background: linear-gradient(120deg, #0d2b45 0%, #1565C0 70%, #2f7fd1 100%);
+            color: #ffffff;
+            padding: 1.5rem 1.7rem;
+            border-radius: 16px;
+            margin-bottom: 1.1rem;
+            box-shadow: 0 6px 20px rgba(13, 43, 69, 0.18);
+        }
+        .hero h1 { color: #ffffff !important; margin: 0; font-size: 1.9rem; }
+        .hero p { color: #dbe8f6; margin: 0.45rem 0 0; font-size: 1.02rem; }
+        .pill {
+            display: inline-block; background: rgba(255,255,255,0.16);
+            color: #fff; border-radius: 999px; padding: 0.15rem 0.7rem;
+            font-size: 0.8rem; margin-right: 0.4rem; margin-top: 0.6rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 inject_components_css()
+inject_theme_css()
 
 
 @st.cache_data
@@ -1419,7 +1502,7 @@ def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
             "1-in-5 tail interval. Both are split-conformal, calibrated on the "
             "held-out 20% of each training fold.\n"
             "- `target_fantasy_points_ppr` is the actual PPR points scored "
-            "the following game — only present because this table is a "
+            "the following game, only present because this table is a "
             "historical backtest.\n"
             "- `residual` is `actual - prediction`. Weekly PPR has a low "
             "ceiling on R²; the model's job is to be a few percent better "
@@ -1616,7 +1699,7 @@ def weekly_fantasy_projection_page(data: dict[str, pd.DataFrame]) -> None:
         "trained in the same rolling backtest. It is included in the method "
         "comparison table at "
         "`outputs/tables/weekly_fantasy_method_summary.csv`. It loses to the "
-        "pooled model at every position — pooling lets the model leverage the "
+        "pooled model at every position, pooling lets the model leverage the "
         "larger training sample with `position` as an input feature. This is "
         "reported in the same spirit as the two-stage value finding: the "
         "negative results stay visible."
@@ -1669,7 +1752,7 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
     if "projection_change_from_2025" in pos.columns:
         ranking["vs 2025"] = pos["projection_change_from_2025"].round(1)
 
-    st.subheader(f"Top 25 {position}s — 2026 projected PPR")
+    st.subheader(f"Top 25 {position}s: 2026 projected PPR")
     st.dataframe(ranking, width="stretch", hide_index=True)
     st.download_button(
         f"Download {position} rankings",
@@ -1713,7 +1796,7 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
         ("Avg actual", f"{actual.mean():.1f}", None),
         ("RMSE", f"{float(np.sqrt(np.mean((actual - proj) ** 2))):.1f}", None),
     ])
-    st.caption(f"{labels.get(sel, sel)} — {latest} season, projected vs actual PPR by game.")
+    st.caption(f"{labels.get(sel, sel)}, {latest} season, projected vs actual PPR by game.")
     st.dataframe(weekly_table, width="stretch", hide_index=True)
 
 
@@ -1740,7 +1823,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
 
     st.title("Cap Allocation Brief")
     st.caption(
-        "Where the cap dollars went, and what they bought — replacement-level "
+        "Where the cap dollars went, and what they bought, replacement-level "
         "surplus priced against reconstructed cap-hit estimates."
     )
 
@@ -1790,7 +1873,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
             "not for the production.",
             (
                 f"RBs are mispriced the other direction. The implicit market price "
-                f"for one z-unit of RB value is <strong>${rb_slope:.1f}M</strong> — "
+                f"for one z-unit of RB value is <strong>${rb_slope:.1f}M</strong>, "
                 "negative. Paying more does not buy more production. Treat RB "
                 "cap allocation as a hard ceiling, not a competitive bid."
                 if rb_slope < 0
@@ -1842,7 +1925,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
     )
 
     # ------------------------------------------------------------------
-    # Findings — narrative blocks
+    # Findings, narrative blocks
     # ------------------------------------------------------------------
     st.markdown("## Findings")
 
@@ -2013,7 +2096,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
             "Roster construction",
             "Anchor allocation around a rookie-deal QB. With one in place, the "
             "savings flow to top-tier WR talent; without one, a draftable QB in "
-            "rounds 2-4 carries asymmetric upside — a Purdy / Browning / Nix "
+            "rounds 2-4 carries asymmetric upside, a Purdy / Browning / Nix "
             "outcome.",
         )
         recommendation_callout(
@@ -2034,7 +2117,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
             "caveat",
             "Reconstructed estimate",
             "Cost is a season-specific cap hit reconstructed from contract terms "
-            "(prorated signing bonus + backloaded base) — an estimate, not exact "
+            "(prorated signing bonus + backloaded base), an estimate, not exact "
             "NFL cap accounting, since the source data has no year-by-year cap "
             "breakdown. Each player-season carries a cap_hit_quality_flag.",
         )
@@ -2064,7 +2147,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
 
             **Honest caveats.** (1) Cost is APY, not year-by-year cap hit; this
             is contract efficiency, not cap accounting. (2) Value-score is
-            production-based EPA, not pure talent — scheme, OL quality, and
+            production-based EPA, not pure talent, scheme, OL quality, and
             teammate effects are not isolated. (3) Tight ends are evaluated on
             production only; blocking value is not in the metric.
             """
@@ -2145,11 +2228,11 @@ def replacement_level_page(data: dict[str, pd.DataFrame]) -> None:
 
     caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
-    with st.expander("By position — market price per value unit & surplus share"):
+    with st.expander("By position, market price per value unit & surplus share"):
         st.caption(
             "Median replacement baselines, market price per value unit, and share "
             "of player-seasons with positive surplus. RB shows the documented "
-            "market irrationality — sometimes a negative implicit value-per-dollar "
+            "market irrationality, sometimes a negative implicit value-per-dollar "
             "slope."
         )
         st.dataframe(by_position, width="stretch", hide_index=True)
@@ -2313,7 +2396,7 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
             (
                 "Verdict",
                 "Suggestive",
-                "A small negative effect the Out-only design missed — modest and "
+                "A small negative effect the Out-only design missed, modest and "
                 "underpowered, not a clean headline.",
             ),
         ]
@@ -2322,7 +2405,7 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
     st.subheader("Event-study coefficients (treated × week_offset)")
     st.caption(
         "Each β_k is the change in (treated − control) PPR gap relative to "
-        "offset -1. The drop is concentrated at offset +1 — the first game after "
+        "offset -1. The drop is concentrated at offset +1, the first game after "
         "the QB's first injury report. The pre-period is plausible, but the gap "
         "is already slightly elevated at -3 (see the caveat below)."
     )
@@ -2378,7 +2461,7 @@ def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
 
 
 def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
-    """Bayesian hierarchical rookie projections — cold-start solution."""
+    """Bayesian hierarchical rookie projections, cold-start solution."""
     metrics = data["rookie_bayes_validation_metrics"]
     predictions = data["rookie_bayes_validation_predictions"]
     modeling_frame = data["rookie_modeling_frame"]
@@ -2391,7 +2474,7 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
         "opportunity",
         "Jordan Love",
         "P(plays meaningfully) moves 0.611 → 0.513 once the model can see Green "
-        "Bay had a recently-extended incumbent QB — the incumbent-context core "
+        "Bay had a recently-extended incumbent QB, the incumbent-context core "
         "doing exactly what it was built to do.",
     )
 
@@ -2412,12 +2495,12 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
         st.info(
             "Rookie Bayesian results missing. Build the modeling frame with "
             "`python scripts/run_pipeline.py --steps rookie_bayes`. Then run "
-            "the PyMC sampling pass from `.venv-bayes` — see `requirements-bayes.txt`."
+            "the PyMC sampling pass from `.venv-bayes`, see `requirements-bayes.txt`."
         )
         if not modeling_frame.empty:
             st.markdown(
                 f"Modeling frame is built with **{len(modeling_frame):,}** "
-                "rookie player-seasons — the sampling pass is what's pending."
+                "rookie player-seasons, the sampling pass is what's pending."
             )
             st.dataframe(modeling_frame.head(20), width="stretch", hide_index=True)
         return
@@ -2491,7 +2574,7 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
             top = group.sort_values(
                 "predicted_ppr_per_game_mean", ascending=False
             ).head(10)
-            with st.expander(f"{int(year)} rookie class — top 10 projected"):
+            with st.expander(f"{int(year)} rookie class, top 10 projected"):
                 display_cols = [
                     "player_display_name",
                     "position",
@@ -2525,13 +2608,13 @@ def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
             "The two-stage product loses to the pooled HGB in every fold. "
             "The per-stage breakdown explains where the failure comes from. "
             "Stage 1 (renormalized target share) beats a predict-the-mean "
-            "baseline by 34% — the structural constraint actually carries "
+            "baseline by 34%, the structural constraint actually carries "
             "signal. Stages 2 and 3 (team attempts, PPR per target) come in "
             "essentially flat against the mean. Multiplying noisy estimates "
             "through the product compounds error the pooled model avoids by "
             "learning the relevant interactions implicitly.\n\n"
-            "The shrunk-stage-3 variant — replacing the learned efficiency "
-            "model with the position-season mean — beats the full learned "
+            "The shrunk-stage-3 variant, replacing the learned efficiency "
+            "model with the position-season mean, beats the full learned "
             "version in every fold, which shows the unshrunk stage was "
             "adding error rather than information. Even after that "
             "prescription, the structurally-constrained product still loses "
@@ -2616,7 +2699,7 @@ def methodology_page(data: dict[str, pd.DataFrame]) -> None:
         file_mtime(methodology_path),
     )
     if report_text:
-        with st.expander("Methodology checks — full report text"):
+        with st.expander("Methodology checks, full report text"):
             st.markdown(report_text)
 
     source_footer(content["footer"])
@@ -2658,7 +2741,7 @@ def reports_page() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Landing page (Session 8) — pure content/config lives in app/landing_content.py
+# Landing page (Session 8), pure content/config lives in app/landing_content.py
 # ---------------------------------------------------------------------------
 from app.landing_content import (  # noqa: E402
     LANDING_TITLE,
@@ -2668,6 +2751,7 @@ from app.landing_content import (  # noqa: E402
     NAV_CAP,
     NAV_ROOKIE,
     NAV_CAUSAL,
+    NAV_REPORT,
     NAV_METHOD,
     SECTIONS,
     methodology_strip_labels,
@@ -2690,24 +2774,35 @@ def _handle_landing_nav() -> None:
 
 
 def landing_page() -> None:
-    st.title(LANDING_TITLE)
-    st.subheader(LANDING_SUBTITLE)
+    st.markdown(
+        f"""
+        <div class="hero">
+            <h1>{LANDING_TITLE}</h1>
+            <p>{LANDING_SUBTITLE}</p>
+            <span class="pill">Front office</span>
+            <span class="pill">Fantasy</span>
+            <span class="pill">2016–2025</span>
+            <span class="pill">QB · RB · WR · TE</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "This project does two jobs with the same NFL data, covering quarterbacks, "
         "running backs, receivers, and tight ends from 2016 to 2025.\n\n"
         "The **front-office job** measures how much value a player produced, forecasts "
         "how that value carries into the next season, and compares it to contract cost "
         "to show who is overpaid or underpaid. The **fantasy job** projects PPR fantasy "
-        "points — both season-long totals for the upcoming year and week-by-week scores "
-        "during a season — and presents them as rankings a manager can act on. Around "
+        "points (both season-long totals for the upcoming year and week-by-week scores "
+        "during a season) and presents them as rankings a manager can act on. Around "
         "both sits a research layer: a causal study of quarterback injuries, a Bayesian "
         "model for rookies with no NFL history, and an external market benchmark."
     )
     st.markdown(
-        "The guiding principle is **honest evaluation**. Every model is graded against a "
-        "strong, hard-to-beat simple baseline rather than against zero, results that did "
-        "not work are kept on the record instead of hidden, and every projection ships "
-        "with a clear statement of how uncertain it is."
+        "The guiding principle is **rigorous, transparent evaluation**. Every model is "
+        "graded against a strong, hard-to-beat simple baseline rather than against zero, "
+        "results that did not work are kept on the record instead of hidden, and every "
+        "projection ships with a clear statement of how uncertain it is."
     )
 
     st.divider()
@@ -2723,7 +2818,7 @@ def landing_page() -> None:
         "- Reconstructed season cap hits make the salary analysis credible; cheap young "
         "quarterbacks dominate surplus, and the running-back market overpays veterans.\n"
         "- Quarterback injury has a **modest, suggestive** negative effect on receiver "
-        "scoring once timed to the first injury report — not the collapse fans assume."
+        "scoring once timed to the first injury report, not the collapse fans assume."
     )
 
     st.divider()
@@ -2773,7 +2868,7 @@ def render_player_search(index: pd.DataFrame) -> None:
     choice = st.sidebar.selectbox(
         "Type a player name",
         options,
-        format_func=lambda p: "— type to search —" if p == "" else label_map.get(p, p),
+        format_func=lambda p: "type to search…" if p == "" else label_map.get(p, p),
         key="player_search_select",
     )
     if choice and choice != st.session_state.get("_selected_player_id"):
@@ -2821,7 +2916,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
 
     st.title(str(name))
     bits = " · ".join([str(x) for x in [pos, team, f"seasons {seasons}"] if x and pd.notna(x)])
-    st.caption(f"Unified player view — every project output available for this player. {bits}")
+    st.caption(f"Unified player view, every project output available for this player. {bits}")
     if st.button("← Back to dashboard"):
         st.session_state["_selected_player_id"] = None
         _go_to(NAV_HOME)
@@ -2883,7 +2978,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
             lo = lrow.get("interval_low_80"); hi = lrow.get("interval_high_80")
             st.markdown(
                 f"**Upcoming-week projection:** {lrow.get('projected_points', float('nan')):.1f} PPR "
-                f"vs {opp} — 80% band [{lo:.1f}, {hi:.1f}]." if pd.notna(lo) else
+                f"vs {opp}, 80% band [{lo:.1f}, {hi:.1f}]." if pd.notna(lo) else
                 f"**Upcoming-week projection:** {lrow.get('projected_points', float('nan')):.1f} PPR vs {opp}."
             )
         with st.expander("Weekly projection table"):
@@ -2904,7 +2999,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
         st.dataframe(show, width="stretch", hide_index=True)
         caveat_callout(
             "Cap cost is a season-specific cap hit reconstructed from contract terms "
-            "(prorated signing bonus + backloaded base) — an estimate, not exact NFL "
+            "(prorated signing bonus + backloaded base), an estimate, not exact NFL "
             "cap accounting. See the salary_source column.",
             "Reconstructed estimate",
         )
@@ -2956,7 +3051,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
 
     source_footer(
         "Assembled from saved outputs only (weekly backtest, live projection, salary/"
-        "value, rookie frame, causal events) — no models are recomputed in the app."
+        "value, rookie frame, causal events), no models are recomputed in the app."
     )
 
 
@@ -2969,8 +3064,8 @@ def player_value_section(data: dict[str, pd.DataFrame]) -> None:
         "How much value each player produced, and whether the contract pays for it."
     )
     st.markdown(
-        "Player value is measured with **EPA** (expected points added) — how much "
-        "each play changed a team's expected points — then standardized within each "
+        "Player value is measured with **EPA** (expected points added), how much "
+        "each play changed a team's expected points, then standardized within each "
         "season and position so a 2025 tight end and a 2016 quarterback are scored "
         "against their own peers. The cost side replaces a flat yearly salary average "
         "with a **season-specific cap hit reconstructed from contract terms** "
@@ -2998,13 +3093,13 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
         "Two models feed this section. Season-long 2026 totals come from an "
         "**Elastic Net** (a disciplined linear model chosen from six candidates by "
         "lowest validation error). Weekly scores come from a **gradient-boosting** "
-        "model — many small decision trees, each correcting the last — using only "
+        "model (many small decision trees, each correcting the last) using only "
         "information known before kickoff (recent form, opponent, betting lines, "
-        "weather, injury status). Accuracy is judged the way forecasters insist: "
+        "weather, injury status). Accuracy is judged the way forecasters do: "
         "against a strong naive baseline (a player's recent-game average), which the "
         "weekly model beats by a steady **7–9%** across six seasons, and against a "
-        "DraftKings-implied market line on 2020–2021, where it is competitive-to-"
-        "slightly-ahead."
+        "DraftKings-implied market line on 2020–2021, where it is competitive to "
+        "slightly ahead."
     )
     tab1, tab2, tab3 = st.tabs(
         ["Rankings", "Accuracy & benchmark", "Decomposition experiment"]
@@ -3036,24 +3131,63 @@ def _sources_block() -> None:
     st.markdown(
         "**How the models are evaluated.** The metric choices follow established "
         "forecasting and fantasy-accuracy practice, not a yardstick invented here:\n\n"
-        "- Hyndman & Athanasopoulos, *Forecasting: Principles and Practice* (3rd ed.) "
-        "— the skill-score / \"beat the naive baseline\" standard. "
+        "- Hyndman & Athanasopoulos, *Forecasting: Principles and Practice* (3rd ed.): "
+        "the skill-score / \"beat the naive baseline\" standard. "
         "<https://otexts.com/fpp3/accuracy.html>\n"
         "- Fantasy Football Analytics, *Which Fantasy Football Projections Are Most "
-        "Accurate?* — the realistic ceiling on weekly predictability and the value of "
+        "Accurate?*: the realistic ceiling on weekly predictability and the value of "
         "consistency across seasons. "
         "<https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html>\n"
-        "- FantasyPros, *In-Season Accuracy Methodology* — the industry's own "
+        "- FantasyPros, *In-Season Accuracy Methodology*: the industry's own "
         "error-versus-realized-points grading standard. "
         "<https://www.fantasypros.com/about/faq/football-inseason-accuracy-methodology/>\n\n"
         "**Data sources.**\n\n"
-        "- **nflverse** (via `nflreadpy`) — weekly stats, rosters, schedules, depth "
+        "- **nflverse** (via `nflreadpy`): weekly stats, rosters, schedules, depth "
         "charts, injuries, play-by-play, combine, draft picks (2016–2025).\n"
-        "- **OverTheCap** (via nflverse contracts) — contract terms behind the cap-hit "
+        "- **OverTheCap** (via nflverse contracts): contract terms behind the cap-hit "
         "reconstruction.\n"
-        "- **RotoGuru / DraftKings** — the free DK salary archive used to build the "
+        "- **RotoGuru / DraftKings**: the free DK salary archive used to build the "
         "market-implied benchmark (through 2021)."
     )
+
+
+def project_report_section() -> None:
+    st.title("Project Report")
+    st.caption(
+        "The complete write-up: every model, metric, and method in plain terms, "
+        "with findings, safeguards, and limitations."
+    )
+    ref = _reference_text()
+    if not ref:
+        st.info(
+            "The project reference is unavailable. It lives at PROJECT_REFERENCE.md "
+            "in the project root."
+        )
+        return
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.download_button(
+            "Download report (Markdown)",
+            ref,
+            file_name="PROJECT_REFERENCE.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+    docx_path = PROJECT_ROOT / "PROJECT_REFERENCE.docx"
+    if docx_path.exists():
+        with cols[1]:
+            st.download_button(
+                "Download report (Word)",
+                docx_path.read_bytes(),
+                file_name="PROJECT_REFERENCE.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+
+    st.divider()
+    numbers = sorted(split_reference(ref).keys())
+    st.markdown(reference_markdown(ref, numbers))
 
 
 def methodology_sources_section(data: dict[str, pd.DataFrame]) -> None:
@@ -3068,7 +3202,7 @@ def methodology_sources_section(data: dict[str, pd.DataFrame]) -> None:
     if ref_path.exists():
         st.subheader("Full project reference")
         st.caption(
-            "The complete write-up — every model, metric, and method explained in "
+            "The complete write-up, every model, metric, and method explained in "
             "plain terms, with findings, safeguards, and limitations."
         )
         st.download_button(
@@ -3138,6 +3272,8 @@ def main() -> None:
         causal_section(data)
     elif section == NAV_PLAYER:
         player_detail_page(data, player_index)
+    elif section == NAV_REPORT:
+        project_report_section()
     elif section == NAV_METHOD:
         methodology_sources_section(data)
     else:
