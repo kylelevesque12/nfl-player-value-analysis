@@ -198,15 +198,28 @@ def inject_theme_css() -> None:
             background: linear-gradient(180deg, #0d2b45 0%, #143a5e 100%);
         }
         section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] *,
+        section[data-testid="stSidebar"] small,
         section[data-testid="stSidebar"] label,
         section[data-testid="stSidebar"] h1,
         section[data-testid="stSidebar"] h2,
         section[data-testid="stSidebar"] h3 { color: #eaf1f8 !important; }
+        /* Sidebar captions are quieter than headings, but still legible. */
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {
+            color: #b9cbe0 !important;
+        }
         /* Keep dropdown/search controls readable (dark text on white). */
         section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
             background: #ffffff; color: #16263a;
         }
         section[data-testid="stSidebar"] div[data-baseweb="select"] * { color: #16263a; }
+        /* Inline code chips in the sidebar: readable on navy. */
+        section[data-testid="stSidebar"] code {
+            background: rgba(255,255,255,0.12); color: #eaf1f8;
+        }
 
         /* Metric KPIs: card with a brand accent bar. */
         div[data-testid="stMetric"] {
