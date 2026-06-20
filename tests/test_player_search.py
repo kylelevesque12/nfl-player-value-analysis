@@ -118,8 +118,8 @@ def test_nav_labels_still_match_app_source():
     assert 'NAV_PLAYER = "Player Detail"' in src
     assert "render_player_search(player_index)" in src
     assert "player_detail_page(data, player_index)" in src
-    # Landing labels untouched.
-    assert "Home (Landing)" in src and "Fantasy Rankings" in src
+    # Single-section navigation routes through nav_section.
+    assert 'key="nav_section"' in src and "Fantasy Rankings" in src
 
 
 def test_empty_index_search_does_not_crash():

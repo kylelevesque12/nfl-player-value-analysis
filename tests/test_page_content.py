@@ -72,8 +72,10 @@ def test_external_benchmark_overclaim_removed_from_app():
 
 
 def test_landing_routing_targets_unchanged():
-    # Detail-page migration must not have changed the radio option strings the
-    # landing-page buttons depend on.
+    # The landing-page buttons depend on the section labels existing in the app.
     for target in (lc.NAV_FANTASY, lc.NAV_CAP, lc.NAV_ROOKIE, lc.NAV_CAUSAL):
         assert target in APP_SRC
-    assert "Home (Landing)" in APP_SRC
+    # Single-section navigation: the app routes through nav_section, and landing
+    # is the default fall-through.
+    assert 'key="nav_section"' in APP_SRC
+    assert "landing_page()" in APP_SRC

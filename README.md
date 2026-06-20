@@ -169,11 +169,13 @@ pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
-The app opens on a **landing page** with four drill-in cards (one per research thread), a methodology strip, and a how-to guide. From there:
+The app opens on a **Home** page (project intro, four research-thread cards, a methodology strip, and a how-to guide). A single sidebar then selects one section, each pairing a short plain-language explanation with its tool and results:
 
-- **Fantasy Rankings** — top-25 2026 projections by position (QB/RB/WR/TE) as sortable tables, plus a week-by-week projected-vs-actual breakdown for any ranked player.
-- **Cap Allocation Brief** — replacement-level surplus on reconstructed cap-hit estimates.
-- **Drill-down pages** — external benchmark, Bayesian rookie cold-start, the QB-injury causal study, the two-stage decomposition experiment, and methodology checks — all on a shared component layout.
+- **Player Value & Cap** — production value (EPA, standardized by season/position) versus a reconstructed season cap hit, with the replacement-level surplus brief.
+- **Fantasy Rankings** — top-25 2026 projections by position (QB/RB/WR/TE) as sortable tables, a week-by-week projected-vs-actual breakdown, and the DraftKings accuracy benchmark.
+- **Rookies** — the Bayesian cold-start projection for players with no NFL history.
+- **QB Injury Study** — the difference-in-differences causal analysis of injury-report timing on receiver scoring.
+- **Methodology & Sources** — safeguards, how the models are graded, the source list, and the full project reference for download.
 - **Global player search** (always in the sidebar) → a **unified Player Detail view** that assembles every output for one player — weekly, live, surplus, rookie, causal — with clean "not available" states for missing modules.
 
 ![Player Detail preview](docs/images/player_detail_preview.svg)

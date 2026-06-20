@@ -2646,12 +2646,13 @@ def reports_page() -> None:
 from app.landing_content import (  # noqa: E402
     LANDING_TITLE,
     LANDING_SUBTITLE,
+    NAV_HOME,
     NAV_FANTASY,
     NAV_CAP,
     NAV_ROOKIE,
     NAV_CAUSAL,
-    NAV_DETAIL_NONE,
-    HERO_TARGETS as _HERO_TARGETS,
+    NAV_METHOD,
+    SECTIONS,
     landing_cards,
     methodology_strip_labels,
 )
@@ -2668,11 +2669,8 @@ def _handle_landing_nav() -> None:
     goto = st.session_state.pop("_landing_goto", None)
     if not goto:
         return
-    if goto == NAV_PLAYER or goto in _HERO_TARGETS:
-        st.session_state["nav_hero"] = goto
-        st.session_state["nav_detail"] = NAV_DETAIL_NONE
-    else:  # a drill-down/detail page
-        st.session_state["nav_detail"] = goto
+    # Single-section navigation: every target is one sidebar section.
+    st.session_state["nav_section"] = goto
 
 
 def landing_page() -> None:
@@ -2703,15 +2701,18 @@ def landing_page() -> None:
 
     with st.expander("How to use this app"):
         st.markdown(
-            "- Start with the **Fantasy Rankings** for 2026 projections and "
-            "week-by-week accuracy.\n"
-            "- Use the **Cap Allocation** page to compare player production to "
-            "estimated cap cost.\n"
-            "- Use the **Rookie Model** page to inspect draft and player "
-            "opportunity.\n"
-            "- Use the **Causal Study** page to see how QB injury-report timing "
-            "affects outcomes.\n"
-            "- Reports are written as research notes, not black-box model claims."
+            "Each section in the sidebar pairs a short, plain-language explanation "
+            "with its tool and results:\n\n"
+            "- **Fantasy Rankings** — 2026 projections by position and week-by-week "
+            "accuracy.\n"
+            "- **Player Value & Cap** — production value versus estimated cap cost.\n"
+            "- **Rookies** — projecting players with no NFL history.\n"
+            "- **QB Injury Study** — whether QB injury-report timing moves receiver "
+            "scoring.\n"
+            "- **Methodology & Sources** — safeguards, how the models are graded, and "
+            "the full project reference.\n\n"
+            "Findings are written as research notes, including the experiments that "
+            "did not make production."
         )
 
 
@@ -2779,7 +2780,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
     st.caption(f"Unified player view — every project output available for this player. {bits}")
     if st.button("← Back to dashboard"):
         st.session_state["_selected_player_id"] = None
-        _go_to("Home (Landing)")
+        _go_to(NAV_HOME)
 
     wk = detail["weekly_history"]
     live = detail["live"]
@@ -2915,6 +2916,118 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
     )
 
 
+# ---------------------------------------------------------------------------
+# Integrated sections: each pairs a short explanation with its tool(s)
+# ---------------------------------------------------------------------------
+def player_value_section(data: dict[str, pd.DataFrame]) -> None:
+    st.title("Player Value & Cap")
+    st.caption(
+        "How much value each player produced, and whether the contract pays for it."
+    )
+    st.markdown(
+        "Player value is measured with **EPA** (expected points added) — how much "
+        "each play changed a team's expected points — then standardized within each "
+        "season and position so a 2025 tight end and a 2016 quarterback are scored "
+        "against their own peers. The cost side replaces a flat yearly salary average "
+        "with a **season-specific cap hit reconstructed from contract terms** "
+        "(prorated bonus plus backloaded base), because a star's early years cost far "
+        "less against the cap than his average implies. **Surplus** is value above "
+        "what a freely available replacement would give for that cost. Cheap "
+        "rookie-contract QBs (Brock Purdy) dominate, and the running-back market "
+        "tends to overpay veterans."
+    )
+    tab1, tab2 = st.tabs(["Cap surplus brief", "Replacement-level detail"])
+    with tab1:
+        front_office_executive_report(data)
+    with tab2:
+        replacement_level_page(data)
+
+
+def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
+    st.title("Fantasy Rankings")
+    st.caption(
+        "2026 projections by position, week-by-week accuracy, and how the model is graded."
+    )
+    st.markdown(
+        "Two models feed this section. Season-long 2026 totals come from an "
+        "**Elastic Net** (a disciplined linear model chosen from six candidates by "
+        "lowest validation error). Weekly scores come from a **gradient-boosting** "
+        "model — many small decision trees, each correcting the last — using only "
+        "information known before kickoff (recent form, opponent, betting lines, "
+        "weather, injury status). Accuracy is judged the way forecasters insist: "
+        "against a strong naive baseline (a player's recent-game average), which the "
+        "weekly model beats by a steady **7–9%** across six seasons, and against a "
+        "DraftKings-implied market line on 2020–2021, where it is competitive-to-"
+        "slightly-ahead."
+    )
+    tab1, tab2, tab3 = st.tabs(
+        ["Rankings", "Accuracy & benchmark", "Decomposition experiment"]
+    )
+    with tab1:
+        espn_fantasy_view(data)
+    with tab2:
+        external_benchmark_page(data)
+    with tab3:
+        two_stage_weekly_page(data)
+
+
+def _sources_block() -> None:
+    st.subheader("Sources")
+    st.markdown(
+        "**How the models are evaluated.** The metric choices follow established "
+        "forecasting and fantasy-accuracy practice, not a yardstick invented here:\n\n"
+        "- Hyndman & Athanasopoulos, *Forecasting: Principles and Practice* (3rd ed.) "
+        "— the skill-score / \"beat the naive baseline\" standard. "
+        "<https://otexts.com/fpp3/accuracy.html>\n"
+        "- Fantasy Football Analytics, *Which Fantasy Football Projections Are Most "
+        "Accurate?* — the realistic ceiling on weekly predictability and the value of "
+        "consistency across seasons. "
+        "<https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html>\n"
+        "- FantasyPros, *In-Season Accuracy Methodology* — the industry's own "
+        "error-versus-realized-points grading standard. "
+        "<https://www.fantasypros.com/about/faq/football-inseason-accuracy-methodology/>\n\n"
+        "**Data sources.**\n\n"
+        "- **nflverse** (via `nflreadpy`) — weekly stats, rosters, schedules, depth "
+        "charts, injuries, play-by-play, combine, draft picks (2016–2025).\n"
+        "- **OverTheCap** (via nflverse contracts) — contract terms behind the cap-hit "
+        "reconstruction.\n"
+        "- **RotoGuru / DraftKings** — the free DK salary archive used to build the "
+        "market-implied benchmark (through 2021)."
+    )
+
+
+def methodology_sources_section(data: dict[str, pd.DataFrame]) -> None:
+    methodology_page(data)
+    st.divider()
+    _sources_block()
+    st.divider()
+
+    ref_path = PROJECT_ROOT / "PROJECT_REFERENCE.md"
+    if ref_path.exists():
+        st.subheader("Full project reference")
+        st.caption(
+            "The complete write-up — every model, metric, and method explained in "
+            "plain terms, with findings, safeguards, and limitations."
+        )
+        st.download_button(
+            "Download full reference (Markdown)",
+            ref_path.read_text(encoding="utf-8"),
+            file_name="PROJECT_REFERENCE.md",
+            mime="text/markdown",
+        )
+        docx_path = PROJECT_ROOT / "PROJECT_REFERENCE.docx"
+        if docx_path.exists():
+            st.download_button(
+                "Download full reference (Word)",
+                docx_path.read_bytes(),
+                file_name="PROJECT_REFERENCE.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        st.divider()
+
+    reports_page()
+
+
 def main() -> None:
     data = load_all_data()
     _handle_landing_nav()
@@ -2941,65 +3054,32 @@ def main() -> None:
     player_index = _player_index_from_data(data)
 
     st.sidebar.title("Navigation")
-    st.sidebar.markdown("### Two perspectives")
-    hero = st.sidebar.radio(
-        "Pick one",
-        [
-            "Home (Landing)",
-            "Cap Allocation Brief (Front Office)",
-            "Fantasy Rankings",
-            NAV_PLAYER,
-        ],
-        key="nav_hero",
+    section = st.sidebar.radio(
+        "Section",
+        SECTIONS,
+        key="nav_section",
     )
     render_player_search(player_index)
     st.sidebar.divider()
-    st.sidebar.markdown("### Drill-down")
-    detail = st.sidebar.radio(
-        "Detailed analyses",
-        [
-            "— none (use hero pages) —",
-            "External Benchmark vs DK",
-            "Bayesian Rookie Cold-Start",
-            "Causal: QB Injury → WR PPR",
-            "Two-Stage Decomposition Experiment",
-            "Replacement-Level Surplus (detail)",
-            "Methodology And Reports",
-        ],
-        key="nav_detail",
-    )
-    st.sidebar.divider()
     st.sidebar.caption(
-        "Hero pages summarize the findings; drill-down pages cover the "
-        "methodology and raw outputs. Rebuild data with "
-        "`python scripts/run_pipeline.py`."
+        "Each section pairs a short explanation with its tool and results. "
+        "Rebuild data with `python scripts/run_pipeline.py`."
     )
 
-    # Drill-down pages take precedence if explicitly chosen.
-    if detail == "External Benchmark vs DK":
-        external_benchmark_page(data)
-    elif detail == "Bayesian Rookie Cold-Start":
+    if section == NAV_CAP:
+        player_value_section(data)
+    elif section == NAV_FANTASY:
+        fantasy_section(data)
+    elif section == NAV_ROOKIE:
         rookie_bayes_page(data)
-    elif detail == "Causal: QB Injury → WR PPR":
+    elif section == NAV_CAUSAL:
         causal_qb_injury_page(data)
-    elif detail == "Two-Stage Decomposition Experiment":
-        two_stage_weekly_page(data)
-    elif detail == "Replacement-Level Surplus (detail)":
-        replacement_level_page(data)
-    elif detail == "Methodology And Reports":
-        methodology_page(data)
-        st.divider()
-        reports_page()
+    elif section == NAV_PLAYER:
+        player_detail_page(data, player_index)
+    elif section == NAV_METHOD:
+        methodology_sources_section(data)
     else:
-        # Default: render the selected hero page (landing page is the default).
-        if hero == "Cap Allocation Brief (Front Office)":
-            front_office_executive_report(data)
-        elif hero == "Fantasy Rankings":
-            espn_fantasy_view(data)
-        elif hero == NAV_PLAYER:
-            player_detail_page(data, player_index)
-        else:
-            landing_page()
+        landing_page()
 
 
 if __name__ == "__main__":

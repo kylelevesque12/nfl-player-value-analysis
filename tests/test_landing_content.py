@@ -19,22 +19,31 @@ def test_four_cards_each_well_formed():
 def test_card_targets_route_to_known_pages():
     targets = [c["target"] for c in lc.landing_cards()]
     assert targets == [lc.NAV_FANTASY, lc.NAV_CAP, lc.NAV_ROOKIE, lc.NAV_CAUSAL]
-    # Two cards go via the hero radio, two via the drill-down radio.
-    hero = [t for t in targets if t in lc.HERO_TARGETS]
-    detail = [t for t in targets if t not in lc.HERO_TARGETS]
-    assert set(hero) == {lc.NAV_FANTASY, lc.NAV_CAP}
-    assert set(detail) == {lc.NAV_ROOKIE, lc.NAV_CAUSAL}
+    # Every card target must be one of the single-nav sections.
+    assert set(targets) <= set(lc.SECTIONS)
+
+
+def test_sections_are_well_formed():
+    # Home is first (the default landing), and the core sections are present.
+    assert lc.SECTIONS[0] == lc.NAV_HOME
+    for s in (lc.NAV_CAP, lc.NAV_FANTASY, lc.NAV_ROOKIE, lc.NAV_CAUSAL,
+              lc.NAV_PLAYER, lc.NAV_METHOD):
+        assert s in lc.SECTIONS
+    # No duplicate section labels.
+    assert len(lc.SECTIONS) == len(set(lc.SECTIONS))
 
 
 def test_nav_targets_match_app_radio_options():
-    """The card targets must equal radio option strings the app actually uses,
-    or navigation silently no-ops. Checked against the source to avoid importing
-    Streamlit."""
+    """The app builds its sidebar from SECTIONS and routes through nav_section,
+    so card targets (which are SECTIONS members) cannot silently no-op. Checked
+    against the source to avoid importing Streamlit."""
     src = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text()
-    for target in (lc.NAV_FANTASY, lc.NAV_CAP, lc.NAV_ROOKIE, lc.NAV_CAUSAL, lc.NAV_DETAIL_NONE):
+    assert "SECTIONS," in src  # imported from landing_content
+    assert 'key="nav_section"' in src
+    # The section labels that also appear verbatim in app copy/titles.
+    for target in (lc.NAV_FANTASY, lc.NAV_CAP, lc.NAV_ROOKIE, lc.NAV_CAUSAL,
+                   lc.NAV_METHOD):
         assert src.count(target) >= 1, f"nav target not present in app: {target!r}"
-    # Landing is wired as the default hero option.
-    assert "Home (Landing)" in src
 
 
 def test_methodology_strip_has_expected_labels():

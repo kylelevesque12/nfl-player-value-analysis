@@ -15,13 +15,27 @@ LANDING_SUBTITLE = (
 )
 
 # Navigation targets — must match the sidebar radio option strings exactly.
+# A single sidebar selects one section; each section pairs a short explanation
+# with its tool and results.
+NAV_HOME = "Home"
+NAV_CAP = "Player Value & Cap"
+NAV_VALUE = NAV_CAP  # alias
 NAV_FANTASY = "Fantasy Rankings"
-NAV_CAP = "Cap Allocation Brief (Front Office)"
-NAV_ROOKIE = "Bayesian Rookie Cold-Start"
-NAV_CAUSAL = "Causal: QB Injury → WR PPR"
-NAV_DETAIL_NONE = "— none (use hero pages) —"
-# Targets routed via the hero radio (the rest go via the drill-down radio).
-HERO_TARGETS = frozenset({NAV_FANTASY, NAV_CAP})
+NAV_ROOKIE = "Rookies"
+NAV_CAUSAL = "QB Injury Study"
+NAV_PLAYER = "Player Detail"
+NAV_METHOD = "Methodology & Sources"
+
+# The full ordered list of sidebar sections (the app's only navigation control).
+SECTIONS = [
+    NAV_HOME,
+    NAV_CAP,
+    NAV_FANTASY,
+    NAV_ROOKIE,
+    NAV_CAUSAL,
+    NAV_PLAYER,
+    NAV_METHOD,
+]
 
 
 def landing_cards() -> list[dict]:
@@ -46,7 +60,7 @@ def landing_cards() -> list[dict]:
                 "Brock Purdy remains the top surplus player-season.",
                 "Early-extension stars are treated more realistically than under flat APY.",
             ],
-            "button": "Open Cap Allocation Brief",
+            "button": "Open Player Value & Cap",
             "target": NAV_CAP,
         },
         {
