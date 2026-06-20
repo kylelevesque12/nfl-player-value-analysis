@@ -1,8 +1,8 @@
-# Causal Session 2: Mitigation, Estimation, Honest Verdict
+# Causal Stage 2: Mitigation, Estimation, Honest Verdict
 
-Session 1 surfaced a parallel-trends violation: treated WRs were on a
+Stage 1 surfaced a parallel-trends violation: treated WRs were on a
 declining PPR trajectory in the pre-period (~1 PPG drop) while controls
-were flat. Session 2 implements the two pre-registered mitigations,
+were flat. Stage 2 implements the two pre-registered mitigations,
 runs the DiD estimators on both unmatched and matched panels, and
 delivers the honest verdict.
 
@@ -98,15 +98,15 @@ report*, even if still listed as Active for the game?' This would
 shift the treatment moment earlier and capture the actual causal
 decline. Implementing this requires re-running treatment
 identification with the first-week-on-injury-report as the
-transition event, which is a session 3 build.
+transition event, which is a stage 3 build.
 
 ## Portfolio-level honest verdict
 
 This is the kind of finding that distinguishes a careful causal
 analysis from a 'naive regression in a trenchcoat'. The hypothesis
 was that QB injury causes a WR PPR drop. The DiD design was built
-rigorously, a parallel-trends violation surfaced in session 1, the
-pre-registered mitigations ran in session 2, and — with clean
+rigorously, a parallel-trends violation surfaced in stage 1, the
+pre-registered mitigations ran in stage 2, and — with clean
 estimates in hand — the conventional-wisdom hypothesis turned out not
 supported by the data when the treatment is defined as the formal
 injury designation. The mechanism is endogenous timing: by the time

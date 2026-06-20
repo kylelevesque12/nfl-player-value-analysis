@@ -15,26 +15,26 @@ Status legend: `[x]` complete · `[~]` complete with a documented limitation ·
 
 ## Phase 1 — Modeling (complete)
 
-**Session 1 — Weekly model: PBP role + weather features.** `[x]`
+**Stage 1 — Weekly model: PBP role + weather features.** `[x]`
 Rebuilt depth-chart rank from play-by-play (nflverse dropped the numeric
 `list_rank` field ~2024) and added game weather. Weekly RMSE fell **6.020 → 5.944
 (−1.27%)**, every position improving. Leakage-safe (`shift(1)`) and tested.
 → `report/session1_pbp_weather.md`
 
-**Session 2 — NGS / PFR features: rejected.** `[x]`
+**Stage 2 — NGS / PFR features: rejected.** `[x]`
 NGS and PFR weekly stats looked like a +9% gain, but a permutation test showed the
 signal was entirely a same-week *availability* leak through the join's missingness
 pattern. Nothing kept in production; the investigation is the deliverable.
 → `report/fantasy/session2_ngs_pfr_features.md`
 
-**Session 3 — Rookie incumbent context.** `[x]`
+**Stage 3 — Rookie incumbent context.** `[x]`
 Added a focused 3-feature incumbent core (established incumbent, recent extension,
 prior-year starting-QB production) to the rookie hurdle gate. Jordan Love's modeled
 P(plays) moves **0.611 → 0.513**. Combine and broad-depth features were tested and
 dropped — they did not beat draft capital.
 → `report/rookie/session3_combine_team_context.md`
 
-**Session 4 — Reconstructed cap hits.** `[x]`
+**Stage 4 — Reconstructed cap hits.** `[x]`
 Replaced the flat `inflated_apy` proxy with a season-specific cap hit reconstructed
 from contract terms (prorated signing bonus + backloaded base), flagged per
 player-season. The surplus framework now prices stars in the early years of
@@ -42,20 +42,20 @@ mega-extensions realistically; Brock Purdy 2023 remains the top surplus season.
 An estimate, not exact cap accounting — stated plainly.
 → `report/salary/session4_cap_hit_reconstruction.md`
 
-**Session 5 — Causal: first injury-report treatment.** `[x]`
-Re-timed the QB-injury treatment from the formal "Out" designation (Sessions 1-2
+**Stage 5 — Causal: first injury-report treatment.** `[x]`
+Re-timed the QB-injury treatment from the formal "Out" designation (Stages 1-2
 null) to the first injury-report appearance, expanding the event set **19 → 104**
 and surfacing a small post-period WR decline (ATT ≈ **−0.58 PPG, p ≈ 0.04**).
 Reported as suggestive and underpowered, with the parallel-trends caveat.
 → `report/causal/qb_injury_session3.md`
 
-**Session 6 — Ensemble & quantile intervals: rejected, with one insight.** `[x]`
+**Stage 6 — Ensemble & quantile intervals: rejected, with one insight.** `[x]`
 Stacking improved RMSE by ~0.07% (below threshold) and quantile intervals were
 wider without better calibration — both left out of production. The useful finding:
 the global conformal interval badly under-covers QBs.
 → `report/fantasy/session6_ensemble_quantile.md`
 
-**Session 7 — Live weekly projections + per-position conformal.** `[x]`
+**Stage 7 — Live weekly projections + per-position conformal.** `[x]`
 Built the infrastructure to score the upcoming week from carried-forward player
 state and schedule context (leakage-safe), and replaced the global conformal
 halfwidth with per-position halfwidths — QB 80% coverage rises **0.575 → 0.730**.
@@ -63,31 +63,31 @@ halfwidth with per-position halfwidths — QB 80% coverage rises **0.575 → 0.7
 
 ## App polish (complete)
 
-**Session 8 — Landing page.** `[x]`
+**Stage 8 — Landing page.** `[x]`
 A real entry point: hero, four findings cards (one per research thread) with
 drill-in navigation, a methodology strip, and a "how to use this" guide.
 → `report/app/session8_landing_page.md`
 
-**Session 9 — Detail-page component migration.** `[x]`
+**Stage 9 — Detail-page component migration.** `[x]`
 Every routed page pulled onto one scaffold (title → summary → KPIs → visual →
-caveat → expanders → footer), with stale pre-Session-4/5 copy corrected.
+caveat → expanders → footer), with stale pre-Stage-4/5 copy corrected.
 → `report/app/session9_component_migration.md`
 
-**Session 10 — Global player search + unified detail view.** `[x]`
+**Stage 10 — Global player search + unified detail view.** `[x]`
 Sidebar search over a 2,721-player index keyed on stable gsis ids; one detail page
 assembles every output for a player (weekly, live, surplus, rookie, causal) with
 clean "not available" states for missing modules.
 → `report/app/session10_player_search.md`
 
-**Session 12 — Cleanup, CI, prose pass.** `[x]`
-Regenerated the salary outputs so the committed data matches the Session 4 code,
+**Stage 12 — Cleanup, CI, prose pass.** `[x]`
+Regenerated the salary outputs so the committed data matches the Stage 4 code,
 corrected stale `inflated_apy` wording across the README and reports, added GitHub
 Actions CI (compile check + data-independent tests), and tightened `.gitignore`.
 → `report/app/session12_cleanup_ci.md`
 
 ## Remaining
 
-**Session 11 — Mobile / README visuals.** `[ ]`
+**Stage 11 — Mobile / README visuals.** `[ ]`
 The one cosmetic item left: a narrow-viewport responsive pass on the `st.columns`
 layouts and recorded screenshots / a GIF for the README. Deliberately deferred —
 it does not affect any result.

@@ -1,9 +1,9 @@
-# Session 8 — App landing page
+# Stage 8 — App landing page
 
 ## What changed
 
 The app used to open straight on the Cap Allocation Brief — fine for someone who
-already knows the project, a confusing first screen otherwise. This session
+already knows the project, a confusing first screen otherwise. This stage
 replaces that default with a real landing page that says what the project is and
 offers four obvious doors into it.
 
@@ -24,7 +24,7 @@ and Fantasy Player Board pages are unchanged and still selectable.
 
 ## Which findings are featured
 
-Each card surfaces one session's headline result, in the project's own honest
+Each card surfaces one stage's headline result, in the project's own honest
 voice — including the experiments that didn't make production:
 
 | Card | Headline | Key points |
@@ -55,16 +55,16 @@ uses, so a future rename can't silently break a button.
 The pure content and navigation config (card copy, methodology labels, nav target
 constants) live in a small Streamlit-free module, `app/landing_content.py`, so
 they're unit-testable without a Streamlit runtime and trivial to fold into the
-component system in Session 9. The render function reuses the app's native
+component system in Stage 9. The render function reuses the app's native
 primitives (`st.columns`, bordered `st.container`, `st.button`, `st.expander`) and
 the already-injected component CSS. No bare dataframes, no recomputation — the
-headline numbers are static, pulled from the prior sessions' reported results, so
+headline numbers are static, pulled from the prior stages' reported results, so
 the page loads instantly.
 
-## What's left for Session 9
+## What's left for Stage 9
 
-This session deliberately keeps the cards as simple local render code rather than
-formal components. Session 9 (component migration) should:
+This stage deliberately keeps the cards as simple local render code rather than
+formal components. Stage 9 (component migration) should:
 
 - migrate the four cards onto a shared `player_card`/`kpi_grid`-style component so
   the landing page and detail pages share one card system;

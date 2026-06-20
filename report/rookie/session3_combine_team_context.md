@@ -1,4 +1,4 @@
-# Session 3 — Combine & team-context features for the rookie hurdle
+# Stage 3 — Combine & team-context features for the rookie hurdle
 
 ## The problem
 
@@ -12,7 +12,7 @@ identical to the baseline, and they shouldn't. Jordan Love in 2020 is the poster
 child: 26th overall pick, but sitting behind Aaron Rodgers, he never saw the
 field. The baseline model had no way to know that.
 
-So this session adds pre-season context the model was missing, in three families:
+So this stage adds pre-season context the model was missing, in three families:
 
 1. **Combine athletic testing** — forty, vertical, broad jump, bench, cone,
    shuttle, plus a BMI built from the height/weight already on the frame.
@@ -25,7 +25,7 @@ So this session adds pre-season context the model was missing, in three families
 
 ## How leakage was avoided
 
-The guardrail for this session is strict: nothing may use the rookie's *own*
+The guardrail for this stage is strict: nothing may use the rookie's *own*
 first-season outcomes. The discipline held in three concrete ways.
 
 - **Combine is pre-draft** by definition, so it's safe on its face. It's joined
@@ -60,7 +60,7 @@ minority. Team-context and depth features, by contrast, are nearly complete.
 | Incumbent / depth | 1.00 |
 
 Missing combine values are kept as NaN and mean-imputed inside each training
-fold (the project's existing convention — Session 2 confirmed it doesn't add
+fold (the project's existing convention — Stage 2 confirmed it doesn't add
 explicit missingness flags), so no rookie is dropped for lacking a 40 time.
 
 ## Does it help? (stage-1 P(plays) surrogate)

@@ -1,4 +1,4 @@
-# Causal Session 1: Treatment Identification & Parallel-Trends Check
+# Causal Stage 1: Treatment Identification & Parallel-Trends Check
 
 This is the foundation of Tier 2 #6 in `PORTFOLIO_ROADMAP.md`. The
 research question — *how much PPR does a WR1 lose when their starting
@@ -6,11 +6,11 @@ QB goes down to injury?* — is a textbook difference-in-differences
 (DiD) setting. The DiD estimator is only as good as its identification
 assumptions, and the central one is **parallel trends**: treated and
 control receivers must have followed parallel PPR trajectories in the
-pre-period. This session builds the infrastructure to test that
-assumption *before* the estimator runs in session 2.
+pre-period. This stage builds the infrastructure to test that
+assumption *before* the estimator runs in stage 2.
 
 No causal estimate is produced here. The deliverable is the foundation
-session 2's DiD estimate will rest on — and an honest verdict on
+stage 2's DiD estimate will rest on — and an honest verdict on
 whether the assumption holds.
 
 ## Treatment definition
@@ -115,7 +115,7 @@ true causal effect by including the pre-trend drift as part of
 the treatment-attributable drop. **No naive DiD estimate is
 produced.**
 
-## Mitigation paths for session 2
+## Mitigation paths for stage 2
 
 1. **Tighter level matching.** Treated WRs average ~9.7 PPG in
    the pre-period; controls average ~11.5 PPG. Restrict controls
@@ -143,7 +143,7 @@ produced.**
    reference. Trades statistical power for cleaner
    identification.
 
-Session 2 will start by implementing (1) and (3) and re-running
+Stage 2 will start by implementing (1) and (3) and re-running
 the parallel-trends check. If those mitigations succeed, the
 DiD estimate is defensible. If they do not, the design pivots
 to (2) — synthetic control — which addresses the pretrend by

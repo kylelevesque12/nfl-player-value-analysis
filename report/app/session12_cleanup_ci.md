@@ -1,4 +1,4 @@
-# Session 12 — Cleanup, CI, and report prose pass
+# Stage 12 — Cleanup, CI, and report prose pass
 
 The goal here was narrow: make the repo something a hiring manager can open
 without tripping over stale claims or dead artifacts. No model logic changed.
@@ -27,13 +27,13 @@ small, self-contained follow-up.
 ## The salary-data inconsistency (fixed)
 
 The most important catch: the committed `salary_efficiency_2016_2025.csv` predated
-Session 4 — its `salary_source` was still `inflated_apy`, so the app's surplus and
+Stage 4 — its `salary_source` was still `inflated_apy`, so the app's surplus and
 player-detail pages were displaying the *old* flat-APY numbers while the code and
 captions said "reconstructed cap hit." Regenerating the salary outputs
 (`build_salary_efficiency_tables` + `build_salary_finding_tables` — deterministic,
-no model training) brought the committed data back in line with the Session 4 code:
+no model training) brought the committed data back in line with the Stage 4 code:
 `salary_source = contract_terms_curve`, and the surplus board leads with **Brock
-Purdy 2023 at $35.4M**, the value documented in the Session 4 report. This regenerated
+Purdy 2023 at $35.4M**, the value documented in the Stage 4 report. This regenerated
 the salary-efficiency and replacement-level output tables.
 
 ## CI
@@ -50,22 +50,22 @@ confusing.
 ## Roadmap & report prose
 
 - **`PORTFOLIO_ROADMAP.md`** rewritten from a pre-work plan with stale checkboxes
-  into a finished build log: each session 1-12 summarized as one unified product,
-  with Session 11 (mobile/screenshots) flagged as the only remaining cosmetic item
+  into a finished build log: each stage 1-12 summarized as one unified product,
+  with Stage 11 (mobile/screenshots) flagged as the only remaining cosmetic item
   and the paid-data / DFS-optimizer items listed as intentional scope boundaries.
 - **Stale `inflated_apy` wording corrected** in `README.md` (two spots),
   `data/README.md`, `report/salary_efficiency_findings.md`, `report/salary_efficiency_summary.md`,
   `report/final_project_report.md`, and the unrouted app caption — all now describe
   the reconstructed season cap hit with its quality flag and the "estimate, not exact
   cap accounting" caveat. The remaining `inflated_apy` mentions in the repo are in
-  the Session 4 and Session 9 reports, where they correctly describe what was
+  the Stage 4 and Stage 9 reports, where they correctly describe what was
   *replaced*.
 
 ## Consistency check
 
 Searched the repo for `inflated_apy`, `beat DraftKings`, `beats the market`, `real
 cap hit`, and `proves`. After the fixes, the only surviving matches are in correct
-context: the negative-result and Session-4/9 reports describing what changed, and
+context: the negative-result and Stage-4/9 reports describing what changed, and
 the weekly summary's explicit *negation* ("does not claim it beats DraftKings in
 recent years"). No standalone overclaims remain. The causal result is consistently
 described as suggestive/underpowered; the DraftKings benchmark is consistently
@@ -80,7 +80,7 @@ pure / cap-hit / external / weekly (45), first-report + two-stage (12), rookie B
 / replacement / decomposition / ensemble (58). CI itself runs only the 24
 data-independent tests, which is the subset that can pass on a clean GitHub checkout.
 
-## Remaining (Session 11)
+## Remaining (Stage 11)
 
 Mobile-responsive pass on the `st.columns` KPI layouts and README screenshots / a
 search-to-detail GIF. Purely cosmetic — no result or data depends on it.

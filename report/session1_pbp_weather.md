@@ -1,4 +1,4 @@
-# Session 1 — PBP depth-chart rank + weather features
+# Stage 1 — PBP depth-chart rank + weather features
 
 ## What changed
 
@@ -34,7 +34,7 @@ Identical modeling frame and folds in both arms; only the feature list differs.
 | WR       | 6.0949 | 6.0148 | +1.31% |
 | TE       | 4.8534 | 4.7550 | +2.03% |
 
-Every position improved. RB and WR — the positions the session targeted — both
+Every position improved. RB and WR — the positions the stage targeted — both
 land in the 1.2–1.3% range, meeting the success criterion. TE gains most
 (+2.03%), consistent with depth-chart rank carrying extra signal where target
 hierarchies are steepest.

@@ -1,4 +1,4 @@
-# Session 4 — Reconstructing season cap hits from contract terms
+# Stage 4 — Reconstructing season cap hits from contract terms
 
 ## Why flat APY wasn't good enough
 
@@ -11,7 +11,7 @@ salaries are typically backloaded, the early years of a big extension cost far
 less against the cap than the late years. Charging a star his full APY in year 1
 overstates what the team actually paid, and therefore understates how much
 surplus the team captured early in the deal. The honest fix is a *season-specific*
-cap hit, which is what this session builds.
+cap hit, which is what this stage builds.
 
 ## What the data does and doesn't support
 

@@ -1,19 +1,19 @@
-# Session 7 — Live weekly projections + per-position conformal intervals
+# Stage 7 — Live weekly projections + per-position conformal intervals
 
 ## What was built
 
 Up to now the weekly model could only score games that had already happened —
 every modeling row carried its realized PPR target. That's fine for a backtest
 but useless for knowing what to expect *this* Sunday. So this
-session adds the infrastructure to project the upcoming week before it's played,
-plus the per-position interval fix that Session 6 pointed at.
+stage adds the infrastructure to project the upcoming week before it's played,
+plus the per-position interval fix that Stage 6 pointed at.
 
 Two pieces:
 
 1. `src/live_weekly_projection.py` — synthesizes one feature row per active
    player for the next week and scores it with the production model.
 2. Per-position conformal intervals — replacing the single global halfwidth that
-   Session 6 showed badly under-covers quarterbacks.
+   Stage 6 showed badly under-covers quarterbacks.
 3. A minimal "Current / next week" mode on the Fantasy Player Board (no redesign).
 
 ## How a future row is synthesized
@@ -38,7 +38,7 @@ expects — a test asserts none are missing.
 
 ## How leakage is avoided
 
-The guardrail for this session is strict: a future projection may use only
+The guardrail for this stage is strict: a future projection may use only
 information available before the game. Concretely:
 
 - The carried-forward player features are as-of the latest *completed* week, so
@@ -47,7 +47,7 @@ information available before the game. Concretely:
   target to leak, and scoring never references one (a test scores a frame that
   has no target column at all).
 - No same-week PBP, NGS, or PFR touches the row. NGS/PFR were already rejected in
-  Session 2; a test re-asserts none appear here.
+  Stage 2; a test re-asserts none appear here.
 
 The one honest approximation: carry-forward means the rolling features are "as of
 the last completed week" rather than re-rolled to include that week's result — a
@@ -73,7 +73,7 @@ Chase 19.3), which is the right smell test for a pregame model.
 
 ## Per-position conformal intervals
 
-Session 6's finding: one global symmetric halfwidth can't represent QB variance,
+Stage 6's finding: one global symmetric halfwidth can't represent QB variance,
 so QBs fall outside their intervals far too often. The fix is to calibrate the
 conformal halfwidth *within each position*, with a fallback to the global value
 for any position too thin to calibrate on its own (< 200 calibration rows).
@@ -109,7 +109,7 @@ an unreasonable width; QBs are wide (17.5) because QB scoring genuinely is.
 Honest caveat: even per-position, QB still under-covers (0.730 vs 0.80 target).
 QB weekly PPR is heavy-tailed and the 2025 QB sample is small, so a symmetric
 halfwidth can't fully reach nominal coverage. It's a clear improvement, not a cure
-— quantile or asymmetric bands (Session 6) would push further but at a width cost
+— quantile or asymmetric bands (Stage 6) would push further but at a width cost
 that wasn't worth it. This is the better of the two interval upgrades.
 
 ## Final decision

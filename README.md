@@ -119,11 +119,11 @@ The fantasy model rests on three methodology decisions documented as their own r
 
 ### Causal DiD: QB injury → WR PPR
 
-Two-session causal analysis testing the conventional-wisdom claim that QB injury causes WR PPR to crater.
+Two-stage causal analysis testing the conventional-wisdom claim that QB injury causes WR PPR to crater.
 
-**Session 1**: identifies 213 QB-injury treatment events 2016-2025 from `injuries × player_stats × schedules`. Validates against hand-checked cases (Burrow 2023, Lawrence 2024, Wentz 2017). Builds matched-control panels using same-calendar-week receivers on stable-QB teams. Runs the parallel-trends check, **and finds a violation** (p ≈ 0.034 at offset -3).
+**Stage 1**: identifies 213 QB-injury treatment events 2016-2025 from `injuries × player_stats × schedules`. Validates against hand-checked cases (Burrow 2023, Lawrence 2024, Wentz 2017). Builds matched-control panels using same-calendar-week receivers on stable-QB teams. Runs the parallel-trends check, **and finds a violation** (p ≈ 0.034 at offset -3).
 
-**Session 2**: implements pre-registered mitigations. Level matching fails (regression-to-the-mean widens the pretrend, p drops to 0.005). The event-study + 2×2 DiD on the unmatched panel, both estimators agree:
+**Stage 2**: implements pre-registered mitigations. Level matching fails (regression-to-the-mean widens the pretrend, p drops to 0.005). The event-study + 2×2 DiD on the unmatched panel, both estimators agree:
 
 | Estimator | Reference | ATT | p-value |
 | --- | --- | ---: | ---: |
@@ -198,7 +198,7 @@ pip install -r requirements.txt
 python scripts/run_pipeline.py
 ```
 
-Pipeline steps run in dependency order: clean raw weekly data → rebuild value scores → rebuild value decomposition → rebuild 2026 prediction tables → rebuild salary efficiency → rebuild salary findings (including replacement-level surplus) → rebuild weekly fantasy projections → rebuild external benchmark → rebuild rookie modeling frame → rebuild two-stage weekly experiment → rebuild causal sessions 1+2 → rebuild weekly win projections → rebuild methodology checks → rebuild model interpretation → rebuild benchmark → rebuild season-level two-stage value.
+Pipeline steps run in dependency order: clean raw weekly data → rebuild value scores → rebuild value decomposition → rebuild 2026 prediction tables → rebuild salary efficiency → rebuild salary findings (including replacement-level surplus) → rebuild weekly fantasy projections → rebuild external benchmark → rebuild rookie modeling frame → rebuild two-stage weekly experiment → rebuild causal stages 1+2 → rebuild weekly win projections → rebuild methodology checks → rebuild model interpretation → rebuild benchmark → rebuild season-level two-stage value.
 
 Selective runs:
 

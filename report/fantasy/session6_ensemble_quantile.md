@@ -1,16 +1,16 @@
-# Session 6 — Ensemble stacking & quantile intervals (a negative + a near-miss)
+# Stage 6 — Ensemble stacking & quantile intervals (a negative + a near-miss)
 
 ## What was tested
 
-The Session 1 weekly model is a single pooled HistGradientBoosting regressor with
+The Stage 1 weekly model is a single pooled HistGradientBoosting regressor with
 symmetric conformal prediction intervals. Two natural questions: can *stacking*
 several models squeeze out more accuracy, and can *quantile* gradient boosting
 produce better-shaped intervals than the one-size-fits-all conformal halfwidth? An
 off-production experiment harness (`src/weekly_ensemble_experiment.py`) answers
-both without touching the production model — the rule for this session was that
+both without touching the production model — the rule for this stage was that
 nothing ships unless it clearly wins.
 
-Everything runs on the exact Session 1 leakage-safe frame, feature list, target,
+Everything runs on the exact Stage 1 leakage-safe frame, feature list, target,
 folds, and position groups. No NGS/PFR features (a guard test enforces that), no
 same-week information, time-based validation only.
 
@@ -96,7 +96,7 @@ genuine improvement exactly where conformal is weakest.
 
 ## Decision: keep neither (with one flagged insight)
 
-**Point model:** leave production on the Session 1 pooled HGB. The stacked
+**Point model:** leave production on the Stage 1 pooled HGB. The stacked
 ensemble's +0.07% RMSE is a rounding error, the other base learners are worse,
 and shipping a three-model stack for no real accuracy is exactly the
 complexity-for-nothing the decision rule warns against. Documented negative
@@ -110,7 +110,7 @@ fix is not quantile GB at all but **per-position conformal halfwidths** — comp
 the calibration residual quantile within each position rather than globally. That
 would fix QB coverage without the across-the-board width inflation quantile GB
 brings. That's a targeted interval upgrade worth doing, but it's outside this
-session's "ensemble vs quantile" scope, so it's left as a noted next step rather
+stage's "ensemble vs quantile" scope, so it's left as a noted next step rather
 than smuggled in here.
 
 Net: production is unchanged. The experiment earned its keep by ruling out two

@@ -1,13 +1,13 @@
-# Session 11 — Responsive pass, README visuals, presentation polish
+# Stage 11 — Responsive pass, README visuals, presentation polish
 
-The final cosmetic session: make the app behave on small screens and make the
+The final cosmetic stage: make the app behave on small screens and make the
 GitHub repo presentable to a hiring manager. No modeling, scoring, or data logic
 changed.
 
 ## Responsive fixes
 
 The honest starting point: Streamlit already stacks `st.columns` to full width
-below its small-screen breakpoint, and Session 9 had already moved the wide
+below its small-screen breakpoint, and Stage 9 had already moved the wide
 dataframes into expanders — so the app was mostly mobile-tolerant by default. The
 one spot that stayed cramped was the KPI rows, where 4-5 `st.metric` tiles sit in
 a single row that's fine on desktop but tight on tablet widths.
@@ -44,7 +44,7 @@ final look.
   progress / draft layer" copy into an accurate description of the finished app
   (landing page, hero pages, drill-downs, global player search → player detail).
 - **Limitations / "What's done and what's left"** rewritten: the stale TODOs that
-  are now complete (dashboard rebuild, causal session 3, depth-chart rank from
+  are now complete (dashboard rebuild, causal stage 3, depth-chart rank from
   PBP, APY → reconstructed cap hit) were removed; the genuine remaining items
   (paid external projections, true OTC cap data, live screenshots / deploy) are
   listed as optional and non-blocking.
@@ -56,7 +56,7 @@ hits"), and the causal result described as suggestive/underpowered.
 
 ## Deployment
 
-Not completed this session, and no URL was invented. The README's "what's left"
+Not completed this stage, and no URL was invented. The README's "what's left"
 list flags a Streamlit Community Cloud deploy + live screenshots as the final
 presentation step; `requirements.txt` is already sufficient for it.
 

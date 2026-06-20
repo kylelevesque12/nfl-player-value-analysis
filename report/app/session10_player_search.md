@@ -1,10 +1,10 @@
-# Session 10 — Global player search & unified player detail
+# Stage 10 — Global player search & unified player detail
 
 ## What was added
 
 A player has always been spread across the app: their weekly projection lives on
 one page, their cap surplus on another, their rookie record on a third. This
-session ties them together. There's now an **always-visible sidebar search** — type
+stage ties them together. There's now an **always-visible sidebar search** — type
 a name, get a typeahead list of `Name — POS — TEAM` labels — and selecting one
 opens a single **Player Detail** page that pulls every project output for that
 player into one view.
@@ -37,7 +37,7 @@ resolve to distinct, stable ids.
 
 ## What the detail page shows
 
-Built in the Session 9 shared style (header → KPI row → sections → caveats →
+Built in the Stage 9 shared style (header → KPI row → sections → caveats →
 expanders → footer):
 
 - **KPI row** — latest projected PPR (live week if available, else most recent
@@ -51,7 +51,7 @@ expanders → footer):
   estimate, not exact NFL cap accounting.
 - **Rookie model** — rookie year, draft pick, whether they played meaningfully,
   and the Bayesian projection if the player is in a validation class; a note that
-  the Session 3 incumbent-context core is what sharpened the QB gate.
+  the Stage 3 incumbent-context core is what sharpened the QB gate.
 - **Causal study** — the player's first-injury-report events as a treated QB, with
   the "suggestive / underpowered" caveat. It explicitly does **not** force a causal
   interpretation onto non-QBs.
@@ -77,7 +77,7 @@ authoritative per-season surplus comes from the `player_id`-keyed salary table.
 
 ## Navigation
 
-Reuses the Session 8 deferred-nav pattern exactly: selecting a player sets
+Reuses the Stage 8 deferred-nav pattern exactly: selecting a player sets
 `_selected_player_id` and defers a hop to the new `Player Detail` hero option
 (handled at the top of `main()` before the radios instantiate). The existing
 hero/drill-down radios are otherwise untouched, and a "← Back to dashboard" button
@@ -93,12 +93,12 @@ surplus summary; causal section keyed on `qb_id`; nav labels still wired; and th
 empty-index no-crash case. Page-content and landing tests still pass (22 app tests;
 135 collected overall).
 
-## What remains for Sessions 11/12
+## What remains for Stages 11/12
 
-- **Session 11 (mobile/README):** the detail page uses `st.columns` KPI rows that
+- **Stage 11 (mobile/README):** the detail page uses `st.columns` KPI rows that
   will need the same narrow-viewport pass as the rest of the app; a recorded GIF of
   search → detail would be a natural README addition.
-- **Session 12 (cleanup):** the top-25 surplus board is the last name-keyed join;
+- **Stage 12 (cleanup):** the top-25 surplus board is the last name-keyed join;
   if a `player_id` is added to that saved table during cleanup, the supplementary
-  surplus note can switch to an id join. The unrouted legacy pages noted in Session
+  surplus note can switch to an id join. The unrouted legacy pages noted in Stage
   9 also remain for removal.

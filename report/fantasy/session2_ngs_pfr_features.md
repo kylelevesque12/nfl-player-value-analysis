@@ -1,8 +1,8 @@
-# Session 2 — Next Gen Stats & PFR weekly features (a leakage story)
+# Stage 2 — Next Gen Stats & PFR weekly features (a leakage story)
 
 ## Goal
 
-Session 1 left the weekly fantasy model with play-by-play usage, depth-chart
+Stage 1 left the weekly fantasy model with play-by-play usage, depth-chart
 rank, and weather. The natural next move was to reach for richer per-game data:
 Next Gen Stats (separation, cushion, air-yards share, rushing efficiency, time
 to throw) and Pro-Football-Reference weekly charting (broken tackles, drop
@@ -40,7 +40,7 @@ model:
 
 | Arm | RMSE (validate 2025) | vs baseline |
 |---|---:|---:|
-| Session 1 baseline | 5.876 | — |
+| Stage 1 baseline | 5.876 | — |
 | + NGS lagged values | 5.333 | +9.24% |
 | + NGS values **shuffled** (NaN pattern kept) | 5.330 | +9.30% |
 | + NGS values shuffled gave the *same* gain | | |
@@ -64,12 +64,12 @@ The median imputer then fills the missing rows with a single constant, creating
 a point-mass the gradient booster happily splits on — effectively recovering a
 "was this player active and used *this* week" indicator. That indicator is
 contemporaneous with the outcome. It is precisely the same-week-availability
-leak the Session 2 guardrail warned against, sneaking in through the back door
+leak the Stage 2 guardrail warned against, sneaking in through the back door
 of the join's missingness rather than through a raw value.
 
 An early attempt at a "clean" coverage flag — `ngs_value_lag1.notna()` — was
 derived from that very pattern, so it inherited the leak and also showed ~+9%.
-Catching that was the real lesson of the session.
+Catching that was the real lesson of the stage.
 
 ## The leak-free version, and the honest result
 
@@ -81,14 +81,14 @@ sensibly (corr 0.204 with the target, a genuine prior-game role signal) and is
 
 | Arm | RMSE (validate 2025) | vs baseline |
 |---|---:|---:|
-| Session 1 baseline | 5.876 | — |
+| Stage 1 baseline | 5.876 | — |
 | + NGS coverage flags (leak-free) | 5.878 | **−0.03%** |
 | + PFR lagged values | 5.879 | −0.05% |
 | + PFR values shuffled | 5.873 | +0.06% |
 | + NGS + PFR coverage flags | 5.877 | −0.01% |
 
 Once the leak is removed, the signal is gone. Properly lagged NGS coverage adds
-nothing measurable, because Session 1's usage features (PBP targets/touches,
+nothing measurable, because Stage 1's usage features (PBP targets/touches,
 snap share, depth rank, the active-last-game flags) already encode prior-game
 role. PFR is neutral-to-negative on every cut, on top of only covering 2018+
 through a fragile id bridge.
@@ -115,7 +115,7 @@ proxy for role, and why it leaks so cleanly when joined on the wrong week.
 result, and a deliberate one. The `external_player_features.py` module and the
 diagnostic script are kept as the documented investigation — the way to re-test
 this if a future feature ever looks too good — but nothing from this
-session is registered in `WEEKLY_FANTASY_FEATURES`. A guard test
+stage is registered in `WEEKLY_FANTASY_FEATURES`. A guard test
 (`test_weekly_feature_list_excludes_ngs_and_pfr`) fails if any `ngs_`/`pfr_`
 column sneaks back in, and `test_value_join_leaks_same_week_availability`
 pins the leak so the reasoning isn't lost.

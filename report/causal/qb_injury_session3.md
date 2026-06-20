@@ -1,14 +1,14 @@
-# Causal Session 3: first injury-report appearance as treatment
+# Causal Stage 3: first injury-report appearance as treatment
 
 ## Why move the treatment earlier
 
-Sessions 1-2 defined treatment as the formal QB injury event — the week a
+Stages 1-2 defined treatment as the formal QB injury event — the week a
 starting QB was ruled Out and replaced — and landed on an honest null: WR
 PPR didn't drop after the designation. The mechanism proposed there was
 endogenous timing. By the time a QB is formally Out, he has usually been
 playing hurt for weeks, and his receivers have already been sliding. The
 formal Out is a *lagging* indicator. So the obvious follow-up, and the
-point of this session, is to move treatment to the first sign of trouble:
+point of this stage, is to move treatment to the first sign of trouble:
 the first week the established starter shows up on the injury report at
 all — a Questionable tag, a limited practice, anything — even if he still
 starts that Sunday.
@@ -39,7 +39,7 @@ First-report status mix (NaN = practice-report-only, no game designation): {nan:
 
 ## Design and controls
 
-Outcome is WR PPR/game, the same family as sessions 1-2. The panel runs
+Outcome is WR PPR/game, the same family as stages 1-2. The panel runs
 event time {-3..-1} (pre), 0 (first report), {+1..+2}
 (post). Controls are receivers on teams whose starting QB was both
 *stable* and *injury-report-free* across the whole window — a would-be-
@@ -59,7 +59,7 @@ Player-fixed-effect pre-period interaction coefficients (vs offset -1):
 | -2 | +0.239 | 0.620 | +0.385 | 0.701 |
 
 No pre-period interaction is significant at 5%, so the fixed-effect
-parallel-trends test **passes** — cleaner than session 1, where it
+parallel-trends test **passes** — cleaner than stage 1, where it
 failed. One honest caveat: the cell-mean event study below shows the
 treated-minus-control gap is already a touch elevated at -3, so the
 pre-period isn't perfectly flat. Trends read as plausible but not
@@ -89,7 +89,7 @@ design missed. The drop is concentrated at offset +1 (the first game after
 the QB first appears on the report), the treatment-week effect itself is
 near zero, and the pooled post-period estimate is roughly −0.6 PPG in the
 event study and around −1 PPG in the 2x2 and matched specifications. That
-is consistent with the mechanism session 2 hypothesized: the causal damage
+is consistent with the mechanism stage 2 hypothesized: the causal damage
 clusters around when a QB's health first becomes shaky, not around the
 formal Out weeks later. It is real but modest — a fraction of a fantasy
 point per receiver per week — and the marginal p-values plus the slightly
@@ -110,7 +110,7 @@ elevated -3 pre-period gap mean this is not a clean headline causal estimate.
 **Underpowered-but-suggestive negative effect, not a clean headline.**
 Re-timing treatment to the first injury-report appearance does move the
 result off the Out-only null toward a small (~0.6–1.0 PPG) post-period WR
-decline, in the direction the session-2 mechanism predicted. It reads as
+decline, in the direction the stage-2 mechanism predicted. It reads as
 suggestive evidence that limited QB availability matters before formal
 absence — while being explicit that the effect is modest, the design is
 only moderately powered, and the pre-period is plausible rather than
