@@ -958,14 +958,15 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
 
             **Audit.** {methodology_passes} of {methodology_total} methodology
             checks pass (leakage safety, standardization correctness, interval
-            calibration). Audit table available on the *Methodology And Reports*
-            page.
+            calibration). The audit table is on the *Methodology & Sources*
+            section.
 
-            **Honest caveats.** (1) Cost is APY, not year-by-year cap hit; this
-            is contract efficiency, not cap accounting. (2) Value-score is
-            production-based EPA, not pure talent, scheme, OL quality, and
-            teammate effects are not isolated. (3) Tight ends are evaluated on
-            production only; blocking value is not in the metric.
+            **Caveats.** (1) Cost is a season-specific cap hit reconstructed from
+            contract terms (prorated signing bonus + backloaded base), an estimate,
+            not exact NFL cap accounting. (2) Value-score is production-based EPA,
+            not pure talent, scheme, OL quality, and teammate effects are not
+            isolated. (3) Tight ends are evaluated on production only; blocking
+            value is not in the metric.
             """
         )
 
@@ -1594,16 +1595,16 @@ def landing_page() -> None:
     st.markdown(
         "This project does two jobs with the same NFL data, covering quarterbacks, "
         "running backs, receivers, and tight ends from 2016 to 2025.\n\n"
-        "The **front-office job** measures how much value a player produced, forecasts "
+        "The front-office job measures how much value a player produced, forecasts "
         "how that value carries into the next season, and compares it to contract cost "
-        "to show who is overpaid or underpaid. The **fantasy job** projects PPR fantasy "
+        "to show who is overpaid or underpaid. The fantasy job projects PPR fantasy "
         "points (both season-long totals for the upcoming year and week-by-week scores "
         "during a season) and presents them as rankings a manager can act on. Around "
         "both sits a research layer: a causal study of quarterback injuries, a Bayesian "
         "model for rookies with no NFL history, and an external market benchmark."
     )
     st.markdown(
-        "The guiding principle is **rigorous, transparent evaluation**. Every model is "
+        "The guiding principle is rigorous, transparent evaluation. Every model is "
         "graded against a strong, hard-to-beat simple baseline rather than against zero, "
         "results that did not work are kept on the record instead of hidden, and every "
         "projection ships with a clear statement of how uncertain it is."
@@ -1614,16 +1615,16 @@ def landing_page() -> None:
     st.markdown(
         "- Season value is hard to predict beyond a smart baseline, so the value model "
         "is best used for sorting players into tiers, not exact ranks.\n"
-        "- Player value splits into a **role** half (very predictable) and a per-play "
-        "**efficiency** half (nearly random), except at quarterback, where efficiency is "
+        "- Player value splits into a role half (very predictable) and a per-play "
+        "efficiency half (nearly random), except at quarterback, where efficiency is "
         "real and stable. This is the project's central insight.\n"
-        "- The weekly fantasy model beats every simple baseline by a steady **7–9%** "
+        "- The weekly fantasy model beats every simple baseline by a steady 7–9% "
         "across six seasons and edges the DraftKings market line on 2020–2021.\n"
         "- Reconstructed season cap hits make the salary analysis credible; cheap young "
         "quarterbacks dominate surplus, and the running-back market overpays veterans.\n"
-        "- Quarterback injury has a **modest, suggestive** negative effect on receiver "
+        "- Quarterback injury has a modest, suggestive negative effect on receiver "
         "scoring once timed to the first injury report, not the collapse fans assume.\n"
-        "- Rookies with no NFL history are projected with a **Bayesian** model, and a "
+        "- Rookies with no NFL history are projected with a Bayesian model, and a "
         "small depth-chart signal correctly lowers the projected playing time of a "
         "rookie stuck behind an established starter."
     )
@@ -1655,9 +1656,9 @@ def landing_page() -> None:
     with st.expander("How to use this app"):
         st.markdown(
             "Each section in the sidebar pairs a plain-language explanation with its "
-            "tool and results, and carries a **Full write-up** panel with the deeper "
-            "detail (models, metrics, methods, limitations). The **Methodology & "
-            "Sources** section holds the safeguards, how the models are graded, the data "
+            "tool and results, and carries a full write-up panel with the deeper "
+            "detail (models, metrics, methods, limitations). The Methodology & "
+            "Sources section holds the safeguards, how the models are graded, the data "
             "and reference sources, and the complete project reference to download."
         )
 
@@ -1872,13 +1873,13 @@ def player_value_section(data: dict[str, pd.DataFrame]) -> None:
         "How much value each player produced, and whether the contract pays for it.",
     )
     st.markdown(
-        "Player value is measured with **EPA** (expected points added), how much "
+        "Player value is measured with EPA (expected points added), how much "
         "each play changed a team's expected points, then standardized within each "
         "season and position so a 2025 tight end and a 2016 quarterback are scored "
         "against their own peers. The cost side replaces a flat yearly salary average "
-        "with a **season-specific cap hit reconstructed from contract terms** "
+        "with a season-specific cap hit reconstructed from contract terms "
         "(prorated bonus plus backloaded base), because a star's early years cost far "
-        "less against the cap than his average implies. **Surplus** is value above "
+        "less against the cap than his average implies. Surplus is value above "
         "what a freely available replacement would give for that cost. Cheap "
         "rookie-contract QBs (Brock Purdy) dominate, and the running-back market "
         "tends to overpay veterans. A full write-up of the method, metrics, and "
@@ -1902,13 +1903,13 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
     )
     st.markdown(
         "Two models feed this section. Season-long 2026 totals come from an "
-        "**Elastic Net** (a disciplined linear model chosen from six candidates by "
-        "lowest validation error). Weekly scores come from a **gradient-boosting** "
+        "Elastic Net (a disciplined linear model chosen from six candidates by "
+        "lowest validation error). Weekly scores come from a gradient-boosting "
         "model (many small decision trees, each correcting the last) using only "
         "information known before kickoff (recent form, opponent, betting lines, "
         "weather, injury status). Accuracy is judged the way forecasters do: "
         "against a strong naive baseline (a player's recent-game average), which the "
-        "weekly model beats by a steady **7–9%** across six seasons, and against a "
+        "weekly model beats by a steady 7–9% across six seasons, and against a "
         "DraftKings-implied market line on 2020–2021, where it is competitive to "
         "slightly ahead. A full write-up of both models, the metrics, and the "
         "limitations sits at the bottom of this section."
