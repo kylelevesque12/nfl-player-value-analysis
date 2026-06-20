@@ -1609,7 +1609,10 @@ def landing_page() -> None:
         "- Reconstructed season cap hits make the salary analysis credible; cheap young "
         "quarterbacks dominate surplus, and the running-back market overpays veterans.\n"
         "- Quarterback injury has a **modest, suggestive** negative effect on receiver "
-        "scoring once timed to the first injury report, not the collapse fans assume."
+        "scoring once timed to the first injury report, not the collapse fans assume.\n"
+        "- Rookies with no NFL history are projected with a **Bayesian** model, and a "
+        "small depth-chart signal correctly lowers the projected playing time of a "
+        "rookie stuck behind an established starter."
     )
 
     st.divider()
