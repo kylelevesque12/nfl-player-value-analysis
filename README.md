@@ -1,10 +1,12 @@
 # NFL Player Value & Fantasy Forecasting
 
+**🏈 [Live app](https://nfl-player-value-analysis-fn4hagqfudvbh7ahqnizug.streamlit.app/)**
+
 [![tests](https://github.com/kylelevesque12/nfl-player-value-analysis/actions/workflows/tests.yml/badge.svg)](https://github.com/kylelevesque12/nfl-player-value-analysis/actions/workflows/tests.yml)
 
 Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can a weekly fantasy model consistently beat the naive baselines every forecast is measured against, and what do the negative results teach about model architecture.
 
-A Streamlit app ties the research threads together: a Home overview, a single-section sidebar (Player Value & Cap, Fantasy Rankings, Rookies, QB Injury Study, Methodology & Sources), a full in-app Project Report, and a global player search → unified player detail view. Every section pairs a plain-language explanation with its tool. The complete plain-language write-up lives in [`PROJECT_REFERENCE.md`](PROJECT_REFERENCE.md). Run it locally with `./run_app.sh` (see [Interactive dashboard](#interactive-dashboard)).
+A Streamlit app ties the research threads together: a Home overview, a single-section sidebar (Player Value & Cap, Fantasy Rankings, Rookies, QB Injury Study, Methodology & Sources), a full in-app Project Report, and a global player search → unified player detail view. Every section pairs a plain-language explanation with its tool. The complete plain-language write-up lives in [`PROJECT_REFERENCE.md`](PROJECT_REFERENCE.md). Try the [live app](https://nfl-player-value-analysis-fn4hagqfudvbh7ahqnizug.streamlit.app/), or run it locally with `./run_app.sh` (see [Interactive dashboard](#interactive-dashboard)).
 
 ![App home page](docs/images/home.png)
 
@@ -163,6 +165,8 @@ A hierarchical Normal regression on rookie-season PPR/game with partial pooling 
 PyMC has a numpy/pandas dependency conflict with the main project stack, so the sampling pass runs from a dedicated venv (`.venv-bayes`). See [`requirements-bayes.txt`](requirements-bayes.txt) and the [rookie Bayes report](report/rookie_bayes_projection.md).
 
 ## Interactive dashboard
+
+**Live app: <https://nfl-player-value-analysis-fn4hagqfudvbh7ahqnizug.streamlit.app/>** (hosted on Streamlit Community Cloud; free apps sleep when idle and take a moment to wake).
 
 Run it locally with the launcher (creates a virtualenv, installs dependencies, starts the app):
 
