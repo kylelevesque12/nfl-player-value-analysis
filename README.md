@@ -4,9 +4,7 @@
 
 Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can a weekly fantasy model consistently beat the naive baselines every forecast is measured against, and what do the negative results teach about model architecture.
 
-![Landing page preview](docs/images/landing_preview.svg)
-
-*A Streamlit app ties the research threads together: a Home overview, a single-section sidebar (Player Value & Cap, Fantasy Rankings, Rookies, QB Injury Study, Methodology & Sources), a full in-app Project Report, and a global player search → unified player detail view. Every section pairs a plain-language explanation with its tool. The complete plain-language write-up lives in [`PROJECT_REFERENCE.md`](PROJECT_REFERENCE.md). (Preview above is a layout rendering; run the app locally for the live version.)*
+A Streamlit app ties the research threads together: a Home overview, a single-section sidebar (Player Value & Cap, Fantasy Rankings, Rookies, QB Injury Study, Methodology & Sources), a full in-app Project Report, and a global player search → unified player detail view. Every section pairs a plain-language explanation with its tool. The complete plain-language write-up lives in [`PROJECT_REFERENCE.md`](PROJECT_REFERENCE.md). Run it locally with `./run_app.sh` (see [Interactive dashboard](#interactive-dashboard)).
 
 ## Four results worth knowing
 
@@ -189,9 +187,7 @@ The app opens on a **Home** page: a written project overview (the two jobs, the 
 - **Methodology & Sources**, safeguards, how the models are graded, and the data and evaluation sources.
 - **Global player search** (always in the sidebar) → a **unified Player Detail view** that assembles every output for one player, weekly, live, surplus, rookie, causal, with clean "not available" states for missing modules.
 
-![Player Detail preview](docs/images/player_detail_preview.svg)
-
-The previews in this README are layout renderings of the real pages. To capture live screenshots, run the app locally and screenshot the Home page, Fantasy Rankings, Player Value & Cap, and a Player Detail view; the previews under [`docs/images/`](docs/images/) mirror those layouts.
+> Screenshots will be added once a live demo is hosted. For now, run `./run_app.sh` to see the app.
 
 ## Reproducing the pipeline
 
