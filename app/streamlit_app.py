@@ -502,8 +502,6 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
     fantasy = data["fantasy"]
     weekly = data["weekly_fantasy"]
 
-    st.caption("2026 PPR projections by position, and week-by-week projection accuracy.")
-
     if fantasy.empty:
         st.info(
             "Fantasy projections are missing. Run "
@@ -565,9 +563,23 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
             ),
             "PPR/G": st.column_config.NumberColumn("PPR/G", width="small", format="%.1f"),
             "GP": st.column_config.NumberColumn("GP", width="small", format="%d"),
-            "80% range": st.column_config.TextColumn("80% range", width="small"),
-            "Tier": st.column_config.TextColumn("Tier", width="small"),
-            "Δ vs '25": st.column_config.NumberColumn("Δ vs '25", width="small", format="%+.1f"),
+            "80% range": st.column_config.TextColumn(
+                "80% range",
+                width="small",
+                help="80% prediction interval: the actual total should land in "
+                "this range about 8 times in 10. Season totals are genuinely "
+                "hard to predict, so honest ranges are wide.",
+            ),
+            "Tier": st.column_config.TextColumn("Tier", width="medium"),
+            "Δ vs '25": st.column_config.NumberColumn(
+                "Δ vs '25",
+                width="small",
+                format="%+.1f",
+                help="Projected 2026 total minus the player's actual 2025 total. "
+                "Negative for most top players by design: career-best seasons "
+                "tend to regress toward the mean, so the model projects below "
+                "last year's peak.",
+            ),
         },
     )
     st.download_button(
@@ -720,8 +732,8 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
             ),
             (
                 "Player-seasons analyzed",
-                f"~{int(top_surplus.iloc[-1]['games_played'] * 30):,}+"
-                if "games_played" in top_surplus.columns
+                f"{int(by_position['player_seasons'].sum()):,}"
+                if "player_seasons" in by_position.columns
                 else "3,531",
                 "Skill positions, 2016-2025",
             ),
@@ -1615,6 +1627,21 @@ def landing_page() -> None:
     )
 
     st.divider()
+    st.markdown("### Where to go")
+    st.caption("Pick a section in the sidebar, or jump straight in:")
+    targets = [
+        (NAV_FANTASY, "Draft Board"),
+        (NAV_CAP, "Player Value & Cap"),
+        (NAV_ROOKIE, "Rookies"),
+        (NAV_METHOD, "Methodology & Research"),
+    ]
+    cols = st.columns(len(targets))
+    for col, (target, label) in zip(cols, targets):
+        with col:
+            if st.button(label, key=f"home_go_{target}", use_container_width=True):
+                _go_to(target)
+
+    st.divider()
     st.markdown("### Headline findings")
     st.markdown(
         "- Season value is hard to predict beyond a smart baseline, so the value model "
@@ -1632,21 +1659,6 @@ def landing_page() -> None:
         "small depth-chart signal correctly lowers the projected playing time of a "
         "rookie stuck behind an established starter."
     )
-
-    st.divider()
-    st.markdown("### Where to go")
-    st.caption("Pick a section in the sidebar, or jump straight in:")
-    targets = [
-        (NAV_FANTASY, "Draft Board"),
-        (NAV_CAP, "Player Value & Cap"),
-        (NAV_ROOKIE, "Rookies"),
-        (NAV_METHOD, "Methodology & Research"),
-    ]
-    cols = st.columns(len(targets))
-    for col, (target, label) in zip(cols, targets):
-        with col:
-            if st.button(label, key=f"home_go_{target}", use_container_width=True):
-                _go_to(target)
 
     st.divider()
     st.caption(" · ".join(f"✓ {label}" for label in methodology_strip_labels()))
@@ -2067,8 +2079,9 @@ def main() -> None:
     render_player_search(player_index)
     st.sidebar.divider()
     st.sidebar.caption(
-        "Each section pairs a short explanation with its tool and results. "
-        "Rebuild data with `python scripts/run_pipeline.py`."
+        "Projections cover the 2016-2025 seasons and the 2026 outlook. "
+        "Code, data pipeline, and research notes: "
+        "[GitHub](https://github.com/kylelevesque12/nfl-player-value-analysis)."
     )
 
     if section == NAV_CAP:

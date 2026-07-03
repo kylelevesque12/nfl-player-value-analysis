@@ -486,15 +486,17 @@ from app.layout import chunk_metrics  # noqa: E402  (pure, Streamlit-free helper
 
 
 def kpi_grid(metrics: list[tuple[str, str, str | None]], max_per_row: int = 3) -> None:
-    """Render N st.metric tiles, wrapping into balanced rows on narrow widths."""
+    """Render N st.metric tiles, wrapping into balanced rows on narrow widths.
+
+    The third tuple element is explanatory text, not a change-vs-previous, so it
+    renders as hover help. Passing it as st.metric's delta would paint it green
+    with an up-arrow, which misreads as a trend.
+    """
     for row in chunk_metrics(metrics, max_per_row):
         cols = st.columns(len(row))
-        for col, (label, value, delta) in zip(cols, row):
+        for col, (label, value, help_text) in zip(cols, row):
             with col:
-                if delta is not None:
-                    st.metric(label, value, delta)
-                else:
-                    st.metric(label, value)
+                st.metric(label, value, help=help_text)
 
 
 # ---------------------------------------------------------------------------

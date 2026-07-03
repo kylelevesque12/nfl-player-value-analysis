@@ -8,9 +8,9 @@ from __future__ import annotations
 
 LANDING_TITLE = "NFL Player Value & Fantasy Forecasting"
 LANDING_SUBTITLE = (
-    "A portfolio research app combining weekly fantasy forecasting, "
-    "contract-adjusted surplus value, rookie opportunity modeling, and causal "
-    "analysis of quarterback injury reports."
+    "2026 draft rankings, weekly PPR projections with honest uncertainty, and "
+    "contract-value analytics, built on ten years of NFL data and graded "
+    "against the baselines every forecast must beat."
 )
 
 # Navigation targets, must match the sidebar radio option strings exactly.

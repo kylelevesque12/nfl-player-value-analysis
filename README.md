@@ -14,7 +14,7 @@ A Streamlit app ties the research threads together: a Home overview, a single-se
 
 The weekly fantasy projector cuts RMSE 7-9% below the naive forecasting baselines, a player's recent-form and season-to-date averages, the standard bar any forecast must clear ([Hyndman & Athanasopoulos](https://otexts.com/fpp3/accuracy.html)), and that edge holds in every season from 2020 through 2025, including the most recent. That margin is meaningful because weekly fantasy scoring is intrinsically low-predictability (single-digit to low-twenties R² by position, per [Fantasy Football Analytics](https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html)). On the 2020-2021 window where a free market-implied benchmark exists, the model is also competitive-to-slightly-ahead of a DraftKings-implied projection (6.386 vs 6.493 RMSE on 11,191 matched player-weeks), though that comparison can't be extended to recent years without paid projection data, so it is not the headline claim. Snap-share features did most of the work; the TE position flipped from a negative to a positive skill score the moment they were added. ([External benchmark](report/external_benchmark.md) · [feasibility note](report/fantasy/external_projection_benchmark_feasibility.md))
 
-Brock Purdy's 2023 season produced about $37M of surplus over a replacement-level QB on a rookie deal, the largest single-season cap surplus in 2016-2025. Three of the top ten surplus seasons are rookie-deal QBs (Purdy 2023, Purdy 2024, Jayden Daniels 2024). The RB market shows a negative implicit price for value at the position level, consistent with the long-documented RB market inefficiency. ([Replacement-level findings](report/salary_efficiency_findings.md))
+Brock Purdy's 2023 season produced about $35M of surplus over a replacement-level QB on a rookie deal, the largest single-season cap surplus in 2016-2025. Three of the top ten surplus seasons are rookie-deal QBs (Purdy 2023, Purdy 2024, Jayden Daniels 2024). The RB market shows a negative implicit price for value at the position level, consistent with the long-documented RB market inefficiency. ([Replacement-level findings](report/salary_efficiency_findings.md))
 
 The "QB1 goes down, WR1 craters" story does not survive a careful DiD. With treatment defined as the formal Out designation, a parallel-trends-checked DiD finds a null effect: the QB plays through a developing injury for weeks before being ruled out, so by the time the Out flag triggers, receiver production has already declined. Re-timing treatment to the first week the starter appears on the injury report at all surfaces a modest, suggestive effect the Out-only design missed (ATT ≈ −0.58 PPG, p ≈ 0.04), with about 104 events, real but underpowered, not the dramatic collapse fans assume. ([Causal write-up](report/causal/qb_injury_session3.md))
 
@@ -44,11 +44,11 @@ For each `(season, position)`, two baselines are estimated from the data: `repla
 
 | Season | Player | Pos | Team | Cap over replacement ($M) | Surplus ($M) |
 | --- | --- | --- | --- | ---: | ---: |
-| 2023 | Brock Purdy | QB | SF | 0.0 | **+37.4** |
-| 2024 | Brock Purdy | QB | SF | -0.1 | **+29.3** |
-| 2024 | Jayden Daniels | QB | WAS | 9.7 | **+25.6** |
-| 2025 | Puka Nacua | WR | LA | 0.3 | **+17.4** |
-| 2023 | Jake Browning | QB | CIN | -0.3 | **+15.1** |
+| 2023 | Brock Purdy | QB | SF | 0.2 | **+35.4** |
+| 2024 | Brock Purdy | QB | SF | 0.1 | **+27.7** |
+| 2024 | Jayden Daniels | QB | WAS | 9.8 | **+23.9** |
+| 2025 | Puka Nacua | WR | LA | 0.5 | **+14.6** |
+| 2023 | CeeDee Lamb | WR | DAL | 4.2 | **+14.4** |
 
 The framework also surfaces **position-level market irrationality**, running back occasionally shows a negative implicit value-per-dollar slope at the position-season level, consistent with the well-documented RB-market inefficiency.
 
