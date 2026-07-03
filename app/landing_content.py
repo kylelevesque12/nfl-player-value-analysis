@@ -14,27 +14,26 @@ LANDING_SUBTITLE = (
 )
 
 # Navigation targets, must match the sidebar radio option strings exactly.
-# A single sidebar selects one section; each section pairs a short explanation
-# with its tool and results.
+# A single sidebar selects one section. Product sections (the tables a fantasy
+# or front-office user acts on) come first; the research and methodology
+# material is consolidated under one section at the end.
 NAV_HOME = "Home"
 NAV_CAP = "Player Value & Cap"
 NAV_VALUE = NAV_CAP  # alias
-NAV_FANTASY = "Fantasy Rankings"
+NAV_FANTASY = "Draft Board"
 NAV_ROOKIE = "Rookies"
-NAV_CAUSAL = "QB Injury Study"
 NAV_PLAYER = "Player Detail"
-NAV_REPORT = "Project Report"
-NAV_METHOD = "Methodology & Sources"
+NAV_METHOD = "Methodology & Research"
 
 # The full ordered list of sidebar sections (the app's only navigation control).
+# The QB injury study, the decomposition experiments, and the project report
+# now live inside Methodology & Research rather than as their own sections.
 SECTIONS = [
     NAV_HOME,
-    NAV_CAP,
     NAV_FANTASY,
+    NAV_CAP,
     NAV_ROOKIE,
-    NAV_CAUSAL,
     NAV_PLAYER,
-    NAV_REPORT,
     NAV_METHOD,
 ]
 
@@ -50,7 +49,7 @@ def landing_cards() -> list[dict]:
                 "A live projection frame now scores upcoming weeks without outcome data.",
                 "Per-position conformal intervals improve QB coverage.",
             ],
-            "button": "Open Fantasy Rankings",
+            "button": "Open the Draft Board",
             "target": NAV_FANTASY,
         },
         {
@@ -83,8 +82,8 @@ def landing_cards() -> list[dict]:
                 "First-report treatment expanded events from 19 to 104.",
                 "Post-period ATT was about −0.58 PPG, suggestive and underpowered.",
             ],
-            "button": "Open Causal Study",
-            "target": NAV_CAUSAL,
+            "button": "Open Methodology & Research",
+            "target": NAV_METHOD,
         },
     ]
 
