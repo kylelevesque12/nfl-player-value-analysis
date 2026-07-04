@@ -78,4 +78,4 @@ def test_landing_routing_targets_unchanged():
     # Single-section navigation: the app routes through nav_section, and landing
     # is the default fall-through.
     assert 'key="nav_section"' in APP_SRC
-    assert "landing_page()" in APP_SRC
+    assert "landing_page(data)" in APP_SRC

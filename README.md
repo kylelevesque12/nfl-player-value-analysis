@@ -6,7 +6,7 @@
 
 Ten years of nflverse data, three questions: how much is a player actually worth to a front office, can a weekly fantasy model consistently beat the naive baselines every forecast is measured against, and what do the negative results teach about model architecture.
 
-A Streamlit app ties the research threads together: a Home overview, a single-section sidebar with the product pages first (Draft Board, Player Value & Cap, Rookies), a consolidated Methodology & Research section (safeguards audit, QB injury study, negative results, and the full project report), and a global player search → unified player detail view. Every section pairs a plain-language explanation with its tool. The complete plain-language write-up lives in [`PROJECT_REFERENCE.md`](PROJECT_REFERENCE.md). Try the [live app](https://nfl-player-value-analysis-fn4hagqfudvbh7ahqnizug.streamlit.app/), or run it locally with `./run_app.sh` (see [Interactive dashboard](#interactive-dashboard)).
+A Streamlit app ties the research threads together: a fantasy-first Home (top projected players, position rankings, plain-language takeaways), a sidebar with the fantasy cluster first (Draft Board, Rookies, Player Detail) followed by the Front Office view and a consolidated Methodology & Research section (safeguards audit, research study summaries, and the full project report), plus a global player search → unified player detail view. Every section pairs a plain-language explanation with its tool. The complete plain-language write-up lives in [`PROJECT_REFERENCE.md`](PROJECT_REFERENCE.md). Try the [live app](https://nfl-player-value-analysis-fn4hagqfudvbh7ahqnizug.streamlit.app/), or run it locally with `./run_app.sh` (see [Interactive dashboard](#interactive-dashboard)).
 
 ![App home page](docs/images/home.png)
 
@@ -186,7 +186,7 @@ It opens at http://localhost:8501 and needs Python 3.10+. The committed output t
 The app opens on a **Home** page: a written project overview (the two jobs, the evaluation philosophy, headline findings) and a how-to guide. A single sidebar then selects one section. Product pages lead with their tables; each keeps a plain-language explanation and an expandable full write-up below the tool:
 
 - **Draft Board**, top-25 2026 projections by position (QB/RB/WR/TE) as sortable tables, a week-by-week projected-vs-actual breakdown, and the DraftKings accuracy benchmark.
-- **Player Value & Cap**, production value (EPA, standardized by season/position) versus a reconstructed season cap hit, with the replacement-level surplus brief.
+- **Front Office**, the team-building view: production value (EPA, standardized by season/position) versus a reconstructed season cap hit, with the replacement-level surplus brief.
 - **Rookies**, the Bayesian cold-start projection for players with no NFL history.
 - **Methodology & Research**, the safeguards audit, the QB injury causal study (difference-in-differences on injury-report timing), the documented negative results, the data and evaluation sources, and the complete project report to read in-app or download.
 - **Global player search** (always in the sidebar) → a **unified Player Detail view** that assembles every output for one player, weekly, live, surplus, rookie, causal, with clean "not available" states for missing modules.

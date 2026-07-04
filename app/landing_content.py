@@ -8,17 +8,16 @@ from __future__ import annotations
 
 LANDING_TITLE = "NFL Player Value & Fantasy Forecasting"
 LANDING_SUBTITLE = (
-    "2026 draft rankings, weekly PPR projections with honest uncertainty, and "
-    "contract-value analytics, built on ten years of NFL data and graded "
-    "against the baselines every forecast must beat."
+    "PPR draft rankings and weekly projections with honest floors and "
+    "ceilings, plus the front-office view of who is actually worth the money."
 )
 
 # Navigation targets, must match the sidebar radio option strings exactly.
-# A single sidebar selects one section. Product sections (the tables a fantasy
-# or front-office user acts on) come first; the research and methodology
-# material is consolidated under one section at the end.
+# A single sidebar selects one section. The fantasy cluster comes first
+# (Draft Board, Rookies, Player Detail), then the front-office view, then the
+# methodology material consolidated at the end.
 NAV_HOME = "Home"
-NAV_CAP = "Player Value & Cap"
+NAV_CAP = "Front Office"
 NAV_VALUE = NAV_CAP  # alias
 NAV_FANTASY = "Draft Board"
 NAV_ROOKIE = "Rookies"
@@ -27,62 +26,89 @@ NAV_METHOD = "Methodology & Research"
 
 # The full ordered list of sidebar sections (the app's only navigation control).
 # The QB injury study, the decomposition experiments, and the project report
-# now live inside Methodology & Research rather than as their own sections.
+# live inside Methodology & Research rather than as their own sections.
 SECTIONS = [
     NAV_HOME,
     NAV_FANTASY,
-    NAV_CAP,
     NAV_ROOKIE,
     NAV_PLAYER,
+    NAV_CAP,
     NAV_METHOD,
 ]
 
+# One-line caption under each nav item, so the sidebar itself distinguishes
+# the fantasy pages from the front-office view and the methodology material.
+NAV_CAPTIONS = {
+    NAV_HOME: "Start here",
+    NAV_FANTASY: "2026 PPR rankings & accuracy",
+    NAV_ROOKIE: "First-year player projections",
+    NAV_PLAYER: "Everything on one player",
+    NAV_CAP: "Cap value & contract surplus",
+    NAV_METHOD: "How it all works",
+}
+
+# Team primary colors for player tiles (nflverse team codes). Fallback is the
+# brand navy for any code not listed here.
+TEAM_COLORS = {
+    "ARI": "#97233F", "ATL": "#A71930", "BAL": "#241773", "BUF": "#00338D",
+    "CAR": "#0085CA", "CHI": "#0B162A", "CIN": "#FB4F14", "CLE": "#311D00",
+    "DAL": "#003594", "DEN": "#FB4F14", "DET": "#0076B6", "GB": "#203731",
+    "HOU": "#03202F", "IND": "#002C5F", "JAX": "#006778", "KC": "#E31837",
+    "LA": "#003594", "LAC": "#0080C6", "LV": "#000000", "MIA": "#008E97",
+    "MIN": "#4F2683", "NE": "#002244", "NO": "#D3BC8D", "NYG": "#0B2265",
+    "NYJ": "#125740", "PHI": "#004C54", "PIT": "#FFB612", "SEA": "#002244",
+    "SF": "#AA0000", "TB": "#D50A0A", "TEN": "#0C2340", "WAS": "#5A1414",
+}
+DEFAULT_TEAM_COLOR = "#0d2b45"
+
 
 def landing_cards() -> list[dict]:
-    """Config for the four section cards on the Home page."""
+    """Config for the four takeaway cards on the Home page. Written in plain
+    fantasy language: the technical depth lives in the repo, the app translates
+    it into something a league-mate can read."""
     return [
         {
-            "tag": "Fantasy",
-            "headline": "Season rankings and weekly PPR projections you can act on",
+            "tag": "Draft prep",
+            "headline": "2026 rankings built to beat the averages",
             "points": [
-                "Beats the naive forecasting baselines by a steady 7–9% in every season, 2020–2025.",
-                "Play-by-play role and weather features cut weekly error a further 1.27%.",
-                "Every projection ships with a calibrated range, honest about uncertainty.",
+                "Out-projects a player's own recent form by 7–9% in every season since 2020.",
+                "Every player gets a floor and a ceiling, not just one number.",
+                "Held its own against DraftKings' market prices where the data allows a comparison.",
             ],
             "button": "Open the Draft Board",
             "target": NAV_FANTASY,
         },
         {
             "tag": "Front office",
-            "headline": "Who out-earns their contract, priced properly",
+            "headline": "Who's actually worth the money",
             "points": [
-                "Season cap hits reconstructed from contract terms replace the misleading flat APY.",
-                "Brock Purdy's 2023 season is the largest single-season cap surplus of 2016–2025.",
-                "The veteran running back market consistently over-pays for production.",
+                "Brock Purdy's 2023 season produced about $35M more than a replacement QB, at almost no cap cost.",
+                "Cheap young quarterbacks are where the surplus lives; veteran RB deals rarely pay it back.",
+                "Cap hits rebuilt season by season from contract terms, not misleading yearly averages.",
             ],
-            "button": "Open Player Value & Cap",
+            "button": "Open Front Office",
             "target": NAV_CAP,
         },
         {
             "tag": "Rookies",
-            "headline": "Projections for players with no NFL history",
+            "headline": "Rookie fliers, handicapped honestly",
             "points": [
-                "A hierarchical Bayesian model projects rookies from draft capital and profile.",
-                "An incumbent-context signal lowers playing-time odds for blocked rookies.",
-                "Combine features were tested and dropped; they never beat draft position.",
+                "No NFL stats needed: projections built from draft slot, age, and physical profile.",
+                "Knows when a rookie is buried behind an established starter, and says so.",
+                "Ranges that admit how uncertain rookie seasons really are.",
             ],
-            "button": "Open Rookie Model",
+            "button": "Open Rookie Projections",
             "target": NAV_ROOKIE,
         },
         {
-            "tag": "Research",
-            "headline": "The methodology, checked and kept on the record",
+            "tag": "Under the hood",
+            "headline": "Why you can trust these numbers",
             "points": [
-                "Re-timing the QB injury study grew its sample from 19 to 104 events and surfaced a suggestive −0.58 PPG effect.",
-                "26 automated methodology checks pass, covering leakage safety and calibration.",
-                "Ideas that lost head-to-head are documented, not hidden.",
+                "Every model must beat a hard baseline before it ships.",
+                "26 automated checks guard against hindsight leaking into projections.",
+                "The ideas that failed are documented, not buried.",
             ],
-            "button": "Open Methodology & Research",
+            "button": "How it works",
             "target": NAV_METHOD,
         },
     ]

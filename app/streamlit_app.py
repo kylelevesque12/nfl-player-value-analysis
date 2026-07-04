@@ -353,6 +353,36 @@ def inject_theme_css() -> None:
             color: #38434d; font-size: 0.88rem; line-height: 1.45;
         }
         .home-card li { margin-bottom: 0.3rem; }
+
+        /* --- Home-page player tiles (top projected players strip). --- */
+        .player-tile {
+            background: #ffffff;
+            border: 1px solid #dfe7ef;
+            border-top: 4px solid var(--team-color, #0d2b45);
+            border-radius: 12px;
+            padding: 0.75rem 0.85rem 0.7rem;
+            box-shadow: 0 1px 3px rgba(13, 43, 69, 0.06);
+        }
+        .player-tile .rank {
+            font-size: 0.7rem; font-weight: 700; color: #8a97a5;
+            letter-spacing: 0.05em;
+        }
+        .player-tile .name {
+            font-size: 0.98rem; font-weight: 800; color: var(--brand-navy);
+            line-height: 1.2; margin: 0.1rem 0 0.15rem;
+        }
+        .player-tile .meta {
+            font-size: 0.76rem; font-weight: 600; color: #5b6b7c;
+            text-transform: uppercase; letter-spacing: 0.03em;
+        }
+        .player-tile .points {
+            font-size: 1.35rem; font-weight: 800; color: var(--brand-blue);
+            margin-top: 0.35rem; line-height: 1;
+        }
+        .player-tile .points span {
+            font-size: 0.72rem; font-weight: 600; color: #8a97a5;
+            margin-left: 0.25rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1457,7 +1487,11 @@ from app.landing_content import (  # noqa: E402
     NAV_CAP,
     NAV_ROOKIE,
     NAV_METHOD,
+    NAV_CAPTIONS,
     SECTIONS,
+    TEAM_COLORS,
+    DEFAULT_TEAM_COLOR,
+    landing_cards,
     methodology_strip_labels,
 )
 
@@ -1477,7 +1511,48 @@ def _handle_landing_nav() -> None:
     st.session_state["nav_section"] = goto
 
 
-def landing_page() -> None:
+def _top_projected_strip(data: dict[str, pd.DataFrame]) -> None:
+    """ESPN-style strip: the top five projected players for 2026 as team-color
+    tiles, with position quick-links into the Draft Board."""
+    fantasy = data.get("fantasy", pd.DataFrame())
+    if fantasy.empty or "predicted_2026_fantasy_points_ppr" not in fantasy.columns:
+        return
+
+    st.markdown("### Top projected players, 2026")
+    top = fantasy.sort_values(
+        "predicted_2026_fantasy_points_ppr", ascending=False
+    ).head(5)
+    team_col = "primary_team_2025" if "primary_team_2025" in top.columns else "team"
+    cols = st.columns(len(top))
+    for col, (rank, (_, row)) in zip(cols, enumerate(top.iterrows(), start=1)):
+        team = str(row.get(team_col, "") or "")
+        color = TEAM_COLORS.get(team, DEFAULT_TEAM_COLOR)
+        ppg = row.get("predicted_2026_ppr_per_game")
+        ppg_txt = f"{ppg:.1f} per game" if pd.notna(ppg) else ""
+        with col:
+            st.markdown(
+                f"""
+                <div class="player-tile" style="--team-color:{color}">
+                    <div class="rank">#{rank} · {row['position']}</div>
+                    <div class="name">{row['player_display_name']}</div>
+                    <div class="meta">{team} · {ppg_txt}</div>
+                    <div class="points">{row['predicted_2026_fantasy_points_ppr']:.0f}
+                    <span>proj PPR</span></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    st.caption("Full rankings by position, with floors and ceilings:")
+    pos_cols = st.columns(4)
+    for col, pos in zip(pos_cols, ["QB", "RB", "WR", "TE"]):
+        with col:
+            if st.button(f"{pos} rankings", key=f"home_pos_{pos}", use_container_width=True):
+                st.session_state["rank_pos"] = pos
+                _go_to(NAV_FANTASY)
+
+
+def landing_page(data: dict[str, pd.DataFrame]) -> None:
     st.markdown(
         f"""
         <div class="hero">
@@ -1491,17 +1566,10 @@ def landing_page() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(
-        "Two jobs, one dataset: project PPR fantasy points (season-long rankings "
-        "and week-by-week scores) and measure which players out-earn their "
-        "contracts, for quarterbacks, running backs, receivers, and tight ends "
-        "from 2016 to 2025. Every model is graded against a strong, hard-to-beat "
-        "baseline, every projection ships with an honest range, and the results "
-        "that did not work stay on the record."
-    )
+    _top_projected_strip(data)
 
-    from app.landing_content import landing_cards
-
+    st.divider()
+    st.markdown("### The takeaways")
     cards = landing_cards()
     for row_start in range(0, len(cards), 2):
         cols = st.columns(2)
@@ -1535,12 +1603,13 @@ def landing_page() -> None:
 
     with st.expander("How to use this app"):
         st.markdown(
-            "The Draft Board, Player Value & Cap, and Rookies sections lead with "
-            "their tables; each keeps a plain-language explanation and a full "
-            "write-up panel below the tool. The Methodology & Research section "
-            "holds the safeguards audit, the QB injury causal study, the "
-            "documented negative results, the data and reference sources, and the "
-            "complete project report to read or download."
+            "The Draft Board, Rookies, and Player Detail sections are the fantasy "
+            "side; Front Office is the team-building view of the same data. Every "
+            "page leads with its rankings or tables, with a plain-language "
+            "explanation below the tool. Methodology & Research holds the "
+            "safeguards audit, research study summaries, sources, and the full "
+            "project report, and the technical depth lives in the "
+            "[GitHub repository](https://github.com/kylelevesque12/nfl-player-value-analysis)."
         )
 
 
@@ -1749,9 +1818,10 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
 # ---------------------------------------------------------------------------
 def player_value_section(data: dict[str, pd.DataFrame]) -> None:
     section_header(
-        "Front office",
-        "Player Value & Cap",
-        "How much value each player produced, and whether the contract pays for it.",
+        "The team-building view",
+        "Front Office",
+        "What production is actually worth against the salary cap, and which "
+        "contracts pay for themselves.",
     )
     tab1, tab2 = st.tabs(["Cap surplus brief", "Replacement-level detail"])
     with tab1:
@@ -1973,6 +2043,7 @@ def main() -> None:
         SECTIONS,
         key="nav_section",
         label_visibility="collapsed",
+        captions=[NAV_CAPTIONS.get(s, "") for s in SECTIONS],
     )
     render_player_search(player_index)
     st.sidebar.divider()
@@ -1993,7 +2064,7 @@ def main() -> None:
     elif section == NAV_METHOD:
         methodology_research_section(data)
     else:
-        landing_page()
+        landing_page(data)
 
 
 if __name__ == "__main__":
