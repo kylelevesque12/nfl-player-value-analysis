@@ -411,7 +411,19 @@ def section_header(eyebrow: str, title: str, subtitle: str = "") -> None:
 
 def _scroll_top_on_tab_change() -> None:
     """Scroll the main panel back to the top when a tab is clicked, so switching
-    tabs doesn't leave the reader stranded mid-page."""
+    tabs doesn't leave the reader stranded mid-page.
+
+    Wrapped in a broad guard: components.html is deprecated upstream and
+    st.iframe only accepts a src URL (no raw HTML+script), so there is no
+    drop-in replacement yet. This helper is purely cosmetic — if a future
+    Streamlit release removes the API, the app must keep working without it."""
+    try:
+        _render_scroll_script()
+    except Exception:
+        pass
+
+
+def _render_scroll_script() -> None:
     components.html(
         """
         <script>
@@ -865,7 +877,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
             },
         )
         fig.update_layout(height=520, margin=dict(l=0, r=0, t=20, b=20))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with cols[1]:
         recommendation_callout(
             "opportunity",
@@ -908,7 +920,7 @@ def front_office_executive_report(data: dict[str, pd.DataFrame]) -> None:
         )
         fig.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.6)
         fig.update_layout(height=320, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with cols[1]:
         recommendation_callout(
             "caveat",
@@ -1134,7 +1146,7 @@ def replacement_level_page(data: dict[str, pd.DataFrame]) -> None:
         },
     )
     fig.update_layout(height=560, yaxis=dict(autorange="reversed"))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
@@ -1234,7 +1246,7 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
                 title="Skill score by position",
             )
             fig.update_layout(height=380, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     with right:
         st.subheader("Per-player-week win rate by position")
@@ -1253,7 +1265,7 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
             )
             fig.update_yaxes(tickformat=".0%", range=[0.45, 0.60])
             fig.update_layout(height=380, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
@@ -1342,7 +1354,7 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
             title="Out-of-sample RMSE by rookie class",
         )
         fig.update_layout(height=380)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with right:
         st.subheader("Posterior interval coverage")
         chart_df = pd.melt(
@@ -1367,7 +1379,7 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
         fig.add_hline(y=0.80, line_dash="dash", line_color="grey", opacity=0.5)
         fig.update_yaxes(tickformat=".0%")
         fig.update_layout(height=380)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
@@ -1428,7 +1440,7 @@ def methodology_page(data: dict[str, pd.DataFrame]) -> None:
         title="Methodology check status",
     )
     fig.update_layout(height=320, showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
 
@@ -1547,7 +1559,7 @@ def _top_projected_strip(data: dict[str, pd.DataFrame]) -> None:
     pos_cols = st.columns(4)
     for col, pos in zip(pos_cols, ["QB", "RB", "WR", "TE"]):
         with col:
-            if st.button(f"{pos} rankings", key=f"home_pos_{pos}", use_container_width=True):
+            if st.button(f"{pos} rankings", key=f"home_pos_{pos}", width="stretch"):
                 st.session_state["rank_pos"] = pos
                 _go_to(NAV_FANTASY)
 
@@ -1589,7 +1601,7 @@ def landing_page(data: dict[str, pd.DataFrame]) -> None:
                 if st.button(
                     card["button"],
                     key=f"home_card_{card['target']}_{row_start}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     _go_to(card["target"])
 
@@ -1729,7 +1741,7 @@ def player_detail_page(data: dict[str, pd.DataFrame], index: pd.DataFrame) -> No
             title="Projected vs actual PPR by game (production HGB)",
         )
         fig.update_layout(height=380, xaxis=dict(showticklabels=False))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         if live is not None:
             lrow = live.iloc[0]
             opp = lrow.get("opponent_team", "")
@@ -1923,7 +1935,7 @@ def _project_report_tab() -> None:
                 ref,
                 file_name="PROJECT_REFERENCE.md",
                 mime="text/markdown",
-                use_container_width=True,
+                width="stretch",
             )
         docx_path = PROJECT_ROOT / "PROJECT_REFERENCE.docx"
         if docx_path.exists():
@@ -1933,7 +1945,7 @@ def _project_report_tab() -> None:
                     docx_path.read_bytes(),
                     file_name="PROJECT_REFERENCE.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
+                    width="stretch",
                 )
         with st.expander("Read the full report in-app"):
             numbers = sorted(split_reference(ref).keys())
