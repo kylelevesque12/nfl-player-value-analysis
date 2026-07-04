@@ -297,6 +297,62 @@ def inject_theme_css() -> None:
 
         /* Links pick up the brand color. */
         .main a { color: var(--brand-blue); }
+
+        /* --- Sidebar navigation: radio restyled as nav rows. --- */
+        /* Brand block at the top of the sidebar. */
+        .side-brand {
+            font-size: 1.08rem; font-weight: 800; color: #ffffff;
+            letter-spacing: -0.01em; padding: 0.35rem 0 0.1rem;
+            line-height: 1.25; white-space: nowrap;
+        }
+        .side-brand .sub {
+            display: block; font-size: 0.76rem; font-weight: 500;
+            color: #b9cbe0; letter-spacing: 0.02em; margin-top: 0.15rem;
+        }
+        /* Hide the radio circles; options become full-width rows. */
+        section[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child {
+            display: none;
+        }
+        section[data-testid="stSidebar"] [role="radiogroup"] label {
+            width: 100%; margin: 2px 0; padding: 0.5rem 0.75rem;
+            border-radius: 9px; cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        section[data-testid="stSidebar"] [role="radiogroup"] label:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: inset 3px 0 0 var(--brand-sky);
+        }
+        section[data-testid="stSidebar"] [role="radiogroup"] label p {
+            font-size: 0.95rem; font-weight: 500;
+        }
+
+        /* --- Home-page section cards. --- */
+        .home-card {
+            background: #ffffff;
+            border: 1px solid #dfe7ef;
+            border-radius: 14px;
+            padding: 1.1rem 1.2rem 0.9rem;
+            height: 100%;
+            box-shadow: 0 1px 3px rgba(13, 43, 69, 0.06);
+        }
+        .home-card .tag {
+            display: inline-block; font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.07em;
+            color: var(--brand-blue); background: var(--brand-tint);
+            border-radius: 999px; padding: 0.14rem 0.6rem; margin-bottom: 0.5rem;
+        }
+        .home-card h4 {
+            margin: 0 0 0.5rem; font-size: 1.04rem; font-weight: 700;
+            color: var(--brand-navy); line-height: 1.3;
+        }
+        .home-card ul {
+            margin: 0 0 0.25rem 1.05rem; padding: 0;
+            color: #38434d; font-size: 0.88rem; line-height: 1.45;
+        }
+        .home-card li { margin-bottom: 0.3rem; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -477,16 +533,11 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         "rookie_modeling_frame": "rookie_modeling_frame.csv",
         "rookie_bayes_validation_metrics": "rookie_bayes_validation_metrics.csv",
         "rookie_bayes_validation_predictions": "rookie_bayes_validation_predictions.csv",
-        # Causal QB-injury investigation (methodology)
-        # First-injury-report treatment (the current causal result)
+        # Causal QB-injury study: headline ATT for the research-studies card,
+        # events for the player index / Player Detail view. The full analysis
+        # lives in the repo reports, not as an app page.
         "causal_s3_att": "causal_s3_att.csv",
-        "causal_s3_eligibility": "causal_s3_eligibility.csv",
         "causal_s3_events": "causal_s3_first_report_events.csv",
-        "causal_s3_event_study": "causal_s3_event_study.csv",
-        # Two-stage weekly experiment (methodology)
-        "two_stage_weekly_summary": "two_stage_weekly_method_summary.csv",
-        "two_stage_weekly_by_fold": "two_stage_weekly_by_fold.csv",
-        "two_stage_weekly_per_stage": "two_stage_weekly_per_stage_quality.csv",
     }
     return {
         name: load_csv(filename, file_mtime(TABLE_DIR / filename))
@@ -1185,110 +1236,6 @@ def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
     source_footer(content["footer"])
 
 
-def causal_qb_injury_page(data: dict[str, pd.DataFrame]) -> None:
-    """Methodology piece: causal DiD on QB injury report -> WR PPR."""
-    content = DETAIL_PAGES["causal"]
-    att = data.get("causal_s3_att", pd.DataFrame())
-    eligibility = data.get("causal_s3_eligibility", pd.DataFrame())
-    events = data.get("causal_s3_events", pd.DataFrame())
-    event_study = data.get("causal_s3_event_study", pd.DataFrame())
-
-    render_page_scaffold(content)
-
-    if event_study.empty or att.empty:
-        st.info(
-            "First-report causal tables missing. Run "
-            "`python -m src.causal.session3_driver` to write the causal_s3_*.csv "
-            "outputs."
-        )
-        return
-
-    att_row = att.iloc[0]
-    n_events = len(events) if not events.empty else 104
-    card_row(
-        [
-            (
-                "First-report events",
-                f"{n_events:,}",
-                "Any injury-report status, while the QB is the established starter.",
-            ),
-            (
-                "Out-only events (comparison)",
-                "19",
-                "The stricter Out-only trigger under the same eligibility.",
-            ),
-            (
-                "Post-period ATT",
-                f"{att_row['att_pooled_post_period']:+.2f} PPG",
-                f"p ≈ {att_row['att_p_value_approx']:.3f}",
-            ),
-            (
-                "Verdict",
-                "Suggestive",
-                "A small negative effect the Out-only design missed, modest and "
-                "underpowered, not a clean headline.",
-            ),
-        ]
-    )
-
-    st.subheader("Event-study coefficients (treated × week_offset)")
-    st.caption(
-        "Each β_k is the change in (treated − control) PPR gap relative to "
-        "offset -1. The drop is concentrated at offset +1, the first game after "
-        "the QB's first injury report. The pre-period is plausible, but the gap "
-        "is already slightly elevated at -3 (see the caveat below)."
-    )
-    fig = px.scatter(
-        event_study,
-        x="week_offset",
-        y="coefficient",
-        color="is_pre_period",
-        error_y=event_study["se_cluster_robust"] * 1.96,
-        labels={
-            "week_offset": "Week relative to first injury report (event = 0)",
-            "coefficient": "β_k (PPR gap vs offset -1)",
-            "is_pre_period": "Pre-period",
-        },
-        title="First-report event-study coefficients with 95% CIs",
-        color_discrete_map={True: "#C8553D", False: "#157A6E"},
-    )
-    fig.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.7)
-    fig.add_vline(x=-0.5, line_dash="dot", line_color="grey", opacity=0.5)
-    fig.update_traces(marker=dict(size=12))
-    fig.update_layout(height=480)
-    st.plotly_chart(fig, use_container_width=True)
-
-    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
-
-    with st.expander("Sample construction & eligibility (320 candidates → 104 events)"):
-        st.dataframe(eligibility, width="stretch", hide_index=True)
-        if not events.empty and "first_injury_status" in events.columns:
-            st.caption(
-                "First-report status mix (blank = practice-report-only, no game "
-                "designation):"
-            )
-            st.dataframe(
-                events["first_injury_status"].value_counts(dropna=False)
-                .rename_axis("first_injury_status").reset_index(name="events"),
-                width="stretch", hide_index=True,
-            )
-
-    with st.expander("Event-study coefficient table"):
-        st.dataframe(event_study, width="stretch", hide_index=True)
-
-    with st.expander("Earlier Out-only analysis (for context)"):
-        st.markdown(
-            "An earlier specification defined treatment as the formal QB *transition* "
-            "with an Out / Doubtful / Questionable status and found a null effect: by the "
-            "time a QB is formally Out, his receivers have already been declining "
-            "for weeks, so the Out flag lags the causal damage. That null is what "
-            "motivated re-timing treatment to the first injury report. See "
-            "`report/causal/qb_injury_session1.md` and `qb_injury_session2.md`."
-        )
-
-    source_footer(content["footer"])
-
-
 def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
     """Bayesian hierarchical rookie projections, cold-start solution."""
     metrics = data["rookie_bayes_validation_metrics"]
@@ -1423,70 +1370,6 @@ def rookie_bayes_page(data: dict[str, pd.DataFrame]) -> None:
     source_footer(content["footer"])
 
 
-def two_stage_weekly_page(data: dict[str, pd.DataFrame]) -> None:
-    """Two-stage WR/TE decomposition experiment (negative result)."""
-    method_summary = data["two_stage_weekly_summary"]
-    by_fold = data["two_stage_weekly_by_fold"]
-    per_stage = data["two_stage_weekly_per_stage"]
-
-    content = DETAIL_PAGES["two_stage"]
-    render_page_scaffold(content)
-
-    with st.expander("What the per-stage diagnostic shows", expanded=False):
-        st.markdown(
-            "The two-stage product loses to the pooled HGB in every fold. "
-            "The per-stage breakdown explains where the failure comes from. "
-            "Stage 1 (renormalized target share) beats a predict-the-mean "
-            "baseline by 34%, the structural constraint actually carries "
-            "signal. Stages 2 and 3 (team attempts, PPR per target) come in "
-            "essentially flat against the mean. Multiplying noisy estimates "
-            "through the product compounds error the pooled model avoids by "
-            "learning the relevant interactions implicitly.\n\n"
-            "The shrunk-stage-3 variant, replacing the learned efficiency "
-            "model with the position-season mean, beats the full learned "
-            "version in every fold, which shows the unshrunk stage was "
-            "adding error rather than information. Even after that "
-            "prescription, the structurally-constrained product still loses "
-            "by 7-8%.\n\n"
-            "This is the fourth decomposition experiment in the project to "
-            "lose to a pooled HGB. Pooled tree models on engineered rolling "
-            "features extract the team-attempts and per-target-efficiency "
-            "signals more efficiently than any multiplicative decomposition "
-            "tested here."
-        )
-
-    if method_summary.empty:
-        st.info(
-            "Two-stage weekly experiment tables missing. Run "
-            "`python scripts/run_pipeline.py --steps two_stage_weekly`."
-        )
-        return
-
-    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
-
-    with st.expander("Head-to-head method summary"):
-        st.dataframe(method_summary, width="stretch", hide_index=True)
-
-    if not by_fold.empty:
-        with st.expander("By validation year"):
-            st.caption(
-                "Both two-stage variants lose to pooled HGB in every single year. "
-                "Shrunk-eff is always better than full-learned, confirming stage 3 "
-                "was adding error rather than information."
-            )
-            st.dataframe(by_fold, width="stretch", hide_index=True)
-
-    if not per_stage.empty:
-        with st.expander("Per-stage quality diagnostic"):
-            st.caption(
-                "How accurate each stage is on its own. Stage 1 (target share "
-                "renormalized) is genuinely informative; stages 2 and 3 are noise."
-            )
-            st.dataframe(per_stage, width="stretch", hide_index=True)
-
-    source_footer(content["footer"])
-
-
 def methodology_page(data: dict[str, pd.DataFrame]) -> None:
     methodology = data["methodology"]
     content = DETAIL_PAGES["methodology"]
@@ -1609,56 +1492,38 @@ def landing_page() -> None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "This project does two jobs with the same NFL data, covering quarterbacks, "
-        "running backs, receivers, and tight ends from 2016 to 2025.\n\n"
-        "The front-office job measures how much value a player produced, forecasts "
-        "how that value carries into the next season, and compares it to contract cost "
-        "to show who is overpaid or underpaid. The fantasy job projects PPR fantasy "
-        "points (both season-long totals for the upcoming year and week-by-week scores "
-        "during a season) and presents them as rankings a manager can act on. Around "
-        "both sits a research layer: a causal study of quarterback injuries, a Bayesian "
-        "model for rookies with no NFL history, and an external market benchmark."
-    )
-    st.markdown(
-        "The guiding principle is rigorous, transparent evaluation. Every model is "
-        "graded against a strong, hard-to-beat simple baseline rather than against zero, "
-        "results that did not work are kept on the record instead of hidden, and every "
-        "projection ships with a clear statement of how uncertain it is."
+        "Two jobs, one dataset: project PPR fantasy points (season-long rankings "
+        "and week-by-week scores) and measure which players out-earn their "
+        "contracts, for quarterbacks, running backs, receivers, and tight ends "
+        "from 2016 to 2025. Every model is graded against a strong, hard-to-beat "
+        "baseline, every projection ships with an honest range, and the results "
+        "that did not work stay on the record."
     )
 
-    st.divider()
-    st.markdown("### Where to go")
-    st.caption("Pick a section in the sidebar, or jump straight in:")
-    targets = [
-        (NAV_FANTASY, "Draft Board"),
-        (NAV_CAP, "Player Value & Cap"),
-        (NAV_ROOKIE, "Rookies"),
-        (NAV_METHOD, "Methodology & Research"),
-    ]
-    cols = st.columns(len(targets))
-    for col, (target, label) in zip(cols, targets):
-        with col:
-            if st.button(label, key=f"home_go_{target}", use_container_width=True):
-                _go_to(target)
+    from app.landing_content import landing_cards
 
-    st.divider()
-    st.markdown("### Headline findings")
-    st.markdown(
-        "- Season value is hard to predict beyond a smart baseline, so the value model "
-        "is best used for sorting players into tiers, not exact ranks.\n"
-        "- Player value splits into a role half (very predictable) and a per-play "
-        "efficiency half (nearly random), except at quarterback, where efficiency is "
-        "real and stable. This is the project's central insight.\n"
-        "- The weekly fantasy model beats every simple baseline by a steady 7–9% "
-        "across six seasons and edges the DraftKings market line on 2020–2021.\n"
-        "- Reconstructed season cap hits make the salary analysis credible; cheap young "
-        "quarterbacks dominate surplus, and the running-back market overpays veterans.\n"
-        "- Quarterback injury has a modest, suggestive negative effect on receiver "
-        "scoring once timed to the first injury report, not the collapse fans assume.\n"
-        "- Rookies with no NFL history are projected with a Bayesian model, and a "
-        "small depth-chart signal correctly lowers the projected playing time of a "
-        "rookie stuck behind an established starter."
-    )
+    cards = landing_cards()
+    for row_start in range(0, len(cards), 2):
+        cols = st.columns(2)
+        for col, card in zip(cols, cards[row_start:row_start + 2]):
+            with col:
+                points = "".join(f"<li>{p}</li>" for p in card["points"])
+                st.markdown(
+                    f"""
+                    <div class="home-card">
+                        <span class="tag">{card["tag"]}</span>
+                        <h4>{card["headline"]}</h4>
+                        <ul>{points}</ul>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    card["button"],
+                    key=f"home_card_{card['target']}_{row_start}",
+                    use_container_width=True,
+                ):
+                    _go_to(card["target"])
 
     st.divider()
     st.caption(" · ".join(f"✓ {label}" for label in methodology_strip_labels()))
@@ -2015,22 +1880,51 @@ def _project_report_tab() -> None:
     reports_page()
 
 
+def _study_card(content: dict, report_path: str, headline: str | None = None) -> None:
+    """Compact summary card for a research study whose full analysis lives in
+    the GitHub repo: title, purpose, key findings, headline number, and a link.
+    The app ships the conclusion; the repo carries the depth."""
+    st.markdown(f"#### {content['title']}")
+    st.caption(content["purpose"])
+    if headline:
+        st.markdown(headline)
+    st.markdown("\n".join(f"- {point}" for point in content["summary"]))
+    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
+    st.markdown(f"[Read the full analysis on GitHub]({GITHUB_BLOB_BASE}/{report_path})")
+
+
+def _research_studies_tab(data: dict[str, pd.DataFrame]) -> None:
+    st.caption(
+        "Research studies behind the product pages, summarized. Full write-ups, "
+        "diagnostics, and code live in the GitHub repository."
+    )
+    att = data.get("causal_s3_att", pd.DataFrame())
+    att_headline = None
+    if not att.empty:
+        att_row = att.iloc[0]
+        att_headline = (
+            f"**Headline estimate:** {att_row['att_pooled_post_period']:+.2f} PPG "
+            f"pooled post-period effect (p ≈ {att_row['att_p_value_approx']:.3f}), "
+            "on 104 first-report events."
+        )
+    _study_card(DETAIL_PAGES["causal"], "report/causal/qb_injury_session3.md", att_headline)
+    st.divider()
+    _study_card(DETAIL_PAGES["two_stage"], "report/two_stage_weekly.md")
+    st.divider()
+    _full_writeup_expander("causal", "QB injury study, plain-language write-up")
+
+
 def methodology_research_section(data: dict[str, pd.DataFrame]) -> None:
-    """One section for everything methodology: the safeguards audit, the causal
-    study, the documented negative results, and the full project report. The
-    product sections stay lean; the depth lives here and in the GitHub repo."""
+    """One section for everything methodology: the safeguards audit, summaries
+    of the research studies, and the full project report. The product sections
+    stay lean; the research depth lives in the GitHub repo."""
     section_header(
         "Research",
         "Methodology & Research",
         "How the models are built and checked, and the research studies behind the product pages.",
     )
-    tab1, tab2, tab3, tab4 = st.tabs(
-        [
-            "Safeguards & checks",
-            "QB injury study",
-            "Negative results",
-            "Report & sources",
-        ]
+    tab1, tab2, tab3 = st.tabs(
+        ["Safeguards & checks", "Research studies", "Report & sources"]
     )
     with tab1:
         methodology_page(data)
@@ -2039,12 +1933,8 @@ def methodology_research_section(data: dict[str, pd.DataFrame]) -> None:
             "methodology", "Models, safeguards, limitations & roadmap (full write-up)"
         )
     with tab2:
-        causal_qb_injury_page(data)
-        st.divider()
-        _full_writeup_expander("causal")
+        _research_studies_tab(data)
     with tab3:
-        two_stage_weekly_page(data)
-    with tab4:
         _project_report_tab()
     _scroll_top_on_tab_change()
 
@@ -2070,11 +1960,19 @@ def main() -> None:
 
     player_index = _player_index_from_data(data)
 
-    st.sidebar.title("Navigation")
+    st.sidebar.markdown(
+        """
+        <div class="side-brand">🏈&nbsp;NFL Player Value
+        <span class="sub">&amp; Fantasy Forecasting</span></div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.sidebar.divider()
     section = st.sidebar.radio(
         "Section",
         SECTIONS,
         key="nav_section",
+        label_visibility="collapsed",
     )
     render_player_search(player_index)
     st.sidebar.divider()

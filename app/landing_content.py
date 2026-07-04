@@ -39,48 +39,48 @@ SECTIONS = [
 
 
 def landing_cards() -> list[dict]:
-    """Config for the four findings cards."""
+    """Config for the four section cards on the Home page."""
     return [
         {
-            "tag": "Fantasy forecasting",
-            "headline": "Live weekly projections from leakage-safe player role features",
+            "tag": "Fantasy",
+            "headline": "Season rankings and weekly PPR projections you can act on",
             "points": [
-                "PBP role + weather features reduced weekly fantasy RMSE by 1.27% (6.020 → 5.944).",
-                "A live projection frame now scores upcoming weeks without outcome data.",
-                "Per-position conformal intervals improve QB coverage.",
+                "Beats the naive forecasting baselines by a steady 7–9% in every season, 2020–2025.",
+                "Play-by-play role and weather features cut weekly error a further 1.27%.",
+                "Every projection ships with a calibrated range, honest about uncertainty.",
             ],
             "button": "Open the Draft Board",
             "target": NAV_FANTASY,
         },
         {
-            "tag": "Player value / cap surplus",
-            "headline": "Surplus value using reconstructed cap-hit estimates",
+            "tag": "Front office",
+            "headline": "Who out-earns their contract, priced properly",
             "points": [
-                "Replaced flat APY with season-specific reconstructed cap-hit estimates.",
-                "Brock Purdy remains the top surplus player-season.",
-                "Early-extension stars are treated more realistically than under flat APY.",
+                "Season cap hits reconstructed from contract terms replace the misleading flat APY.",
+                "Brock Purdy's 2023 season is the largest single-season cap surplus of 2016–2025.",
+                "The veteran running back market consistently over-pays for production.",
             ],
             "button": "Open Player Value & Cap",
             "target": NAV_CAP,
         },
         {
-            "tag": "Rookie opportunity model",
-            "headline": "Rookie QB opportunity depends on incumbent context",
+            "tag": "Rookies",
+            "headline": "Projections for players with no NFL history",
             "points": [
-                "Combine features were tested but not kept.",
-                "A focused incumbent-context core improved the QB rookie case.",
-                "Rookies blocked by an established starter are projected to play less.",
+                "A hierarchical Bayesian model projects rookies from draft capital and profile.",
+                "An incumbent-context signal lowers playing-time odds for blocked rookies.",
+                "Combine features were tested and dropped; they never beat draft position.",
             ],
             "button": "Open Rookie Model",
             "target": NAV_ROOKIE,
         },
         {
-            "tag": "QB injury causal study",
-            "headline": "First injury-report appearance matters before formal absence",
+            "tag": "Research",
+            "headline": "The methodology, checked and kept on the record",
             "points": [
-                "An Out-only treatment found little signal.",
-                "First-report treatment expanded events from 19 to 104.",
-                "Post-period ATT was about −0.58 PPG, suggestive and underpowered.",
+                "Re-timing the QB injury study grew its sample from 19 to 104 events and surfaced a suggestive −0.58 PPG effect.",
+                "26 automated methodology checks pass, covering leakage safety and calibration.",
+                "Ideas that lost head-to-head are documented, not hidden.",
             ],
             "button": "Open Methodology & Research",
             "target": NAV_METHOD,
