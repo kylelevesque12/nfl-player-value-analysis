@@ -104,24 +104,25 @@ engine should say so with a number.
 
 ### July block — draft-ready (now → ~Aug 1)
 
-- `[ ]` **App rebuild around player content.** Remove the self-referential
-  "takeaways"; Home becomes top projected players, values & risers, a regression
-  watch (players whose production was efficiency-driven rather than role-driven,
-  from the decomposition outputs), and rookie fliers. Draft Board gains tiers
-  (grouping players whose prediction ranges overlap), stable/shaky role badges,
-  and a rookie view. Front Office and Rookies leave the navigation and become
-  research summary cards; their machinery lives on inside the rankings. Final
-  navigation: Home · Draft Board · Draft Room · Player Detail · Methodology &
-  Research.
+- `[~]` **App rebuild around player content.** Done: Home now leads with top
+  projected players, projected risers, and a regression watch (efficiency-driven
+  production from the decomposition outputs, RB/WR/TE only since QB efficiency
+  genuinely repeats); the Draft Board gained uncertainty-scaled tiers and
+  stable/shaky role badges; Front Office and Rookies left the navigation and
+  became research summary cards. Final navigation: Home · Draft Board · Draft
+  Room · Player Detail · Methodology & Research. The remaining piece is the
+  rookie-fliers Home module and Draft Board rookie view, which wait on the 2026
+  rookie class being scored (the "rookies into the season rankings" item).
 - `[ ]` **ADP data.** Fetch average draft position from Fantasy Football
   Calculator's free public API. ADP is the market price of every player, and the
   Draft Room needs it to predict what other drafters will do.
 - `[ ]` **Fantasy VORP + overall board.** Points above positional replacement for
   a standard 12-team league, producing the cross-position overall rankings and
   auction values a real draft needs.
-- `[ ]` **Positional scarcity chart.** Projected points by positional rank, one
+- `[x]` **Positional scarcity chart.** Projected points by positional rank, one
   line per position, so the running back cliff and the tight end cliff are visible
-  before anyone drafts.
+  before anyone drafts. Live as the first content on the Draft Room page, with a
+  "cost of drafting the 12th-best instead of the best" table beneath it.
 - `[ ]` **Draft Room v1 — the whole-draft planner.** League setup (teams, slot,
   snake, roster spec), one-click pick tracking, and a deterministic planner: first
   project the "shelf" (the expected best available player at each position at each
