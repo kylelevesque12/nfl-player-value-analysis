@@ -297,11 +297,8 @@ python -m pytest tests/ -q
 - **Causal result is suggestive, not definitive.** Re-timing treatment to the first injury report surfaces a small effect (ATT ≈ −0.58 PPG, p ≈ 0.04) the Out-only design missed, but with ~104 events it is underpowered and the pre-period isn't perfectly flat. Reported as suggestive.
 - **Injury attach at 17% coverage.** Only injured players appear on the report. The QB-injury causal study works around this by joining at the team-week level; the fantasy model treats missing injury status as "healthy" and tolerates the resulting noise.
 
-## What's done and what's left
+## What's done and what's next
 
-The modeling and app work is complete: leakage-safe weekly features (depth rank now rebuilt from play-by-play after nflverse dropped `list_rank`), reconstructed cap-hit surplus, rookie incumbent context, the first-injury-report causal study, live weekly projections, and a full Streamlit app (report-style Home, single-section navigation with integrated plain-language write-ups, an in-app Project Report, and global player search). The build log lives in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
+Version 1 is complete: leakage-safe weekly features (depth rank rebuilt from play-by-play after nflverse dropped `list_rank`), reconstructed cap-hit surplus, rookie incumbent context, the first-injury-report causal study, live weekly projections, and a fantasy-first Streamlit app with global player search.
 
-What remains is optional and external, not blocking:
-
-1. **Paid external projections** (FantasyPros / ESPN historical) to extend the market benchmark past 2021.
-2. **True OverTheCap year-by-year cap data** to replace the reconstructed estimate with audit-grade cap hits.
+Version 2 is in progress and turns the app into a genuine fantasy product while the repo carries the research depth. The centerpiece is a **Draft Room**: a whole-draft planner built on fantasy VORP (points above positional replacement) and positional-dropoff math, with a Monte Carlo layer and a published strategy-tournament validation. Around it: rookies folded into the season rankings, an injury-return fix for the season model, calibrated quantile intervals (player-specific floors and ceilings), ADP integration with a historical backtest, an automated in-season weekly refresh, and a start/sit comparator. The full sequenced plan, with what is deliberately out of scope, lives in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md).
