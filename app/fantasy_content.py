@@ -164,6 +164,27 @@ def risers_frame(fantasy: pd.DataFrame, top_n: int = 8) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
+def draft_values_frame(
+    board: pd.DataFrame,
+    top_n: int = 8,
+    max_rank: int = 120,
+    min_edge: float = 10.0,
+) -> pd.DataFrame:
+    """Draft-day values: players the market drafts meaningfully later than the
+    model ranks them (edge_vs_adp = ADP overall rank − model overall rank)."""
+    needed = ["player_display_name", "position", "overall_rank", "edge_vs_adp"]
+    if not _require(board, needed):
+        return pd.DataFrame()
+    df = board[pd.to_numeric(board["edge_vs_adp"], errors="coerce").notna()].copy()
+    df = df[(df["overall_rank"] <= max_rank) & (df["edge_vs_adp"] >= min_edge)]
+    df = df.sort_values("edge_vs_adp", ascending=False).head(top_n)
+    keep = [
+        "player_display_name", "position", "overall_rank",
+        "adp_formatted", "edge_vs_adp",
+    ]
+    return df[[c for c in keep if c in df.columns]].reset_index(drop=True)
+
+
 def regression_watch_frame(
     fantasy: pd.DataFrame, two_stage: pd.DataFrame, top_n: int = 8
 ) -> pd.DataFrame:

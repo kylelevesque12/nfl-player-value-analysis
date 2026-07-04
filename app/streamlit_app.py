@@ -572,6 +572,8 @@ def load_all_data() -> dict[str, pd.DataFrame]:
         # Season value decomposition: powers the stable/shaky role badge and
         # the regression watch (efficiency_variance_share per player).
         "two_stage_projection": "two_stage_2026_projection.csv",
+        # Overall draft board: VORP, auction values, and ADP edge.
+        "draft_board": "draft_board_2026.csv",
         # Replacement-level surplus: headline for the research card + the
         # surplus history in Player Detail.
         "replacement_top_surplus": "salary_findings_replacement_top_surplus.csv",
@@ -595,6 +597,92 @@ def load_all_data() -> dict[str, pd.DataFrame]:
     }
 
 
+def _overall_board_view(data: dict[str, pd.DataFrame]) -> None:
+    """Cross-position draft board: VORP ranks, auction values, ADP edge."""
+    board = data.get("draft_board", pd.DataFrame())
+    if board.empty:
+        st.info(
+            "The overall board is missing. Run "
+            "`python -m src.fantasy_vorp` after fetching ADP with "
+            "`python scripts/fetch_adp.py --year 2026`."
+        )
+        return
+
+    top = board.head(75).copy()
+    edge = pd.to_numeric(top["edge_vs_adp"], errors="coerce")
+    show = pd.DataFrame(
+        {
+            "Rank": top["overall_rank"].astype(int),
+            "Player": top["player_display_name"],
+            "Pos": top["position"],
+            "Team": top.get("primary_team_2025", ""),
+            "Bye": top.get("bye", pd.Series(dtype="float64")).fillna(0).astype(int).replace(0, pd.NA),
+            "Proj PPR": top["predicted_2026_fantasy_points_ppr"].round(0).astype(int),
+            "VORP": top["vorp"].round(0).astype(int),
+            "$": top["auction_value"].astype(int),
+            "ADP": top.get("adp_formatted", ""),
+            "Edge": edge.round(0),
+        }
+    )
+    st.subheader("Overall draft board: top 75 by value over replacement")
+    st.dataframe(
+        show,
+        width="stretch",
+        hide_index=True,
+        height=740,
+        column_config={
+            "Rank": st.column_config.NumberColumn("Rank", width="small"),
+            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "VORP": st.column_config.NumberColumn(
+                "VORP",
+                width="small",
+                help="Value over replacement player: projected points above "
+                "the best freely available player at the position once every "
+                "starting lineup in a 12-team league is filled. This is what "
+                "makes players comparable across positions.",
+            ),
+            "$": st.column_config.NumberColumn(
+                "$",
+                width="small",
+                format="$%d",
+                help="Auction value for a 12-team, $200-budget league: a $1 "
+                "floor everywhere, with the league's discretionary budget "
+                "split in proportion to positive VORP.",
+            ),
+            "ADP": st.column_config.TextColumn(
+                "ADP",
+                width="small",
+                help="Average draft position (round.pick) across real 12-team "
+                "PPR drafts on Fantasy Football Calculator.",
+            ),
+            "Edge": st.column_config.NumberColumn(
+                "Edge",
+                width="small",
+                format="%+d",
+                help="ADP overall rank minus the model's overall rank. "
+                "Positive: the market lets you draft him later than the model "
+                "ranks him (a value). Negative: the market takes him earlier "
+                "(a fade). Blank: not drafted in the ADP sample.",
+            ),
+        },
+    )
+    meta_drafts = board.get("adp_total_drafts", pd.Series(dtype="float64")).dropna()
+    meta_end = board.get("adp_window_end", pd.Series(dtype="object")).dropna()
+    if not meta_drafts.empty and not meta_end.empty:
+        st.caption(
+            f"ADP snapshot: {int(meta_drafts.iloc[0]):,} real 12-team PPR "
+            f"drafts through {meta_end.iloc[0]}. "
+            "2026 rookies are not on the board yet — they join once the "
+            "rookie class is scored (see the roadmap)."
+        )
+    st.download_button(
+        "Download the full overall board",
+        board.to_csv(index=False),
+        file_name="draft_board_2026.csv",
+        mime="text/csv",
+    )
+
+
 def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
     """Fantasy rankings: top-25 2026 season projections per position, plus
     week-by-week projection-vs-actual for completed games. Table-first."""
@@ -611,8 +699,11 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
         return
 
     position = st.radio(
-        "Position", ["QB", "RB", "WR", "TE"], horizontal=True, key="rank_pos"
+        "Position", ["Overall", "QB", "RB", "WR", "TE"], horizontal=True, key="rank_pos"
     )
+    if position == "Overall":
+        _overall_board_view(data)
+        return
 
     pos = (
         fantasy[fantasy["position"].eq(position)]
@@ -1000,20 +1091,42 @@ def _top_projected_strip(data: dict[str, pd.DataFrame]) -> None:
 
 
 def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
-    """Home player-content modules: projected risers and the regression watch.
+    """Home player-content modules: draft-day values, projected risers, and
+    the regression watch.
 
     A rookie-fliers module joins these once the 2026 rookie class is scored
     (roadmap: rookies into the season rankings)."""
     fantasy = data.get("fantasy", pd.DataFrame())
     two_stage = data.get("two_stage_projection", pd.DataFrame())
+    board = data.get("draft_board", pd.DataFrame())
 
+    values = fc.draft_values_frame(board)
     risers = fc.risers_frame(fantasy)
     watch = fc.regression_watch_frame(fantasy, two_stage)
-    if risers.empty and watch.empty:
+    if values.empty and risers.empty and watch.empty:
         return
 
-    left, right = st.columns(2)
-    with left:
+    col_values, col_risers, col_watch = st.columns(3)
+    with col_values:
+        st.markdown("### Draft-day values")
+        st.caption(
+            "The market drafts these players well after where the model "
+            "ranks them. Edge is the gap in overall rank."
+        )
+        if values.empty:
+            st.info("Values need the ADP snapshot and the overall board.")
+        else:
+            show = pd.DataFrame(
+                {
+                    "Player": values["player_display_name"],
+                    "Pos": values["position"],
+                    "ADP": values.get("adp_formatted", ""),
+                    "Edge": values["edge_vs_adp"].round(0).astype(int),
+                }
+            )
+            st.dataframe(show, width="stretch", hide_index=True)
+
+    with col_risers:
         st.markdown("### Projected risers")
         st.caption(
             "Projected to beat last season's total by the most. Several are "
@@ -1026,19 +1139,17 @@ def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
                 {
                     "Player": risers["player_display_name"],
                     "Pos": risers["position"],
-                    "Team": risers["team"],
-                    "Proj PPR": risers[fc.PROJ_COL].round(0).astype(int),
-                    "vs 2025": risers[fc.DELTA_COL].round(0).astype(int),
+                    "Proj": risers[fc.PROJ_COL].round(0).astype(int),
+                    "vs '25": risers[fc.DELTA_COL].round(0).astype(int),
                 }
             )
             st.dataframe(show, width="stretch", hide_index=True)
 
-    with right:
+    with col_watch:
         st.markdown("### Regression watch")
         st.caption(
-            "Big seasons that leaned on per-play efficiency, the part of "
-            "production that barely repeats year to year. Role-driven players "
-            "are safer; these are the opposite."
+            "Big seasons that leaned on per-play efficiency, which barely "
+            "repeats for RB/WR/TE. Role-driven players are safer."
         )
         if watch.empty:
             st.info("Regression-watch data unavailable.")
@@ -1047,12 +1158,12 @@ def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
                 {
                     "Player": watch["player_display_name"],
                     "Pos": watch["position"],
-                    "Team": watch["team"],
-                    "Proj PPR": watch[fc.PROJ_COL].round(0).astype(int),
-                    "vs 2025": watch[fc.DELTA_COL].round(0).astype(int),
+                    "Proj": watch[fc.PROJ_COL].round(0).astype(int),
+                    "vs '25": watch[fc.DELTA_COL].round(0).astype(int),
                 }
             )
             st.dataframe(show, width="stretch", hide_index=True)
+
     st.caption(
         "Why no quarterbacks on the regression watch: QB efficiency is the "
         "one kind that genuinely repeats, so the fade-the-fluke logic does "
@@ -1366,6 +1477,18 @@ def draft_room_section(data: dict[str, pd.DataFrame]) -> None:
             "tier column on the Draft Board shows where each position's "
             "cliffs fall, player by player."
         )
+
+    board = data.get("draft_board", pd.DataFrame())
+    if not board.empty and "adp_total_drafts" in board.columns:
+        drafts = board["adp_total_drafts"].dropna()
+        end = board["adp_window_end"].dropna()
+        if not drafts.empty and not end.empty:
+            st.caption(
+                f"Planner inputs already loaded: the overall VORP board (see "
+                f"the Draft Board's Overall view) and an ADP snapshot of "
+                f"{int(drafts.iloc[0]):,} real 12-team PPR drafts through "
+                f"{end.iloc[0]}."
+            )
 
     st.divider()
     st.markdown(

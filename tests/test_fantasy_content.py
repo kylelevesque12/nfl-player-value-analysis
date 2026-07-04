@@ -93,6 +93,22 @@ def test_scarcity_frame_and_dropoffs():
     assert rb_drop == pytest.approx(100.0)
 
 
+def test_draft_values_frame_filters_and_sorts():
+    board = pd.DataFrame(
+        {
+            "player_display_name": [f"P{i}" for i in range(5)],
+            "position": ["RB", "WR", "TE", "QB", "WR"],
+            "overall_rank": [10, 40, 90, 130, 60],
+            "adp_formatted": ["2.05", "6.02", "9.01", "12.01", "7.03"],
+            "edge_vs_adp": [15.0, 30.0, 5.0, 50.0, None],
+        }
+    )
+    values = fc.draft_values_frame(board, max_rank=120, min_edge=10.0)
+    # P3 excluded by rank cap, P2 by min edge, P4 by missing edge; sorted desc.
+    assert list(values["player_display_name"]) == ["P1", "P0"]
+    assert values["edge_vs_adp"].is_monotonic_decreasing
+
+
 def test_real_tables_build_cleanly_if_present():
     fantasy_path = ROOT / "outputs" / "tables" / "2026_fantasy_football_projections.csv"
     ts_path = ROOT / "outputs" / "tables" / "two_stage_2026_projection.csv"

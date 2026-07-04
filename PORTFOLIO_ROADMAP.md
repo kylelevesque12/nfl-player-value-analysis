@@ -113,12 +113,18 @@ engine should say so with a number.
   Room · Player Detail · Methodology & Research. The remaining piece is the
   rookie-fliers Home module and Draft Board rookie view, which wait on the 2026
   rookie class being scored (the "rookies into the season rankings" item).
-- `[ ]` **ADP data.** Fetch average draft position from Fantasy Football
-  Calculator's free public API. ADP is the market price of every player, and the
-  Draft Room needs it to predict what other drafters will do.
-- `[ ]` **Fantasy VORP + overall board.** Points above positional replacement for
-  a standard 12-team league, producing the cross-position overall rankings and
-  auction values a real draft needs.
+- `[x]` **ADP data.** `scripts/fetch_adp.py` pulls a snapshot from Fantasy
+  Football Calculator's free public API (943 real 12-team PPR drafts at first
+  fetch) into `data/external/`, and `src/adp.py` matches it to the projection
+  table by normalized name + position with a reported match rate (92.6%; every
+  unmatched top-100 pick is a 2026 rookie, which is the next item's job).
+- `[x]` **Fantasy VORP + overall board.** `src/fantasy_vorp.py` computes
+  replacement level by actually filling all 12 starting lineups including flex,
+  then ranks all positions together by value over replacement, with auction
+  values and an edge-vs-ADP column. Written to
+  `outputs/tables/draft_board_2026.csv`, documented in
+  `report/draft_board_vorp.md`, and shipped as the Draft Board's Overall view
+  plus a draft-day values module on Home.
 - `[x]` **Positional scarcity chart.** Projected points by positional rank, one
   line per position, so the running back cliff and the tight end cliff are visible
   before anyone drafts. Live as the first content on the Draft Room page, with a
