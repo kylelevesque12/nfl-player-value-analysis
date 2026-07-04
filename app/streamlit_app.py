@@ -12,6 +12,17 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+# Purge our own app.* modules so every script run imports them fresh from disk.
+# Streamlit Cloud updates code with a git pull + hot reload of THIS file only:
+# the long-lived Python process keeps the old app.* modules cached in
+# sys.modules, so a new main script importing a name added to app.landing_content
+# in the same push raises ImportError until someone manually reboots the app.
+# (This took the deployed app down twice.) Re-importing these small pure-config
+# modules costs well under a millisecond per run; the heavy third-party imports
+# are untouched.
+for _mod in [m for m in list(sys.modules) if m == "app" or m.startswith("app.")]:
+    del sys.modules[_mod]
+
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import plotly.express as px  # noqa: E402
