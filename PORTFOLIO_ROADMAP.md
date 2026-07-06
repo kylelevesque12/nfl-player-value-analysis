@@ -129,15 +129,20 @@ engine should say so with a number.
   line per position, so the running back cliff and the tight end cliff are visible
   before anyone drafts. Live as the first content on the Draft Room page, with a
   "cost of drafting the 12th-best instead of the best" table beneath it.
-- `[ ]` **Draft Room v1 — the whole-draft planner.** League setup (teams, slot,
-  snake, roster spec), one-click pick tracking, and a deterministic planner: first
-  project the "shelf" (the expected best available player at each position at each
-  of the user's future picks, assuming opponents draft by ADP), then a small
-  dynamic program assigns positions to the remaining picks to maximize total
-  starter value. The recommendation for the current pick is the first move of the
-  best full plan, shown with a cost-of-waiting table and tier-aware language. The
-  engine is projection-agnostic from day one: it consumes any values table, which
-  is what later allows user-supplied rankings.
+- `[x]` **Draft Room v1 — the whole-draft planner.** League setup (teams, slot,
+  rounds), live one-click pick tracking with undo/reset, and a deterministic
+  planner (`app/draft_planner.py`): a single shared timeline simulates the rest
+  of the draft pick by pick, opponents taking the best remaining player by ADP
+  and the user's own hypothetical picks removing players from the same pool, then
+  searches every sequence of position choices up to the roster's starting slots
+  to maximize total value over replacement. Runs in under 30ms on the full board.
+  Ships with a cost-of-waiting table and a full plan-from-here strip. Caught and
+  fixed two real bugs while building this (see `report/draft_room_planner.md`):
+  an early two-phase design double-counted a player when the plan's own current
+  pick was the one being planned, and the cost-of-waiting table's opponent count
+  had an off-by-one (assumed every intervening pick was an opponent's instead of
+  checking the snake order). Both are pinned by regression tests. The engine
+  consumes any values table, which is what later allows user-supplied rankings.
 - `[ ]` **Rookies into the season rankings.** The Bayesian rookie projections feed
   the Draft Board with honestly wide ranges. A 2026 draft board without rookies is
   broken from a user's point of view.
