@@ -32,16 +32,19 @@ def parse_args() -> argparse.Namespace:
             # Front office
             "predictions,salary,findings,two_stage,"
             # Fantasy
-            "fantasy,weekly_fantasy,external_benchmark,rookie_bayes,"
+            "fantasy,draft_board,weekly_fantasy,external_benchmark,rookie_bayes,"
             "two_stage_weekly,causal_session1,causal_session2"
         ),
         help=(
             "Comma-separated pipeline steps. Two perspectives share the "
             "upstream cleaning/value/audit stages. Front-office steps: "
             "predictions, salary, findings, two_stage. Fantasy steps: "
-            "fantasy, weekly_fantasy, external_benchmark, rookie_bayes, "
-            "two_stage_weekly, causal_session1, causal_session2. Shared: "
-            "clean, value, decompose, checks, interpretation, benchmark."
+            "fantasy, draft_board, weekly_fantasy, external_benchmark, "
+            "rookie_bayes, two_stage_weekly, causal_session1, "
+            "causal_session2. Shared: clean, value, decompose, checks, "
+            "interpretation, benchmark. draft_board needs an ADP snapshot "
+            "(`python scripts/fetch_adp.py --year 2026`) for its market "
+            "columns, but builds a full VORP-only board without one."
         ),
     )
     return parser.parse_args()
@@ -79,6 +82,14 @@ def main() -> int:
         print("Salary finding sample:", results["findings"]["tables"]["finding_base"].shape)
     if "fantasy" in results:
         print("Fantasy projections:", results["fantasy"]["fantasy_predictions"].shape)
+    if "draft_board" in results:
+        board_diag = results["draft_board"]["diagnostics"]
+        match_note = (
+            f", ADP matched {board_diag['adp_match_rate']:.1%}"
+            if "adp_match_rate" in board_diag
+            else ", no ADP snapshot found (VORP-only board)"
+        )
+        print(f"Draft board: {results['draft_board']['board'].shape}{match_note}")
     if "weekly_fantasy" in results:
         print("Weekly fantasy projection rows:", results["weekly_fantasy"]["predictions"].shape)
     if "external_benchmark" in results:

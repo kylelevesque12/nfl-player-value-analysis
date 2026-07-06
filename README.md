@@ -198,7 +198,7 @@ pip install -r requirements.txt
 python scripts/run_pipeline.py
 ```
 
-Pipeline steps run in dependency order: clean raw weekly data → rebuild value scores → rebuild value decomposition → rebuild 2026 prediction tables → rebuild salary efficiency → rebuild salary findings (including replacement-level surplus) → rebuild weekly fantasy projections → rebuild external benchmark → rebuild rookie modeling frame → rebuild two-stage weekly experiment → rebuild causal stages 1+2 → rebuild weekly win projections → rebuild methodology checks → rebuild model interpretation → rebuild benchmark → rebuild season-level two-stage value.
+Pipeline steps run in dependency order: clean raw weekly data → rebuild value scores → rebuild value decomposition → rebuild 2026 prediction tables → rebuild salary efficiency → rebuild salary findings (including replacement-level surplus) → rebuild 2026 season fantasy projections → rebuild the overall draft board (VORP + auction values, plus ADP edge if a snapshot has been fetched) → rebuild weekly fantasy projections → rebuild external benchmark → rebuild rookie modeling frame → rebuild two-stage weekly experiment → rebuild causal stages 1+2 → rebuild weekly win projections → rebuild methodology checks → rebuild model interpretation → rebuild benchmark → rebuild season-level two-stage value.
 
 Selective runs:
 
@@ -214,7 +214,13 @@ pip install nfl_data_py
 python scripts/fetch_nflverse_data.py --years 2016-2025
 python scripts/fetch_rotoguru_salaries.py --years 2014-2021
 python scripts/build_external_projections_from_dk.py
+python scripts/fetch_adp.py --year 2026
 ```
+
+The ADP fetch is optional: the `draft_board` pipeline step builds a full VORP
++ auction-value board from the season projections alone, and only adds the
+market-comparison columns (ADP, edge vs. ADP) once a snapshot exists at
+`data/external/adp_2026_ppr.csv`.
 
 PyMC rookie sampling (separate venv):
 

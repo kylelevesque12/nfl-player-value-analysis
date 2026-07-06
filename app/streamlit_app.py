@@ -541,6 +541,18 @@ def _available_columns(df: pd.DataFrame, cols: list[str]) -> list[str]:
     return [col for col in cols if col in df.columns]
 
 
+def _col_or_na(df: pd.DataFrame, col: str) -> pd.Series:
+    """``df[col]`` if present, else an index-aligned all-NaN Series.
+
+    Safer than ``df.get(col, pd.Series(...))``: an unaligned default Series
+    (e.g. the empty ``pd.Series(dtype="float64")`` this replaces) has the
+    wrong length and breaks ``pd.DataFrame({...})`` construction the moment a
+    column that's normally present (like a market-data field on an older,
+    pre-fallback board) goes missing.
+    """
+    return df[col] if col in df.columns else pd.Series(pd.NA, index=df.index)
+
+
 def card_row(metrics: list[tuple[str, str, str | None]], max_per_row: int = 3) -> None:
     """KPI tiles that wrap into balanced rows so they stay readable on tablet /
     phone widths (Streamlit stacks columns fully below its small-screen
@@ -603,8 +615,9 @@ def _overall_board_view(data: dict[str, pd.DataFrame]) -> None:
     if board.empty:
         st.info(
             "The overall board is missing. Run "
-            "`python -m src.fantasy_vorp` after fetching ADP with "
-            "`python scripts/fetch_adp.py --year 2026`."
+            "`python scripts/run_pipeline.py --steps draft_board` "
+            "(fetch `python scripts/fetch_adp.py --year 2026` first for the "
+            "market-comparison columns; the board still builds without it)."
         )
         return
 
@@ -615,12 +628,13 @@ def _overall_board_view(data: dict[str, pd.DataFrame]) -> None:
             "Rank": top["overall_rank"].astype(int),
             "Player": top["player_display_name"],
             "Pos": top["position"],
-            "Team": top.get("primary_team_2025", ""),
-            "Bye": top.get("bye", pd.Series(dtype="float64")).fillna(0).astype(int).replace(0, pd.NA),
+            "Team": _col_or_na(top, "primary_team_2025"),
+            "Bye": pd.to_numeric(_col_or_na(top, "bye"), errors="coerce")
+            .fillna(0).astype(int).replace(0, pd.NA),
             "Proj PPR": top["predicted_2026_fantasy_points_ppr"].round(0).astype(int),
             "VORP": top["vorp"].round(0).astype(int),
             "$": top["auction_value"].astype(int),
-            "ADP": top.get("adp_formatted", ""),
+            "ADP": _col_or_na(top, "adp_formatted"),
             "Edge": edge.round(0),
         }
     )
@@ -1617,8 +1631,9 @@ def draft_room_section(data: dict[str, pd.DataFrame]) -> None:
     if board.empty:
         st.info(
             "The overall board is missing. Run "
-            "`python scripts/fetch_adp.py --year 2026` then "
-            "`python -m src.fantasy_vorp`."
+            "`python scripts/run_pipeline.py --steps draft_board` "
+            "(fetch `python scripts/fetch_adp.py --year 2026` first for the "
+            "market-comparison columns; the board still builds without it)."
         )
         return
 

@@ -124,7 +124,16 @@ engine should say so with a number.
   values and an edge-vs-ADP column. Written to
   `outputs/tables/draft_board_2026.csv`, documented in
   `report/draft_board_vorp.md`, and shipped as the Draft Board's Overall view
-  plus a draft-day values module on Home.
+  plus a draft-day values module on Home. Wired into the standard pipeline as
+  the `draft_board` step (runs right after `fantasy`) so it is never a
+  separate manual step again; it degrades gracefully to a VORP-only board
+  (guaranteed-stable schema, ADP columns present as NaN rather than missing)
+  when no ADP snapshot has been fetched. Caught two real bugs while doing
+  this: the CSV was never actually committed (a blanket `outputs/tables/*`
+  gitignore rule silently swallowed `git add` for it, with no error — fixed
+  with an explicit allowlist entry), and the no-ADP fallback path was missing
+  the `bye` column entirely, which would have crashed the app's display code
+  the first time anyone used the board without an ADP snapshot present.
 - `[x]` **Positional scarcity chart.** Projected points by positional rank, one
   line per position, so the running back cliff and the tight end cliff are visible
   before anyone drafts. Live as the first content on the Draft Room page, with a

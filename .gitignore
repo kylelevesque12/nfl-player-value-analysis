@@ -117,6 +117,9 @@ outputs/tables/*
 !outputs/tables/two_stage_variance_share.csv
 !outputs/tables/two_stage_2026_projection.csv
 
+# Overall draft board (VORP + auction values + ADP edge)
+!outputs/tables/draft_board_2026.csv
+
 # Local experiment tracking
 mlruns/
 

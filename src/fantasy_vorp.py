@@ -100,12 +100,27 @@ def auction_values(
     return (1.0 + share * discretionary).round(0).astype(int)
 
 
+# Columns that only ever come from the ADP merge. When no ADP snapshot is
+# available the board is still fully usable (VORP, auction values, and ranks
+# all stand on their own), but these columns must still exist, filled with
+# NaN, so every consumer sees one stable schema instead of having to
+# special-case "column missing" versus "column present but blank."
+ADP_DERIVED_COLUMNS = [
+    "adp", "adp_formatted", "adp_overall_rank", "bye",
+    "adp_total_drafts", "adp_window_end",
+]
+
+
 def build_draft_board(
     fantasy: pd.DataFrame,
     adp: pd.DataFrame | None = None,
     teams: int = DEFAULT_TEAMS,
 ) -> tuple[pd.DataFrame, dict]:
     """The overall (cross-position) draft board, with ADP merged when given.
+
+    This is a legitimate base board even without ADP: value over replacement,
+    auction values, and overall rank all come from the season projections
+    alone. ADP only adds the market-comparison columns on top.
 
     edge_vs_adp = ADP overall rank − VORP overall rank: positive means the
     market lets you draft the player later than the model ranks him (a value),
@@ -131,6 +146,10 @@ def build_draft_board(
         board["edge_vs_adp"] = board["adp_overall_rank"] - board["overall_rank"]
     else:
         board["edge_vs_adp"] = pd.NA
+
+    for col in ADP_DERIVED_COLUMNS:
+        if col not in board.columns:
+            board[col] = pd.NA
 
     return board, diagnostics
 

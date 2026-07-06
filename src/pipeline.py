@@ -28,6 +28,7 @@ from src.weekly_fantasy_projection import build_weekly_fantasy_outputs
 from src.model_benchmark import build_model_benchmark_outputs
 from src.value_decomposition import build_value_decomposition_outputs
 from src.two_stage_value import build_two_stage_value_outputs
+from src.fantasy_vorp import build_draft_board_outputs
 
 
 # Pipeline steps grouped by perspective. Both perspectives use the same
@@ -47,6 +48,7 @@ PIPELINE_STEPS = [
     "two_stage",
     # Fantasy
     "fantasy",
+    "draft_board",
     "weekly_fantasy",
     "external_benchmark",
     "rookie_bayes",
@@ -123,6 +125,20 @@ def build_weekly_fantasy_outputs_step(
     """Rebuild weekly fantasy point projection tables and report."""
     root = _resolve_project_root(project_root)
     return build_weekly_fantasy_outputs(project_root=root, save_outputs=True)
+
+
+def build_draft_board_step(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Rebuild the overall (cross-position) VORP draft board.
+
+    Depends only on the season fantasy projections (the "fantasy" step), so
+    it always produces a usable base board: value over replacement, overall
+    rank, and auction values all come from the projections alone. An ADP
+    snapshot (`scripts/fetch_adp.py`) is optional and, when present, adds the
+    market-comparison columns (ADP, edge vs. ADP) on top — this step degrades
+    gracefully rather than failing when no snapshot has been fetched yet.
+    """
+    root = _resolve_project_root(project_root)
+    return build_draft_board_outputs(project_root=root, save_outputs=True)
 
 
 def build_external_benchmark_step(
@@ -263,6 +279,8 @@ def run_pipeline(
             results[step] = build_salary_findings(root)
         elif step == "fantasy":
             results[step] = build_fantasy_outputs(root)
+        elif step == "draft_board":
+            results[step] = build_draft_board_step(root)
         elif step == "weekly_fantasy":
             results[step] = build_weekly_fantasy_outputs_step(root)
         elif step == "external_benchmark":

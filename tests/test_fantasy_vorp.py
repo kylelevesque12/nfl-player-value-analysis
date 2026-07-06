@@ -9,6 +9,7 @@ import pytest
 
 from src.adp import match_adp_to_projections, normalize_name
 from src.fantasy_vorp import (
+    ADP_DERIVED_COLUMNS,
     PROJ_COL,
     auction_values,
     build_draft_board,
@@ -120,6 +121,55 @@ def test_auction_values_respect_budget_and_floor():
     positive = board["vorp"] > 0
     expected = (200 - 10) + positive.sum()
     assert values[positive].sum() == pytest.approx(expected, abs=len(values))
+
+
+# ---------------------------------------------------------------------------
+# Board schema stability with no ADP snapshot (the "base board" case)
+# ---------------------------------------------------------------------------
+def test_board_has_stable_schema_with_no_adp_at_all():
+    """A board built with adp=None must still be a fully usable base board:
+    VORP, auction values, and overall rank come from the projections alone,
+    and every ADP-derived column still exists (as NaN) so downstream code
+    never has to special-case "column missing" vs. "column blank"."""
+    board, diag = build_draft_board(_tiny_league(), adp=None, teams=2)
+    for col in ADP_DERIVED_COLUMNS:
+        assert col in board.columns, f"missing column with no ADP: {col}"
+        assert board[col].isna().all()
+    assert board["edge_vs_adp"].isna().all()
+    assert "adp_match_rate" not in diag
+    # The board itself is still fully ranked and priced.
+    assert board["overall_rank"].tolist() == list(range(1, len(board) + 1))
+    assert (board["auction_value"] >= 1).all()
+
+
+def test_board_has_stable_schema_with_empty_adp_dataframe():
+    empty_adp = pd.DataFrame(columns=["adp_name", "position", "adp", "adp_overall_rank"])
+    board, _ = build_draft_board(_tiny_league(), adp=empty_adp, teams=2)
+    for col in ADP_DERIVED_COLUMNS:
+        assert col in board.columns
+        assert board[col].isna().all()
+
+
+def test_no_adp_board_survives_the_app_display_construction():
+    """Reproduces the exact bug this fix addresses: before the schema
+    guarantee, a no-ADP board was missing 'bye' entirely, and the app's old
+    fallback (an empty, unaligned default Series) raised a length-mismatch
+    error the moment it was assembled into a display DataFrame alongside
+    full-length columns. This builds that same kind of display frame
+    directly against a no-ADP board and must not raise."""
+    board, _ = build_draft_board(_tiny_league(), adp=None, teams=2)
+    top = board.head(5)
+    # Mirrors app/streamlit_app.py's _col_or_na fallback pattern.
+    bye = top["bye"] if "bye" in top.columns else pd.Series(pd.NA, index=top.index)
+    show = pd.DataFrame(
+        {
+            "Rank": top["overall_rank"],
+            "Player": top["player_display_name"],
+            "Bye": bye,
+            "VORP": top["vorp"],
+        }
+    )
+    assert len(show) == len(top)
 
 
 # ---------------------------------------------------------------------------
