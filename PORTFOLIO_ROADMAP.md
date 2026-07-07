@@ -152,9 +152,25 @@ engine should say so with a number.
   had an off-by-one (assumed every intervening pick was an opponent's instead of
   checking the snake order). Both are pinned by regression tests. The engine
   consumes any values table, which is what later allows user-supplied rankings.
-- `[ ]` **Rookies into the season rankings.** The Bayesian rookie projections feed
-  the Draft Board with honestly wide ranges. A 2026 draft board without rookies is
-  broken from a user's point of view.
+- `[x]` **Rookies into the season rankings.** Fetches the live draft class
+  (`scripts/fetch_rookie_class.py`, via `nflreadpy`: draft picks + combine bio
+  data, joined on normalized name since the two feeds share no reliable ID
+  this early), does a full production fit of the hurdle model on every
+  earlier rookie class with no holdout (`build_2026_rookie_projection_outputs`,
+  run from `.venv-bayes`), converts the per-game hurdle output to a season
+  total via a position-level expected-games multiplier, then merges the
+  scored class into the season table (`src/rookie_rankings_merge.py`, no PyMC
+  needed, wired into the standard pipeline as `rookie_rankings`) — ranks,
+  percentiles, and tiers recompute over the combined veteran+rookie pool.
+  Rookies now flow automatically into VORP, the Draft Board (marked with a
+  small "(R)" badge), the Draft Room planner, and a new "Rookie fliers"
+  module on Home. Caught a real bug while building this: `load_draft_picks()`'s
+  own `gsis_id` field uses a different, non-standard ID scheme for a class
+  this new — every value disagreed with the roster-sourced gsis_id on the
+  players where both were populated, which would have silently assigned every
+  2026 rookie the wrong player_id. Fixed by anchoring identity on
+  `load_rosters()` instead, caught by comparing the two sources directly
+  against real data before trusting either.
 - `[ ]` **Injury-blindness fix.** The season model currently treats an
   injury-shortened season as pure decline (Nabers, Hill, Burrow). Add features for
   *why* games were missed (IR flags, injury-report weeks, healthy per-game rates,

@@ -221,3 +221,27 @@ def regression_watch_frame(
     ].copy()
     out["team"] = merged.get(team_col, "")
     return out.reset_index(drop=True)
+
+
+def rookie_fliers_frame(fantasy: pd.DataFrame, top_n: int = 8) -> pd.DataFrame:
+    """Top projected rookies, from the current draft class's Bayesian hurdle
+    projection folded into the season table (``is_rookie_projection``).
+
+    Empty until the rookie class has been scored (a separate .venv-bayes
+    step; see PORTFOLIO_ROADMAP.md) and merged in — this frame is simply
+    empty on a veterans-only table, same graceful-degradation pattern as the
+    other Home modules.
+    """
+    needed = ["player_id", "player_display_name", "position", PROJ_COL, "is_rookie_projection"]
+    if not _require(fantasy, needed):
+        return pd.DataFrame()
+    rookies = fantasy[fantasy["is_rookie_projection"] == True]  # noqa: E712
+    if rookies.empty:
+        return pd.DataFrame()
+    rookies = rookies.sort_values(PROJ_COL, ascending=False).head(top_n)
+    team_col = "primary_team_2025" if "primary_team_2025" in rookies.columns else "team"
+    out = rookies[["player_id", "player_display_name", "position", PROJ_COL]].copy()
+    out["team"] = rookies.get(team_col, "")
+    out["draft_number"] = rookies.get("draft_number", pd.NA)
+    out["p_plays"] = rookies.get("predicted_p_plays_meaningfully", pd.NA)
+    return out.reset_index(drop=True)

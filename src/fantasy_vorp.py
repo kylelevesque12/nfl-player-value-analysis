@@ -175,6 +175,7 @@ def build_draft_board_outputs(
         "replacement_points", "vorp", "vorp_low", "vorp_high",
         "auction_value", "adp", "adp_formatted", "adp_overall_rank",
         "edge_vs_adp", "bye", "adp_total_drafts", "adp_window_end",
+        "is_rookie_projection",
     ]
     out = board[[c for c in keep if c in board.columns]]
 

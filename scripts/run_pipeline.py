@@ -32,19 +32,24 @@ def parse_args() -> argparse.Namespace:
             # Front office
             "predictions,salary,findings,two_stage,"
             # Fantasy
-            "fantasy,draft_board,weekly_fantasy,external_benchmark,rookie_bayes,"
+            "fantasy,rookie_rankings,draft_board,weekly_fantasy,"
+            "external_benchmark,rookie_bayes,"
             "two_stage_weekly,causal_session1,causal_session2"
         ),
         help=(
             "Comma-separated pipeline steps. Two perspectives share the "
             "upstream cleaning/value/audit stages. Front-office steps: "
             "predictions, salary, findings, two_stage. Fantasy steps: "
-            "fantasy, draft_board, weekly_fantasy, external_benchmark, "
-            "rookie_bayes, two_stage_weekly, causal_session1, "
-            "causal_session2. Shared: clean, value, decompose, checks, "
-            "interpretation, benchmark. draft_board needs an ADP snapshot "
-            "(`python scripts/fetch_adp.py --year 2026`) for its market "
-            "columns, but builds a full VORP-only board without one."
+            "fantasy, rookie_rankings, draft_board, weekly_fantasy, "
+            "external_benchmark, rookie_bayes, two_stage_weekly, "
+            "causal_session1, causal_session2. Shared: clean, value, "
+            "decompose, checks, interpretation, benchmark. draft_board "
+            "needs an ADP snapshot (`python scripts/fetch_adp.py --year "
+            "2026`) for its market columns, but builds a full VORP-only "
+            "board without one. rookie_rankings needs a separate "
+            ".venv-bayes run to score the live rookie class first (see "
+            "`src.rookie_bayes.build_2026_rookie_projection_outputs`); "
+            "until then it's a no-op and the season table stays veterans-only."
         ),
     )
     return parser.parse_args()
@@ -82,6 +87,10 @@ def main() -> int:
         print("Salary finding sample:", results["findings"]["tables"]["finding_base"].shape)
     if "fantasy" in results:
         print("Fantasy projections:", results["fantasy"]["fantasy_predictions"].shape)
+    if "rookie_rankings" in results:
+        n = results["rookie_rankings"]["n_rookies_added"]
+        note = f"{n} rookies merged in" if n else "no-op (rookie projections not built yet)"
+        print(f"Rookie rankings merge: {note}")
     if "draft_board" in results:
         board_diag = results["draft_board"]["diagnostics"]
         match_note = (

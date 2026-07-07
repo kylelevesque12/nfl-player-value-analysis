@@ -623,10 +623,12 @@ def _overall_board_view(data: dict[str, pd.DataFrame]) -> None:
 
     top = board.head(75).copy()
     edge = pd.to_numeric(top["edge_vs_adp"], errors="coerce")
+    is_rookie = _col_or_na(top, "is_rookie_projection").fillna(False).astype(bool)
+    player_label = top["player_display_name"] + is_rookie.map({True: " (R)", False: ""})
     show = pd.DataFrame(
         {
             "Rank": top["overall_rank"].astype(int),
-            "Player": top["player_display_name"],
+            "Player": player_label,
             "Pos": top["position"],
             "Team": _col_or_na(top, "primary_team_2025"),
             "Bye": pd.to_numeric(_col_or_na(top, "bye"), errors="coerce")
@@ -646,7 +648,12 @@ def _overall_board_view(data: dict[str, pd.DataFrame]) -> None:
         height=740,
         column_config={
             "Rank": st.column_config.NumberColumn("Rank", width="small"),
-            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "Player": st.column_config.TextColumn(
+                "Player",
+                width="medium",
+                help="(R) marks a 2026 rookie: no NFL stats yet, projected "
+                "from draft capital, age, and profile via a Bayesian model.",
+            ),
             "VORP": st.column_config.NumberColumn(
                 "VORP",
                 width="small",
@@ -744,10 +751,12 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
         if not badges.empty
         else pd.Series([""] * len(pos))
     )
+    is_rookie = pos.get("is_rookie_projection", pd.Series(False, index=pos.index)).fillna(False)
+    player_label = pos["player_display_name"] + is_rookie.map({True: " (R)", False: ""})
     ranking = pd.DataFrame({
         "Rank": pos["Rank"].astype(int),
         "Tier": tiers.reindex(pos.index).astype(int),
-        "Player": pos["player_display_name"],
+        "Player": player_label,
         "Team": pos.get(team_col, ""),
         "Proj PPR": pos["predicted_2026_fantasy_points_ppr"].round(1),
         "PPR/G": pos["predicted_2026_ppr_per_game"].round(1),
@@ -767,7 +776,13 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
         hide_index=True,
         column_config={
             "Rank": st.column_config.NumberColumn("Rank", width="small"),
-            "Player": st.column_config.TextColumn("Player", width="medium"),
+            "Player": st.column_config.TextColumn(
+                "Player",
+                width="medium",
+                help="(R) marks a 2026 rookie: no NFL stats yet, projected "
+                "from draft capital, age, and profile via a Bayesian model "
+                "rather than the veteran production model.",
+            ),
             "Team": st.column_config.TextColumn("Team", width="small"),
             "Proj PPR": st.column_config.ProgressColumn(
                 "Proj PPR",
@@ -1106,11 +1121,9 @@ def _top_projected_strip(data: dict[str, pd.DataFrame]) -> None:
 
 
 def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
-    """Home player-content modules: draft-day values, projected risers, and
-    the regression watch.
-
-    A rookie-fliers module joins these once the 2026 rookie class is scored
-    (roadmap: rookies into the season rankings)."""
+    """Home player-content modules: draft-day values, projected risers, the
+    regression watch, and (once the current class has been scored) rookie
+    fliers."""
     fantasy = data.get("fantasy", pd.DataFrame())
     two_stage = data.get("two_stage_projection", pd.DataFrame())
     board = data.get("draft_board", pd.DataFrame())
@@ -1118,7 +1131,8 @@ def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
     values = fc.draft_values_frame(board)
     risers = fc.risers_frame(fantasy)
     watch = fc.regression_watch_frame(fantasy, two_stage)
-    if values.empty and risers.empty and watch.empty:
+    rookies = fc.rookie_fliers_frame(fantasy)
+    if values.empty and risers.empty and watch.empty and rookies.empty:
         return
 
     col_values, col_risers, col_watch = st.columns(3)
@@ -1184,6 +1198,29 @@ def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
         "one kind that genuinely repeats, so the fade-the-fluke logic does "
         "not apply at that position."
     )
+
+    if not rookies.empty:
+        st.divider()
+        st.markdown("### Rookie fliers")
+        st.caption(
+            "Top projected rookies from the current draft class — no NFL "
+            "stats yet, so these come from a Bayesian model on draft "
+            "capital, age, physical profile, and incumbent context. "
+            "P(plays) is the modeled chance he wins a meaningful role in 2026."
+        )
+        show = pd.DataFrame(
+            {
+                "Player": rookies["player_display_name"],
+                "Pos": rookies["position"],
+                "Team": rookies["team"],
+                "Pick": rookies["draft_number"].astype("Int64"),
+                "P(plays)": rookies["p_plays"].apply(
+                    lambda v: f"{v:.0%}" if pd.notna(v) else "—"
+                ),
+                "Proj PPR": rookies[fc.PROJ_COL].round(0).astype(int),
+            }
+        )
+        st.dataframe(show, width="stretch", hide_index=True)
 
 
 def landing_page(data: dict[str, pd.DataFrame]) -> None:

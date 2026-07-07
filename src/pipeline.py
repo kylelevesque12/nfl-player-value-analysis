@@ -29,6 +29,7 @@ from src.model_benchmark import build_model_benchmark_outputs
 from src.value_decomposition import build_value_decomposition_outputs
 from src.two_stage_value import build_two_stage_value_outputs
 from src.fantasy_vorp import build_draft_board_outputs
+from src.rookie_rankings_merge import build_rookie_rankings_merge_outputs
 
 
 # Pipeline steps grouped by perspective. Both perspectives use the same
@@ -48,6 +49,7 @@ PIPELINE_STEPS = [
     "two_stage",
     # Fantasy
     "fantasy",
+    "rookie_rankings",
     "draft_board",
     "weekly_fantasy",
     "external_benchmark",
@@ -125,6 +127,22 @@ def build_weekly_fantasy_outputs_step(
     """Rebuild weekly fantasy point projection tables and report."""
     root = _resolve_project_root(project_root)
     return build_weekly_fantasy_outputs(project_root=root, save_outputs=True)
+
+
+def build_rookie_rankings_step(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Merge the current draft class's rookie projections into the season
+    fantasy table, so rookies compete on equal footing with veterans.
+
+    Depends on the "fantasy" step for the veteran table. The rookie
+    projections themselves come from a separate, optional step that needs
+    PyMC: fetch the class with `scripts/fetch_rookie_class.py`, then run
+    `build_2026_rookie_projection_outputs` from `.venv-bayes` (see
+    `requirements-bayes.txt`). Until that has been run at least once, this
+    step is a no-op — the season table is left as the "fantasy" step built
+    it, veterans only.
+    """
+    root = _resolve_project_root(project_root)
+    return build_rookie_rankings_merge_outputs(project_root=root, save_outputs=True)
 
 
 def build_draft_board_step(project_root: str | Path | None = None) -> dict[str, Any]:
@@ -279,6 +297,8 @@ def run_pipeline(
             results[step] = build_salary_findings(root)
         elif step == "fantasy":
             results[step] = build_fantasy_outputs(root)
+        elif step == "rookie_rankings":
+            results[step] = build_rookie_rankings_step(root)
         elif step == "draft_board":
             results[step] = build_draft_board_step(root)
         elif step == "weekly_fantasy":

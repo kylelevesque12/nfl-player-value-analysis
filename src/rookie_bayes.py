@@ -200,6 +200,15 @@ def build_rookie_modeling_frame(
 
     df["draft_number"] = df["draft_number"].fillna(UNDRAFTED_PICK_NUMBER)
     df["age_at_draft"] = _safe_age_at_draft(df["birth_date"], df["rookie_year"])
+    if "age_at_draft_hint" in df.columns:
+        # A brand-new draft class has no birth_date in nflverse's roster feed
+        # yet (it's populated weeks after the draft). draft_picks carries a
+        # draft-day age directly, computed the same way (age at the ~April
+        # draft) — fill the gap with it rather than leaving the feature NaN.
+        # A no-op for historical rows, which always have a real birth_date.
+        df["age_at_draft"] = df["age_at_draft"].fillna(
+            pd.to_numeric(df["age_at_draft_hint"], errors="coerce")
+        )
     df["height_inches"] = _height_to_inches(df["height"])
     df["draft_log"] = np.log(df["draft_number"].clip(lower=1.0))
 
@@ -706,6 +715,238 @@ def rolling_hurdle_validation(
     )
     metrics_df = pd.DataFrame(metric_rows)
     return preds_df, metrics_df
+
+
+# ---------------------------------------------------------------------------
+# Scoring the live draft class (production fit: no holdout, train on every
+# rookie class the rolling validation above has ever tested against)
+# ---------------------------------------------------------------------------
+def expected_games_if_plays_by_position(train_df: pd.DataFrame) -> dict[str, float]:
+    """Mean games_played among rookies who cleared the hurdle (played >= 4
+    games), by position, from the training data.
+
+    The hurdle model projects two things: whether a rookie plays meaningfully
+    (stage 1) and his per-game rate if he does (stage 2). Neither stage
+    predicts *how many* games he plays if he clears the bar, so turning a
+    per-game rate into a season total needs this one further, simple,
+    documented estimate — a position-level historical average, not a
+    player-specific games model. Falls back to the overall average for a
+    position with no qualifying rookies in the training window.
+    """
+    played = train_df[train_df["played_meaningfully"].eq(1)]
+    overall_mean = float(played["games_played"].mean()) if not played.empty else 12.0
+    by_position = played.groupby("position")["games_played"].mean()
+    return {
+        pos: float(by_position.get(pos, overall_mean))
+        for pos in train_df["position"].unique()
+    }
+
+
+def scale_hurdle_output_to_season_totals(
+    scored: pd.DataFrame, games_by_position: dict[str, float]
+) -> pd.DataFrame:
+    """Pure post-processing: turn ``predict_hurdle``'s per-game columns into
+    season totals given a position -> expected-games multiplier.
+
+    Split out from ``score_rookie_class`` so this arithmetic — the one part
+    of the scoring path with no PyMC dependency — can be unit-tested
+    directly against a synthetic, already-hurdle-scored frame.
+    """
+    scored = scored.copy()
+    games_multiplier = scored["position"].map(games_by_position)
+    scored["predicted_games_played"] = (
+        games_multiplier * scored["predicted_p_plays_meaningfully"]
+    )
+    for suffix in ("mean", "p10", "p25", "p75", "p90"):
+        per_game_col = f"predicted_rookie_year_ppr_per_game_{suffix}"
+        scored[f"predicted_season_ppr_{suffix}"] = scored[per_game_col] * games_multiplier
+    return scored
+
+
+def score_rookie_class(
+    modeling_df: pd.DataFrame,
+    class_year: int,
+    **fit_kwargs: Any,
+) -> tuple[pd.DataFrame, dict[str, float]]:
+    """Score one draft class with a full production fit (no holdout).
+
+    Trains the two-stage hurdle model on every earlier rookie class in
+    ``modeling_df`` (rookie_year < ``class_year``) and projects the
+    ``class_year`` rookies. Converts the hurdle's per-game rate into a
+    season total via ``scale_hurdle_output_to_season_totals``: a constant
+    multiplier is percentile-equivariant, so every one of ``predict_hurdle``'s
+    existing mean/p10/p25/p75/p90 columns can be scaled directly without
+    re-deriving the posterior — no change to that (separately tested)
+    function was needed.
+    """
+    train = modeling_df[modeling_df["rookie_year"].lt(class_year)].copy()
+    predict_rows = modeling_df[modeling_df["rookie_year"].eq(class_year)].copy()
+    if train.empty:
+        raise ValueError(f"No training rookies with rookie_year < {class_year}.")
+    if predict_rows.empty:
+        raise ValueError(f"No rookies found with rookie_year == {class_year}.")
+
+    train_z, predict_z, _stats = standardize_features(train, predict_rows)
+
+    stage1 = fit_played_meaningfully_model(train_z, **fit_kwargs)
+    train_played = train_z[train_z["played_meaningfully"].eq(1)].copy()
+    if train_played.empty:
+        raise ValueError("No training rookies cleared the played_meaningfully bar.")
+    stage2 = fit_rookie_model(train_played, **fit_kwargs)
+
+    scored = predict_hurdle(stage1, stage2, predict_z)
+    games_by_position = expected_games_if_plays_by_position(train)
+    scored = scale_hurdle_output_to_season_totals(scored, games_by_position)
+    return scored, games_by_position
+
+
+def build_2026_rookie_projection_outputs(
+    project_root: str | Path | None = None,
+    class_year: int = 2026,
+    save_outputs: bool = True,
+    **fit_kwargs: Any,
+) -> dict[str, Any]:
+    """Score the live draft class: production hurdle fit + season totals.
+
+    Unlike ``build_rookie_bayes_outputs`` (rolling-origin validation on past
+    classes, where every outcome is already known), this trains on the
+    *entire* history through ``class_year - 1`` and projects a class whose
+    outcome is genuinely unknown yet. Requires
+    ``data/raw/rookie_class_<class_year>.csv`` (see
+    ``scripts/fetch_rookie_class.py``) in addition to the historical rosters
+    and player_stats files.
+
+    Imports PyMC inside the fit functions this calls; run from ``.venv-bayes``
+    (see ``requirements-bayes.txt``).
+    """
+    root = (
+        find_project_root() if project_root is None else Path(project_root).resolve()
+    )
+    dirs = ensure_project_dirs(root)
+    output_dir = dirs["tables"]
+
+    class_path = root / "data" / "raw" / f"rookie_class_{class_year}.csv"
+    if not class_path.exists():
+        raise FileNotFoundError(
+            f"{class_path} not found. Run "
+            f"`python scripts/fetch_rookie_class.py --year {class_year}` first."
+        )
+
+    rosters = pd.read_csv(
+        root / "data" / "raw" / "rosters_2016_2025.csv", low_memory=False
+    )
+    player_stats = pd.read_csv(
+        root / "data" / "raw" / "player_stats_2016_2025.csv", low_memory=False
+    )
+    rookie_class = pd.read_csv(class_path)
+    combined_rosters = pd.concat([rosters, rookie_class], ignore_index=True)
+
+    modeling_df = build_rookie_modeling_frame(
+        combined_rosters, player_stats, project_root=root
+    )
+    scored, games_by_position = score_rookie_class(modeling_df, class_year, **fit_kwargs)
+
+    keep = [
+        "player_id", "player_display_name", "position", "rookie_year",
+        "draft_number", "draft_club", "college",
+        "predicted_p_plays_meaningfully",
+        "predicted_ppr_per_game_if_plays_mean",
+        "predicted_games_played",
+        "predicted_season_ppr_mean", "predicted_season_ppr_p10",
+        "predicted_season_ppr_p25", "predicted_season_ppr_p75",
+        "predicted_season_ppr_p90",
+    ]
+    out = scored[[c for c in keep if c in scored.columns]].sort_values(
+        "predicted_season_ppr_mean", ascending=False
+    ).reset_index(drop=True)
+
+    summary_text = _build_2026_rookie_summary_text(out, games_by_position, class_year)
+
+    outputs = {
+        "projections": out,
+        "games_by_position": games_by_position,
+        "summary_text": summary_text,
+    }
+    if save_outputs:
+        out.to_csv(
+            output_dir / f"{class_year}_rookie_projections.csv",
+            index=False,
+            float_format=CSV_FLOAT_FORMAT,
+        )
+        report_path = root / "report" / "rookie_2026_projection.md"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(summary_text)
+    return outputs
+
+
+def _build_2026_rookie_summary_text(
+    scored: pd.DataFrame, games_by_position: dict[str, float], class_year: int
+) -> str:
+    lines = [
+        f"# {class_year} rookie class: projected fantasy production",
+        "",
+        "This scores the incoming draft class with the hierarchical Bayesian",
+        "hurdle model, fit on every earlier rookie class (2016 through "
+        f"{class_year - 1}) with no held-out year — a production fit, not a",
+        "validation run. See `report/rookie_bayes_projection.md` for the",
+        "model's out-of-sample accuracy on past classes.",
+        "",
+        "## From per-game rate to a season total",
+        "",
+        "The hurdle model projects two things directly: the probability a",
+        "rookie plays meaningfully (at least 4 games) and his expected",
+        "PPR-per-game rate if he does. Neither predicts how many games he",
+        "plays if he clears that bar, so the season total here multiplies the",
+        "per-game rate by a further, simple estimate: the historical average",
+        "games played among rookies at his position who cleared the hurdle.",
+        "This is a documented approximation, not a player-specific games",
+        "model — a rookie who wins a starting job in Week 1 and one who",
+        "starts Week 9 get the same games multiplier if they share a",
+        "position.",
+        "",
+        "Expected games played, if the hurdle is cleared, by position:",
+        "",
+        "| Position | Expected games |",
+        "| --- | ---: |",
+    ]
+    for pos in sorted(games_by_position):
+        lines.append(f"| {pos} | {games_by_position[pos]:.1f} |")
+    lines += [
+        "",
+        "## Top projected rookies",
+        "",
+        "| Player | Pos | Pick | P(plays) | Proj PPR | 80% range |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for _, row in scored.head(15).iterrows():
+        lines.append(
+            f"| {row['player_display_name']} | {row['position']} | "
+            f"{int(row['draft_number'])} | "
+            f"{row['predicted_p_plays_meaningfully']:.0%} | "
+            f"{row['predicted_season_ppr_mean']:.0f} | "
+            f"{row['predicted_season_ppr_p10']:.0f}"
+            f"-{row['predicted_season_ppr_p90']:.0f} |"
+        )
+    lines += [
+        "",
+        "## Limitations",
+        "",
+        "- Bio data (height, weight) for this class comes from pre-draft",
+        "  combine testing joined by name, not a shared ID (nflverse hasn't",
+        "  assigned this class stable cross-source IDs yet); the match rate",
+        "  is reported at fetch time by `scripts/fetch_rookie_class.py`.",
+        "- Age at draft is taken directly from the draft-picks feed (no",
+        "  birth_date is published for a class this new); computed the same",
+        "  way (age at the ~April draft) as the historical feature, so the",
+        "  two sources are consistent.",
+        "- The games-played conversion is a position-level historical",
+        "  average, not a player-specific projection; see above.",
+        "- Incumbent-context features (established starter, recent",
+        "  extension, prior-year starting QB production) use the "
+        f"{class_year - 1} season, the same leakage-safe convention as the",
+        "  historical training data.",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 # ---------------------------------------------------------------------------

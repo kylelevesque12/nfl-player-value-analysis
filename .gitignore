@@ -14,7 +14,8 @@ venv/
 env/
 
 # Data files
-data/raw/
+data/raw/*
+!data/raw/rookie_class_2026.csv
 data/processed/
 
 # Outputs that can be regenerated
@@ -119,6 +120,9 @@ outputs/tables/*
 
 # Overall draft board (VORP + auction values + ADP edge)
 !outputs/tables/draft_board_2026.csv
+
+# 2026 rookie class projections (Bayesian hurdle model)
+!outputs/tables/2026_rookie_projections.csv
 
 # Local experiment tracking
 mlruns/

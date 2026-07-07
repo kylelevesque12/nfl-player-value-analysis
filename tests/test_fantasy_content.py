@@ -109,6 +109,22 @@ def test_draft_values_frame_filters_and_sorts():
     assert values["edge_vs_adp"].is_monotonic_decreasing
 
 
+def test_rookie_fliers_frame_empty_without_rookie_flag():
+    fantasy = _fantasy_fixture()  # no is_rookie_projection column
+    assert fc.rookie_fliers_frame(fantasy).empty
+
+
+def test_rookie_fliers_frame_filters_and_sorts():
+    fantasy = _fantasy_fixture().copy()
+    fantasy["is_rookie_projection"] = [True, False, True, False, False, False]
+    fantasy["draft_number"] = [3, 40, 12, 90, 20, 5]
+    fantasy["predicted_p_plays_meaningfully"] = [0.9, 0.6, 0.4, 0.7, 0.5, 0.8]
+    rookies = fc.rookie_fliers_frame(fantasy)
+    assert set(rookies["player_display_name"]) == {"Player 0", "Player 2"}
+    # p0 (300 proj) ranks above p2 (200 proj).
+    assert rookies.iloc[0]["player_display_name"] == "Player 0"
+
+
 def test_real_tables_build_cleanly_if_present():
     fantasy_path = ROOT / "outputs" / "tables" / "2026_fantasy_football_projections.csv"
     ts_path = ROOT / "outputs" / "tables" / "two_stage_2026_projection.csv"
