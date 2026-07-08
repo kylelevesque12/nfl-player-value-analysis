@@ -171,12 +171,22 @@ engine should say so with a number.
   2026 rookie the wrong player_id. Fixed by anchoring identity on
   `load_rosters()` instead, caught by comparing the two sources directly
   against real data before trusting either.
-- `[ ]` **Injury-blindness fix.** The season model currently treats an
-  injury-shortened season as pure decline (Nabers, Hill, Burrow). Add features for
-  *why* games were missed (IR flags, injury-report weeks, healthy per-game rates,
-  and a rate × games-missed interaction), evaluate on the cohort of players with
-  ≤8 games in the prior season, report before/after, and flag injury-return
-  players in the UI.
+- `[~]` **Injury-blindness fix — a documented negative result.** Built the
+  proposed features (games_missed, injury-report/out weeks, and a rate ×
+  games-missed interaction, all leakage-tested) and evaluated them on the
+  injury-return cohort (prior-season games_played ≤ 8 with a healthy per-game
+  rate). They do **not** help: elastic-net cohort RMSE moved 86.27 → 85.94
+  (below the ~0.2% ablation bar), so they were pruned from production and kept
+  on the record, the same discipline applied to the NGS and ensemble
+  experiments. A model switch is not a fix either — the two-stage model
+  rescues Nabers (~205 vs ~128) but badly under-projects a healthy Christian
+  McCaffrey (~178 vs ~269), trading one visible error for a worse one, which
+  is why it lost overall. The honest conclusion is that injury-return seasons
+  are intrinsically high-variance, so what ships to users is a ⚕ flag on
+  players whose projection rests on an injury-shortened 2025, pointing them to
+  the deliberately wide 80% range instead of a false-precision point estimate.
+  Full write-up and the reproducing eval: `report/fantasy/injury_return_features.md`,
+  `scripts/eval_injury_features.py`.
 
 ### August block — peak portfolio
 

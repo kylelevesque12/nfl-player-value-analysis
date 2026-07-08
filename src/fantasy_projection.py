@@ -79,7 +79,21 @@ FANTASY_FEATURES = [
     "carries_last2_avg",
     "value_score_prev",
     "value_score_last2_avg",
+    # NOTE: injury-return features (games_missed, injury-report/out weeks, and a
+    # rate x games-missed interaction) were built and tested here and did NOT
+    # earn their place — cohort RMSE moved 86.27 -> 85.94, below the project's
+    # ~0.2% ablation threshold, so they are intentionally NOT registered. The
+    # helpers (build_player_season_injury_summary, attach_injury_return_features)
+    # are kept and tested because the eval that produced that finding uses them,
+    # and games_missed powers the UI's injury-shortened-season flag. The full
+    # write-up, including why a model switch is not a fix either, is in
+    # report/fantasy/injury_return_features.md.
 ]
+
+# NFL regular-season length: 16 games through 2020, 17 from 2021 on. Used to
+# turn games_played into games_missed. A season not listed falls back to 17.
+SEASON_TOTAL_GAMES_DEFAULT = 17
+SEASON_TOTAL_GAMES = {year: 16 for year in range(2016, 2021)}
 
 FANTASY_MODEL_ORDER = [
     "current_year_baseline",
@@ -368,6 +382,87 @@ def _format_fantasy_explanation(row: pd.Series) -> str:
     return " ".join(details)
 
 
+def _season_total_games(season: pd.Series) -> pd.Series:
+    """Regular-season game count for each season (16 through 2020, else 17)."""
+    s = pd.to_numeric(season, errors="coerce")
+    return s.map(SEASON_TOTAL_GAMES).fillna(SEASON_TOTAL_GAMES_DEFAULT)
+
+
+def build_player_season_injury_summary(injuries: pd.DataFrame) -> pd.DataFrame:
+    """Per-(player_id, season) injury-report summary from the raw injuries feed.
+
+    Two counts, both leakage-safe by construction (they summarize the season
+    the player is *in*, which is the model's input row, never the season being
+    projected):
+
+    - ``injury_report_weeks``: distinct weeks the player appeared on the
+      injury report at all. Distinguishes a player who was hurt from one who
+      simply wasn't very good — both can post a low games-played total, but
+      only the hurt one carries injury-report weeks.
+    - ``injury_out_weeks``: distinct weeks the player was formally ruled Out
+      (or Doubtful). The strong "he genuinely missed time to injury" signal
+      that separates an injury-shortened season from a benching or a trade.
+    """
+    if injuries is None or injuries.empty:
+        return pd.DataFrame(
+            columns=["player_id", "season", "injury_report_weeks", "injury_out_weeks"]
+        )
+    inj = injuries.copy()
+    if "gsis_id" not in inj.columns:
+        return pd.DataFrame(
+            columns=["player_id", "season", "injury_report_weeks", "injury_out_weeks"]
+        )
+    inj = inj.rename(columns={"gsis_id": "player_id"})
+    inj["season"] = pd.to_numeric(inj["season"], errors="coerce")
+    inj["week"] = pd.to_numeric(inj.get("week"), errors="coerce")
+    inj = inj.dropna(subset=["player_id", "season", "week"])
+    inj["season"] = inj["season"].astype(int)
+
+    status = inj.get("report_status")
+    reported = inj[status.notna()] if status is not None else inj
+    report_weeks = (
+        reported.groupby(["player_id", "season"])["week"].nunique().rename("injury_report_weeks")
+    )
+    out_mask = (
+        inj["report_status"].isin(["Out", "Doubtful"])
+        if status is not None
+        else pd.Series(False, index=inj.index)
+    )
+    out_weeks = (
+        inj[out_mask].groupby(["player_id", "season"])["week"].nunique().rename("injury_out_weeks")
+    )
+    summary = pd.concat([report_weeks, out_weeks], axis=1).reset_index()
+    summary["injury_report_weeks"] = summary["injury_report_weeks"].fillna(0).astype(int)
+    summary["injury_out_weeks"] = summary["injury_out_weeks"].fillna(0).astype(int)
+    return summary
+
+
+def attach_injury_return_features(
+    player_season: pd.DataFrame, injury_summary: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """Add the injury-return feature block to a player-season frame.
+
+    ``games_missed`` and the ``ppr_per_game_x_games_missed`` interaction come
+    from games_played alone, so they work even without any injury feed. The
+    two injury-week counts join from ``injury_summary`` when available and are
+    zero-filled otherwise (a player with no injury-report rows was healthy).
+    """
+    out = player_season.copy()
+    games = pd.to_numeric(out["games_played"], errors="coerce")
+    out["games_missed"] = (_season_total_games(out["season"]) - games).clip(lower=0)
+
+    if injury_summary is not None and not injury_summary.empty:
+        out = out.merge(injury_summary, on=["player_id", "season"], how="left")
+    for col in ("injury_report_weeks", "injury_out_weeks"):
+        if col not in out.columns:
+            out[col] = 0
+        out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
+
+    ppg = pd.to_numeric(out.get("fantasy_points_ppr_per_game"), errors="coerce").fillna(0.0)
+    out["ppr_per_game_x_games_missed"] = ppg * out["games_missed"]
+    return out
+
+
 def add_fantasy_history_features(player_season: pd.DataFrame) -> pd.DataFrame:
     """Add fantasy-specific rate, lag, and rolling features."""
     featured = player_season.sort_values(["player_id", "season"]).copy()
@@ -405,10 +500,23 @@ def add_fantasy_history_features(player_season: pd.DataFrame) -> pd.DataFrame:
     return featured
 
 
-def create_fantasy_modeling_frame(skill_seasons: pd.DataFrame) -> pd.DataFrame:
-    """Create the player-season frame used for fantasy projection modeling."""
+def create_fantasy_modeling_frame(
+    skill_seasons: pd.DataFrame, injuries: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """Create the player-season frame used for fantasy projection modeling.
+
+    ``injuries`` is accepted for the injury-return feature experiment (the
+    eval in scripts/eval_injury_features.py passes it) but is not used by the
+    production build: those features were tested and dropped (see
+    ``FANTASY_FEATURES`` and report/fantasy/injury_return_features.md). When
+    provided, the injury-return block is attached for inspection; the model
+    feature list simply doesn't reference it.
+    """
     player_season = create_player_season_value_scores(skill_seasons)
     player_season = add_fantasy_history_features(player_season)
+    if injuries is not None:
+        injury_summary = build_player_season_injury_summary(injuries)
+        player_season = attach_injury_return_features(player_season, injury_summary)
     player_season = player_season.sort_values(["player_id", "season"]).copy()
     grouped = player_season.groupby("player_id")
 

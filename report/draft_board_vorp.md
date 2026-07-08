@@ -23,38 +23,34 @@ starting slot is gone. The computed levels:
 | --- | ---: |
 | QB | 227.1 |
 | RB | 128.2 |
-| WR | 133.5 |
+| WR | 134.6 |
 | TE | 128.1 |
 
 ## The top of the board
 
 | Overall | Player | Pos | VORP | Auction $ | ADP |
 | ---: | --- | --- | ---: | ---: | ---: |
-| 1 | Puka Nacua | WR | 176 | $101 | — |
-| 2 | Bijan Robinson | RB | 171 | $98 | — |
-| 3 | Jaxon Smith-Njigba | WR | 167 | $96 | — |
-| 4 | Jahmyr Gibbs | RB | 153 | $88 | — |
-| 5 | Ja'Marr Chase | WR | 149 | $86 | — |
-| 6 | Christian McCaffrey | RB | 141 | $81 | — |
-| 7 | Amon-Ra St. Brown | WR | 133 | $77 | — |
-| 8 | De'Von Achane | RB | 129 | $74 | — |
-| 9 | Trey McBride | TE | 125 | $72 | — |
-| 10 | Jonathan Taylor | RB | 115 | $67 | — |
+| 1 | Puka Nacua | WR | 175 | $99 | — |
+| 2 | Bijan Robinson | RB | 171 | $97 | — |
+| 3 | Jaxon Smith-Njigba | WR | 166 | $94 | — |
+| 4 | Jahmyr Gibbs | RB | 153 | $87 | — |
+| 5 | Ja'Marr Chase | WR | 148 | $84 | — |
+| 6 | Christian McCaffrey | RB | 141 | $80 | — |
+| 7 | Amon-Ra St. Brown | WR | 132 | $75 | — |
+| 8 | De'Von Achane | RB | 129 | $73 | — |
+| 9 | Trey McBride | TE | 125 | $71 | — |
+| 10 | Jonathan Taylor | RB | 115 | $66 | — |
 
 ## ADP match diagnostics
 
-138 of 149 ADP
+145 of 149 ADP
 players matched to the projection table
-(92.6%). However, one gap needs to
+(97.3%). However, one gap needs to
 be stated plainly: the unmatched players inside the top 100 picks
 are 2026 rookies, who are not in the season projection table yet.
 Until the rookie class is scored (a planned item on the roadmap),
 the board is honest about veterans but silent on rookies:
 
-- 2.1 RB Jeremiyah Love
-- 6.02 WR Carnell Tate
-- 7.03 RB Jadarian Price
-- 8.02 WR Jordyn Tyson
 
 ## Limitations
 

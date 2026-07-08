@@ -752,7 +752,16 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
         else pd.Series([""] * len(pos))
     )
     is_rookie = pos.get("is_rookie_projection", pd.Series(False, index=pos.index)).fillna(False)
-    player_label = pos["player_display_name"] + is_rookie.map({True: " (R)", False: ""})
+    # Injury-shortened prior season: a non-rookie who played <= 8 games in
+    # 2025. The projection rests on that small sample, so the honest read is
+    # the wide 80% range, not the point estimate (see the injury-return note).
+    gp_2025 = pd.to_numeric(pos.get("games_played_2025"), errors="coerce")
+    injury_short = (gp_2025 <= 8) & (~is_rookie.astype(bool)) & gp_2025.notna()
+    player_label = (
+        pos["player_display_name"]
+        + is_rookie.map({True: " (R)", False: ""})
+        + injury_short.map({True: " ⚕", False: ""})
+    )
     ranking = pd.DataFrame({
         "Rank": pos["Rank"].astype(int),
         "Tier": tiers.reindex(pos.index).astype(int),
@@ -781,7 +790,12 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
                 width="medium",
                 help="(R) marks a 2026 rookie: no NFL stats yet, projected "
                 "from draft capital, age, and profile via a Bayesian model "
-                "rather than the veteran production model.",
+                "rather than the veteran production model. ⚕ marks a player "
+                "who missed most of 2025 to injury (8 or fewer games): his "
+                "point projection rests on a small sample, so read the 80% "
+                "range, which is wide on purpose. The model does not try to "
+                "guess his exact bounce-back — those seasons are genuinely "
+                "high-variance.",
             ),
             "Team": st.column_config.TextColumn("Team", width="small"),
             "Proj PPR": st.column_config.ProgressColumn(
