@@ -29,6 +29,7 @@ outputs/tables/*
 !outputs/tables/2026_value_validation_by_position.csv
 !outputs/tables/2026_prediction_interval_validation.csv
 !outputs/tables/salary_efficiency_2016_2025.csv
+!outputs/tables/opportunity_feature_ablation.csv
 !outputs/tables/salary_efficiency_merge_diagnostics.csv
 !outputs/tables/salary_efficiency_by_position.csv
 !outputs/tables/salary_efficiency_by_season.csv

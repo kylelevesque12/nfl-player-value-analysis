@@ -90,6 +90,26 @@ FANTASY_FEATURES = [
     # report/fantasy/injury_return_features.md.
 ]
 
+# Frozen snapshot of the production feature set as of the 2026-07 review, so
+# every feature experiment is a reproducible A/B against a fixed reference
+# rather than an overwrite. Do not edit this list — add to FANTASY_FEATURES.
+# Baseline metrics for it live in outputs/baselines/v1_fantasy_model_comparison.csv.
+FANTASY_FEATURES_V1 = list(FANTASY_FEATURES)
+
+# Share-normalized opportunity (src/opportunity_features.py). Raw target and
+# carry counts conflate a player's ROLE with his team's play volume; these
+# isolate the role, which is the component that persists year to year.
+# Candidate set for the review's step 1 — evaluated by
+# scripts/eval_opportunity_features.py before any production registration.
+OPPORTUNITY_FEATURES = [
+    "target_share",
+    "air_yards_share",
+    "wopr",
+    "carry_share",
+    "target_share_prev",
+    "wopr_prev",
+]
+
 # NFL regular-season length: 16 games through 2020, 17 from 2021 on. Used to
 # turn games_played into games_missed. A season not listed falls back to 17.
 SEASON_TOTAL_GAMES_DEFAULT = 17
