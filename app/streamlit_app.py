@@ -34,6 +34,11 @@ PROJECT_ROOT = _PROJECT_ROOT
 TABLE_DIR = PROJECT_ROOT / "outputs" / "tables"
 REPORT_DIR = PROJECT_ROOT / "report"
 
+# The research write-ups live in the repository, not in the app. A handful of
+# product surfaces link out to one specific report for readers who want the
+# depth behind a number they are looking at.
+GITHUB_BLOB_BASE = "https://github.com/kylelevesque12/nfl-player-value-analysis/blob/main"
+
 
 st.set_page_config(
     page_title="NFL Player Value & Fantasy Forecasting",
@@ -171,18 +176,10 @@ inject_custom_css()
 
 from app.components import (
     inject_components_css,
-    executive_summary,
     caveat_callout,
     source_footer,
-    render_page_scaffold,
 )
-from app.page_content import DETAIL_PAGES
 from app import player_search as ps
-from app.section_content import (
-    section_reference_markdown,
-    reference_markdown,
-    split_reference,
-)
 
 NAV_PLAYER = "Player Detail"
 
@@ -468,39 +465,6 @@ def load_csv(filename: str, modified_at: float) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
     return pd.read_csv(path)
-
-
-@st.cache_data
-def load_markdown(relative_path: str, modified_at: float) -> str:
-    path = PROJECT_ROOT / relative_path
-    if not path.exists():
-        return ""
-    return path.read_text()
-
-
-def _reference_text() -> str:
-    """The clean, plain-language project reference (PROJECT_REFERENCE.md), used to
-    populate each section's 'Full write-up' panel."""
-    path = PROJECT_ROOT / "PROJECT_REFERENCE.md"
-    return load_markdown("PROJECT_REFERENCE.md", file_mtime(path))
-
-
-def _full_writeup_expander(
-    key: str,
-    label: str = "Open the full write-up: models, metrics, methods & limitations",
-) -> None:
-    """Render a clear pointer plus an expandable panel with the reference sections
-    backing this app section. No-ops if the reference file is missing."""
-    detail = section_reference_markdown(_reference_text(), key)
-    if detail:
-        st.markdown(
-            '<div class="writeup-hint">Want the depth? The full write-up below '
-            "explains the models, metrics, methods, and limitations for this section "
-            "in plain terms.</div>",
-            unsafe_allow_html=True,
-        )
-        with st.expander(label):
-            st.markdown(detail)
 
 
 def file_mtime(path: Path) -> float:
@@ -889,175 +853,6 @@ def espn_fantasy_view(data: dict[str, pd.DataFrame]) -> None:
     st.dataframe(weekly_table, width="stretch", hide_index=True)
 
 
-def external_benchmark_page(data: dict[str, pd.DataFrame]) -> None:
-    """Fantasy headline: head-to-head against DraftKings closing-line implied."""
-    overall = data["external_benchmark_overall"]
-    by_position = data["external_benchmark_by_position"]
-    by_season = data["external_benchmark_by_season"]
-    win_rate = data["external_benchmark_win_rate"]
-
-    content = DETAIL_PAGES["benchmark"]
-    render_page_scaffold(content)
-
-    if overall.empty:
-        st.info(
-            "External benchmark tables missing. Run "
-            "`python scripts/run_pipeline.py --steps external_benchmark` "
-            "after populating `data/raw/external_projections.csv`."
-        )
-        return
-
-    headline = overall.iloc[0]
-    card_row(
-        [
-            (
-                "Skill vs naive baselines (all years)",
-                "+7-9%",
-                "Primary claim: RMSE reduction vs recent-form / season-to-date "
-                "averages, every season 2020-2025.",
-            ),
-            (
-                "Skill vs DK (2020-2021 only)",
-                fmt_percent(headline["skill_vs_external"]),
-                f"Scoped secondary check, {int(headline['n_player_weeks']):,} "
-                "matched player-weeks.",
-            ),
-            (
-                "Model RMSE",
-                fmt_number(headline["model_rmse"]),
-                "Lower is better. PPR per week.",
-            ),
-            (
-                "DK-implied RMSE",
-                fmt_number(headline["external_rmse"]),
-                "Market-implied projection from the salary line.",
-            ),
-        ]
-    )
-
-    left, right = st.columns(2)
-    with left:
-        st.subheader("Skill score by position")
-        if not by_position.empty:
-            chart_df = by_position[by_position["segment"].eq("position")].copy()
-            chart_df["pct"] = chart_df["skill_vs_external"] * 100
-            fig = px.bar(
-                chart_df,
-                x="segment_value",
-                y="pct",
-                color="segment_value",
-                labels={"segment_value": "Position", "pct": "Skill vs external (%)"},
-                title="Skill score by position",
-            )
-            fig.update_layout(height=380, showlegend=False)
-            st.plotly_chart(fig, width="stretch")
-
-    with right:
-        st.subheader("Per-player-week win rate by position")
-        st.caption(
-            "Share of player-weeks where the model's projection landed closer "
-            "to the actual PPR than the DK implied projection did."
-        )
-        if not win_rate.empty:
-            fig = px.bar(
-                win_rate,
-                x="position",
-                y="model_win_rate",
-                color="position",
-                labels={"position": "Position", "model_win_rate": "Model win rate"},
-                title="Model win rate vs DK by position",
-            )
-            fig.update_yaxes(tickformat=".0%", range=[0.45, 0.60])
-            fig.update_layout(height=380, showlegend=False)
-            st.plotly_chart(fig, width="stretch")
-
-    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
-
-    with st.expander("Detailed by-position table"):
-        st.dataframe(by_position, width="stretch", hide_index=True)
-    if not by_season.empty:
-        with st.expander("Per-season detail"):
-            st.dataframe(by_season, width="stretch", hide_index=True)
-
-    source_footer(content["footer"])
-
-
-def methodology_page(data: dict[str, pd.DataFrame]) -> None:
-    methodology = data["methodology"]
-    content = DETAIL_PAGES["methodology"]
-    render_page_scaffold(content)
-
-    if methodology.empty:
-        st.info("Methodology checks are missing. Run `python scripts/run_pipeline.py --steps checks`.")
-        return
-
-    pass_count = methodology["status"].eq("PASS").sum()
-    fail_count = methodology["status"].eq("FAIL").sum()
-    warn_count = methodology["status"].eq("WARN").sum()
-    card_row(
-        [
-            ("Checks", f"{len(methodology):,}", None),
-            ("Passed", f"{pass_count:,}", None),
-            ("Warnings", f"{warn_count:,}", None),
-            ("Failed", f"{fail_count:,}", None),
-        ]
-    )
-
-    fig = px.histogram(
-        methodology,
-        x="status",
-        color="status",
-        title="Methodology check status",
-    )
-    fig.update_layout(height=320, showlegend=False)
-    st.plotly_chart(fig, width="stretch")
-
-    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
-
-    with st.expander("All methodology checks (detailed table)"):
-        st.dataframe(methodology, width="stretch")
-
-    methodology_path = PROJECT_ROOT / "report" / "methodology_checks.md"
-    report_text = load_markdown(
-        "report/methodology_checks.md",
-        file_mtime(methodology_path),
-    )
-    if report_text:
-        with st.expander("Methodology checks, full report text"):
-            st.markdown(report_text)
-
-    source_footer(content["footer"])
-
-
-GITHUB_BLOB_BASE = "https://github.com/kylelevesque12/nfl-player-value-analysis/blob/main"
-
-
-def reports_page() -> None:
-    st.subheader("Underlying research notes")
-    st.caption(
-        "The original per-topic research notes behind this app, hosted in the "
-        "GitHub repository. The methodology depth lives there; this app ships "
-        "the results."
-    )
-
-    links = [
-        ("Final project report", "report/final_project_report.md"),
-        ("Methodology checks", "report/methodology_checks.md"),
-        ("Model interpretation", "report/model_interpretation.md"),
-        ("Salary-efficiency findings", "report/salary_efficiency_findings.md"),
-        ("Season fantasy projection summary", "report/fantasy_football_projection_summary.md"),
-        ("Weekly fantasy projection summary", "report/weekly_fantasy_projection_summary.md"),
-        ("External benchmark (vs DraftKings)", "report/external_benchmark.md"),
-        ("Rookie Bayesian projection", "report/rookie_bayes_projection.md"),
-        ("QB injury causal study", "report/causal/qb_injury_session3.md"),
-        ("Two-stage weekly decomposition (negative result)", "report/two_stage_weekly.md"),
-        ("2026 prediction report summary", "report/2026_prediction_report_summary.md"),
-    ]
-    available = [(label, rel) for label, rel in links if (PROJECT_ROOT / rel).exists()]
-    for label, relative_path in available:
-        st.write(f"- [{label}]({GITHUB_BLOB_BASE}/{relative_path})")
-
-
 # ---------------------------------------------------------------------------
 # Landing page: pure content/config lives in app/landing_content.py
 # ---------------------------------------------------------------------------
@@ -1067,12 +862,10 @@ from app.landing_content import (  # noqa: E402
     NAV_HOME,
     NAV_FANTASY,
     NAV_DRAFTROOM,
-    NAV_METHOD,
     NAV_CAPTIONS,
     SECTIONS,
     TEAM_COLORS,
     DEFAULT_TEAM_COLOR,
-    methodology_strip_labels,
 )
 from app import fantasy_content as fc  # noqa: E402
 from app import draft_planner  # noqa: E402
@@ -1256,22 +1049,15 @@ def landing_page(data: dict[str, pd.DataFrame]) -> None:
     _player_content_modules(data)
 
     st.divider()
-    st.caption(" · ".join(f"✓ {label}" for label in methodology_strip_labels()))
-
-    overview = reference_markdown(_reference_text(), [1, 2, 3, 12])
-    if overview:
-        with st.expander("Read the full project overview"):
-            st.markdown(overview)
-
     with st.expander("How to use this app"):
         st.markdown(
-            "The Draft Board has the 2026 rankings with tiers, floors, and "
-            "ceilings; the Draft Room has the positional scarcity picture and "
-            "will host the whole-draft planner; Player Detail assembles "
-            "everything on one player. Methodology & Research holds the "
-            "safeguards audit, the research study summaries, sources, and the "
-            "full project report — the technical depth lives in the "
-            "[GitHub repository](https://github.com/kylelevesque12/nfl-player-value-analysis)."
+            "The **Draft Board** has the 2026 rankings with tiers, floors, and "
+            "ceilings. The **Draft Room** plans your whole draft, not just your "
+            "next pick, and tracks picks as they happen. **Player Detail** "
+            "assembles everything on one player.\n\n"
+            "Projections are ranges, not promises. Where two players sit in the "
+            "same tier, the model cannot confidently separate them — take the "
+            "one you prefer."
         )
 
 
@@ -1697,14 +1483,9 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
     section_header(
         "Fantasy",
         "Draft Board",
-        "2026 PPR projections by position, with week-by-week accuracy and the market benchmark.",
+        "2026 PPR projections by position, with tiers and honest ranges.",
     )
-    tab1, tab2 = st.tabs(["Rankings", "Accuracy & benchmark"])
-    with tab1:
-        espn_fantasy_view(data)
-    with tab2:
-        external_benchmark_page(data)
-    _scroll_top_on_tab_change()
+    espn_fantasy_view(data)
     st.divider()
     with st.expander("How these projections are built and graded"):
         st.markdown(
@@ -1729,153 +1510,6 @@ def fantasy_section(data: dict[str, pd.DataFrame]) -> None:
             "QBs get no Role badge because QB efficiency is the documented "
             "exception that does repeat."
         )
-    _full_writeup_expander("fantasy")
-
-
-def _sources_block() -> None:
-    st.subheader("Sources")
-    st.markdown(
-        "**How the models are evaluated.** The metric choices follow established "
-        "forecasting and fantasy-accuracy practice, not a yardstick invented here:\n\n"
-        "- Hyndman & Athanasopoulos, *Forecasting: Principles and Practice* (3rd ed.): "
-        "the skill-score / \"beat the naive baseline\" standard. "
-        "<https://otexts.com/fpp3/accuracy.html>\n"
-        "- Fantasy Football Analytics, *Which Fantasy Football Projections Are Most "
-        "Accurate?*: the realistic ceiling on weekly predictability and the value of "
-        "consistency across seasons. "
-        "<https://fantasyfootballanalytics.net/2024/12/which-fantasy-football-projections-are-most-accurate.html>\n"
-        "- FantasyPros, *In-Season Accuracy Methodology*: the industry's own "
-        "error-versus-realized-points grading standard. "
-        "<https://www.fantasypros.com/about/faq/football-inseason-accuracy-methodology/>\n\n"
-        "**Data sources.**\n\n"
-        "- **nflverse** (via `nflreadpy`): weekly stats, rosters, schedules, depth "
-        "charts, injuries, play-by-play, combine, draft picks (2016–2025).\n"
-        "- **OverTheCap** (via nflverse contracts): contract terms behind the cap-hit "
-        "reconstruction.\n"
-        "- **RotoGuru / DraftKings**: the free DK salary archive used to build the "
-        "market-implied benchmark (through 2021)."
-    )
-
-
-def _project_report_tab() -> None:
-    """Project report downloads + the full reference readable in-app, plus the
-    sources block and links to the per-topic research notes on GitHub."""
-    st.subheader("Project report")
-    st.caption(
-        "The complete write-up: every model, metric, and method in plain terms, "
-        "with findings, safeguards, and limitations."
-    )
-    ref = _reference_text()
-    if ref:
-        cols = st.columns(2)
-        with cols[0]:
-            st.download_button(
-                "Download report (Markdown)",
-                ref,
-                file_name="PROJECT_REFERENCE.md",
-                mime="text/markdown",
-                width="stretch",
-            )
-        docx_path = PROJECT_ROOT / "PROJECT_REFERENCE.docx"
-        if docx_path.exists():
-            with cols[1]:
-                st.download_button(
-                    "Download report (Word)",
-                    docx_path.read_bytes(),
-                    file_name="PROJECT_REFERENCE.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    width="stretch",
-                )
-        with st.expander("Read the full report in-app"):
-            numbers = sorted(split_reference(ref).keys())
-            st.markdown(reference_markdown(ref, numbers))
-    else:
-        st.info(
-            "The project reference is unavailable. It lives at PROJECT_REFERENCE.md "
-            "in the project root."
-        )
-
-    st.divider()
-    _sources_block()
-    st.divider()
-    reports_page()
-
-
-def _study_card(content: dict, report_path: str, headline: str | None = None) -> None:
-    """Compact summary card for a research study whose full analysis lives in
-    the GitHub repo: title, purpose, key findings, headline number, and a link.
-    The app ships the conclusion; the repo carries the depth."""
-    st.markdown(f"#### {content['title']}")
-    st.caption(content["purpose"])
-    if headline:
-        st.markdown(headline)
-    st.markdown("\n".join(f"- {point}" for point in content["summary"]))
-    caveat_callout(content["caveat"]["body"], content["caveat"]["label"])
-    st.markdown(f"[Read the full analysis on GitHub]({GITHUB_BLOB_BASE}/{report_path})")
-
-
-def _research_studies_tab(data: dict[str, pd.DataFrame]) -> None:
-    st.caption(
-        "Research studies behind the product pages, summarized. Full write-ups, "
-        "diagnostics, and code live in the GitHub repository."
-    )
-    att = data.get("causal_s3_att", pd.DataFrame())
-    att_headline = None
-    if not att.empty:
-        att_row = att.iloc[0]
-        att_headline = (
-            f"**Headline estimate:** {att_row['att_pooled_post_period']:+.2f} PPG "
-            f"pooled post-period effect (p ≈ {att_row['att_p_value_approx']:.3f}), "
-            "on 104 first-report events."
-        )
-    top_surplus = data.get("replacement_top_surplus", pd.DataFrame())
-    surplus_headline = None
-    if not top_surplus.empty:
-        lead = top_surplus.iloc[0]
-        surplus_headline = (
-            f"**Headline finding:** {int(lead['season'])} "
-            f"{lead['player_display_name']} produced "
-            f"**${lead['dollar_surplus_millions']:.1f}M** of surplus over a "
-            "replacement-level player — the front-office study whose "
-            "role-vs-efficiency machinery now powers the stable/shaky badges "
-            "on the Draft Board."
-        )
-    _study_card(
-        DETAIL_PAGES["surplus"], "report/salary_efficiency_findings.md", surplus_headline
-    )
-    st.divider()
-    _study_card(DETAIL_PAGES["rookie"], "report/rookie_bayes_projection.md")
-    st.divider()
-    _study_card(DETAIL_PAGES["causal"], "report/causal/qb_injury_session3.md", att_headline)
-    st.divider()
-    _study_card(DETAIL_PAGES["two_stage"], "report/two_stage_weekly.md")
-    st.divider()
-    _full_writeup_expander("causal", "QB injury study, plain-language write-up")
-
-
-def methodology_research_section(data: dict[str, pd.DataFrame]) -> None:
-    """One section for everything methodology: the safeguards audit, summaries
-    of the research studies, and the full project report. The product sections
-    stay lean; the research depth lives in the GitHub repo."""
-    section_header(
-        "Research",
-        "Methodology & Research",
-        "How the models are built and checked, and the research studies behind the product pages.",
-    )
-    tab1, tab2, tab3 = st.tabs(
-        ["Safeguards & checks", "Research studies", "Report & sources"]
-    )
-    with tab1:
-        methodology_page(data)
-        st.divider()
-        _full_writeup_expander(
-            "methodology", "Models, safeguards, limitations & roadmap (full write-up)"
-        )
-    with tab2:
-        _research_studies_tab(data)
-    with tab3:
-        _project_report_tab()
-    _scroll_top_on_tab_change()
 
 
 def main() -> None:
@@ -1917,7 +1551,8 @@ def main() -> None:
     st.sidebar.divider()
     st.sidebar.caption(
         "Projections cover the 2016-2025 seasons and the 2026 outlook. "
-        "Code, data pipeline, and research notes: "
+        "How the models are built, how they are graded, and the full research "
+        "write-ups: "
         "[GitHub](https://github.com/kylelevesque12/nfl-player-value-analysis)."
     )
 
@@ -1927,8 +1562,6 @@ def main() -> None:
         draft_room_section(data)
     elif section == NAV_PLAYER:
         player_detail_page(data, player_index)
-    elif section == NAV_METHOD:
-        methodology_research_section(data)
     else:
         landing_page(data)
 

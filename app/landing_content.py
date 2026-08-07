@@ -1,7 +1,7 @@
 """Pure (Streamlit-free) content + navigation config for the landing page.
 
-Kept separate from ``streamlit_app.py`` so the copy, methodology labels, and
-navigation targets can be unit-tested without a Streamlit runtime.
+Kept separate from ``streamlit_app.py`` so the copy and navigation targets can
+be unit-tested without a Streamlit runtime.
 """
 
 from __future__ import annotations
@@ -13,15 +13,17 @@ LANDING_SUBTITLE = (
 )
 
 # Navigation targets, must match the sidebar radio option strings exactly.
-# A single sidebar selects one section. Every section is user-facing fantasy
-# product; the front-office surplus study, the rookie methodology, the QB
-# injury study, the decomposition experiments, and the project report all live
-# as research summaries inside Methodology & Research (full depth in the repo).
+# A single sidebar selects one section, and every section is user-facing
+# fantasy product. The research — the front-office surplus study, the rookie
+# methodology, the QB injury study, the decomposition experiments, the
+# external benchmark and the project report — is deliberately NOT in this
+# list: it lives in the repository (report/, notebooks/, src/), reachable
+# from the one repo link in the sidebar footer. The app is the product; the
+# repo is the portfolio.
 NAV_HOME = "Home"
 NAV_FANTASY = "Draft Board"
 NAV_DRAFTROOM = "Draft Room"
 NAV_PLAYER = "Player Detail"
-NAV_METHOD = "Methodology & Research"
 
 # The full ordered list of sidebar sections (the app's only navigation control).
 SECTIONS = [
@@ -29,16 +31,14 @@ SECTIONS = [
     NAV_FANTASY,
     NAV_DRAFTROOM,
     NAV_PLAYER,
-    NAV_METHOD,
 ]
 
 # One-line caption under each nav item.
 NAV_CAPTIONS = {
     NAV_HOME: "Start here",
-    NAV_FANTASY: "2026 rankings, tiers & accuracy",
+    NAV_FANTASY: "2026 rankings, tiers & ranges",
     NAV_DRAFTROOM: "Plan your whole draft",
     NAV_PLAYER: "Everything on one player",
-    NAV_METHOD: "How it all works",
 }
 
 # Team primary colors for player tiles (nflverse team codes). Fallback is the
@@ -54,13 +54,3 @@ TEAM_COLORS = {
     "SF": "#AA0000", "TB": "#D50A0A", "TEN": "#0C2340", "WAS": "#5A1414",
 }
 DEFAULT_TEAM_COLOR = "#0d2b45"
-
-
-def methodology_strip_labels() -> list[str]:
-    return [
-        "Leakage-safe features",
-        "Time-based validation",
-        "Negative results documented",
-        "Source/quality flags for salary estimates",
-        "Tests covering key modeling assumptions",
-    ]

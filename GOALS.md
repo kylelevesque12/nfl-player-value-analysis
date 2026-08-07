@@ -73,23 +73,6 @@ unusable, and `AppTest` cannot see that. Check the real app at 1280px and at
 
 ## Queue
 
-- [ ] **1. Take the research out of the app.** Remove the
-  `Methodology & Research` section entirely, and remove the
-  `Accuracy & benchmark` tab from the Draft Board — both are research
-  surfaces. The render functions listed in
-  `scripts/app_surface_check.py:RESEARCH_RENDER_FUNCTIONS` should no longer
-  exist in `app/`. Navigation ends at four entries: Home, Draft Board, Draft
-  Room, Player Detail. Nothing under `report/`, `notebooks/`, or `src/` is
-  touched, and no pipeline step is removed — the research keeps building,
-  it just stops rendering in the product. Add a single repo link in the
-  sidebar footer. Clean up whatever the removal orphans: unused imports,
-  unreferenced helpers, dead session-state keys, and links that pointed at
-  the removed pages. Keep the plain-language explainer of how projections
-  are built that sits under the Draft Board — that is a user telling you
-  what the numbers mean, not a research page. Definition of done: the
-  app-surface gate's "no research in nav" and "research renderers removed"
-  checks both pass.
-
 - [ ] **2. Split `streamlit_app.py` into one module per page.** It is 1,937
   lines, which is the reason UI work on it is risky — you cannot safely
   redesign a page you cannot find. Move each section into its own module
@@ -166,3 +149,24 @@ Deliberately parked so the redesign stays the focus, but scoped and ready:
 ## Done
 
 <!-- Completed goals move here with the date they landed. -->
+
+- [x] **1. Take the research out of the app.** *(2026-08-07)* Navigation went
+  from five sections to four — Home, Draft Board, Draft Room, Player Detail.
+  Removed the whole `Methodology & Research` section (safeguards audit,
+  research-study summaries, sources, project report), the
+  `Accuracy & benchmark` tab from the Draft Board, the project-overview
+  panel and the "trust signals" strip from Home, and the per-section
+  full-write-up expanders. That orphaned two pure-content modules
+  (`app/page_content.py`, `app/section_content.py`) whose only job was
+  feeding research copy and slicing `PROJECT_REFERENCE.md` into app panels,
+  plus three components (`render_page_scaffold`, `executive_summary`,
+  `page_header`) — all removed with their tests. `streamlit_app.py` fell
+  1,937 → 1,570 lines. The research itself was untouched: the diff is
+  confined to `app/` and `tests/`, every pipeline step still builds, and a
+  new `test_research_stays_in_the_repository` asserts the study files still
+  exist. Kept, deliberately: the plain-language "How these projections are
+  built and graded" explainer under the Draft Board, and every honesty
+  marker (ranges, tiers, stable/shaky, ⚕, caveat callouts). One real bug
+  caught by the loop's own gates — `GITHUB_BLOB_BASE` was defined inside the
+  removed block but still used by the Draft Room's report link, so the app
+  raised `NameError` on that page until it was restored at module scope.
