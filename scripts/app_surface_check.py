@@ -30,6 +30,12 @@ It checks four things, in order of how badly each one would hurt if it broke:
    section that still exists, which is the specific way removing a page
    tends to break the pages that linked to it.
 
+5. EVERY MODULE THE APP IMPORTS IS TRACKED BY GIT. A new module that exists
+   on disk but never made it into the index runs perfectly on the machine
+   that wrote it and breaks the deploy as soon as the change set is
+   committed. This repository has been bitten by silently-untracked files
+   more than once.
+
 Run it directly for a readable report:
 
     .venv/bin/python scripts/app_surface_check.py
@@ -40,6 +46,7 @@ Exit code 0 means every check passed; 1 means at least one failed.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -266,8 +273,58 @@ def check_nav_targets_resolve() -> list[str]:
     return results or [_ok(f"all {len(targets)} in-app navigation targets resolve")]
 
 
+def check_app_modules_are_tracked() -> list[str]:
+    """Every app module the app imports must be tracked by git.
+
+    A module that exists on disk but not in the index runs fine locally and
+    then breaks the deploy the moment the change set is committed without it.
+    This repository has a long history of exactly that failure — files
+    silently dropped by `git add` because of a blanket ignore rule — so the
+    gate checks the whole import graph under app/, not just that the files
+    exist.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files"], capture_output=True, text=True, cwd=ROOT, timeout=30
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [_fail(f"could not ask git which files are tracked: {exc}")]
+    if proc.returncode != 0:
+        return [_ok("not a git checkout — skipping the tracked-files check")]
+    tracked = set(proc.stdout.split())
+
+    def is_tracked(module: str) -> bool:
+        base = module.replace(".", "/")
+        return f"{base}.py" in tracked or f"{base}/__init__.py" in tracked
+
+    problems = []
+    imported: set[str] = set()
+    for path, text in _app_sources().items():
+        for module in set(
+            re.findall(r"^\s*from (app[\w.]*) import", text, re.MULTILINE)
+        ) | set(re.findall(r"^\s*import (app[\w.]*)", text, re.MULTILINE)):
+            imported.add(module)
+            if not is_tracked(module):
+                problems.append(
+                    _fail(
+                        f"{path.relative_to(ROOT)} imports '{module}', which is "
+                        "not tracked by git — committing this change set would "
+                        "ship an app that cannot import its own modules"
+                    )
+                )
+        # The importing file itself has to be tracked too.
+        rel = str(path.relative_to(ROOT))
+        if rel not in tracked:
+            problems.append(_fail(f"{rel} is not tracked by git"))
+
+    return problems or [
+        _ok(f"all {len(imported)} imported app modules are tracked by git")
+    ]
+
+
 CHECKS = [
     ("data", check_data_present),
+    ("app modules tracked", check_app_modules_are_tracked),
     ("render", check_sections_render),
     ("no research in nav", check_no_research_in_nav),
     ("research renderers removed", check_research_renderers_removed),

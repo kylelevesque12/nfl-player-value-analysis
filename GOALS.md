@@ -58,8 +58,11 @@ Every goal runs through three gates, in order, as a Stop hook
    render. The gate drives every navigation section through Streamlit's
    `AppTest` and requires a clean render, then checks that no research
    surface remains in the navigation, that the research render functions are
-   gone from `app/`, that every honesty marker above is still present, and
-   that no in-app navigation jump points at a page that no longer exists.
+   gone from `app/`, that every honesty marker above is still present, that
+   no in-app navigation jump points at a page that no longer exists, and that
+   every app module the app imports is actually tracked by git — a module
+   that exists only on disk runs fine locally and breaks the deploy the
+   moment the change set is committed without it.
    Run it yourself any time: `.venv/bin/python scripts/app_surface_check.py`.
 3. **Codex review** against the goal text, briefed on the four failure modes
    specific to this project: research deleted rather than unhooked, honesty
@@ -175,6 +178,14 @@ Deliberately parked so the redesign stays the focus, but scoped and ready:
   pattern follows the helper's rename to the public `go_to`. That last one was
   caught by the gate's own "found no targets at all" guard, which exists so a
   renamed helper cannot turn the check into a silent no-op.
+  Codex then caught something none of the automated checks did: the nine new
+  modules were still **untracked**, so committing the change set without them
+  would have shipped an app that cannot import itself. No ignore rule was to
+  blame this time, but that is the repo's most-repeated failure, so the fix
+  was not just to stage the files — the gate now walks the whole `app/`
+  import graph and fails if any imported module is missing from git's index.
+  Verified by deliberately un-tracking `app/theme.py` and confirming the
+  check fails, then restoring it.
 
 - [x] **1. Take the research out of the app.** *(2026-08-07)* Navigation went
   from five sections to four — Home, Draft Board, Draft Room, Player Detail.
