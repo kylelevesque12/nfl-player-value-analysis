@@ -139,7 +139,16 @@ mlruns/
 # IDE files
 .vscode/
 .idea/
-.claude/
+
+# Claude Code: the goal-loop harness is committed (it is part of how this
+# project is built); machine-local settings, worktrees, and the loop's own
+# scratch state are not. Note the trailing `*` — a bare `.claude/` ignore
+# would block the negations below entirely, because git does not look inside
+# an ignored directory.
+.claude/*
+!.claude/settings.json
+!.claude/commands/
+!.claude/hooks/
 
 # Office temp/lock files
 ~$*
