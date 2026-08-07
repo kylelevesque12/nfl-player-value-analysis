@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Make `from app.components import ...` work regardless of how Streamlit is
+# Make `from app.design import ...` work regardless of how Streamlit is
 # invoked. Streamlit's cwd is the script's directory (app/), not the project
 # root, so we prepend the project root to sys.path here.
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -71,9 +71,9 @@ from app.sections.draft_board import fantasy_section  # noqa: E402
 from app.sections.draft_room import draft_room_section  # noqa: E402
 from app.sections.home import landing_page  # noqa: E402
 from app.sections.player_detail import player_detail_page  # noqa: E402
-from app.theme import inject_all_css  # noqa: E402
+from app.design import brand_block, inject_design_system  # noqa: E402
 
-inject_all_css()
+inject_design_system()
 
 
 def main() -> None:
@@ -96,13 +96,7 @@ def main() -> None:
 
     player_index = player_index_from_data(data)
 
-    st.sidebar.markdown(
-        """
-        <div class="side-brand">🏈&nbsp;NFL Player Value
-        <span class="sub">&amp; Fantasy Forecasting</span></div>
-        """,
-        unsafe_allow_html=True,
-    )
+    brand_block("🏈 NFL Player Value", "& Fantasy Forecasting")
     st.sidebar.divider()
     section = st.sidebar.radio(
         "Section",

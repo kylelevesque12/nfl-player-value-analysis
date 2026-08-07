@@ -8,9 +8,8 @@ import streamlit as st
 
 from app import draft_planner
 from app import fantasy_content as fc
-from app.components import caveat_callout
 from app.data_access import GITHUB_BLOB_BASE
-from app.theme import section_header
+from app.design import caveat_callout, section_header
 
 
 def _draft_room_player_label(row: pd.Series, team_col: str | None) -> str:

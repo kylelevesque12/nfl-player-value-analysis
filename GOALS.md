@@ -76,15 +76,6 @@ unusable, and `AppTest` cannot see that. Check the real app at 1280px and at
 
 ## Queue
 
-- [ ] **3. Build the visual foundation.** One coherent design language
-  applied everywhere instead of per-page styling: a type scale, a spacing
-  scale, the color roles (including what a positive/negative/uncertain value
-  looks like), and a small set of reusable components — player row, stat
-  card, tier badge, range bar, section header. Replace the ad-hoc CSS in
-  `inject_custom_css` / `inject_theme_css` with this. The test of success is
-  that a new page can be built from the components without writing new CSS.
-  Screenshots required.
-
 - [ ] **4. Redesign Home.** This is the page a league-mate lands on with no
   context, so it has about five seconds to say what the tool is and get them
   to the board. Lead with the draft-day action, not with a description of
@@ -147,6 +138,40 @@ Deliberately parked so the redesign stays the focus, but scoped and ready:
 ## Done
 
 <!-- Completed goals move here with the date they landed. -->
+
+- [x] **3. Build the visual foundation.** *(2026-08-07)* One module,
+  `app/design.py`, now holds every token and every component, and is the only
+  place in the app that emits CSS. Tokens: a 7-step type scale, a 6-step
+  spacing scale, shape and elevation, and — the part that matters for this
+  product — **semantic color roles**, `--positive` / `--negative` /
+  `--uncertain`. Uncertainty gets its own role deliberately: a range the model
+  is unsure about must not read as neutral grey filler when telling you what
+  it does not know is the whole pitch.
+  Components shipped: hero, section header, stat card, player tile, player
+  row, tier badge, **range bar**, delta, callout (with the caveat tone),
+  brand block. The range bar draws the 80% interval as the band and the point
+  estimate as a marker inside it, so the uncertainty is the visual subject
+  rather than a number in a text column.
+  This replaced three separate injectors that each overrode the one before
+  (the base layer painted the sidebar white, the brand layer repainted it
+  navy). `app/theme.py` and `app/components.py` are gone — an audit found
+  **only 2 of the 12 component functions were ever called**, the rest being
+  leftovers of the pre-goal-1 research pages, along with ~230 lines of CSS for
+  cards nothing rendered.
+  The goal's success test — "a new page can be built from the components
+  without writing new CSS" — is enforced by `tests/test_design_system.py`:
+  exactly one module may contain a `<style>` block, no section may put a hex
+  color in markup, every class a component emits must have a rule, and every
+  `var(--token)` must be declared. Verified the class check actually fails by
+  planting a typo'd class name.
+  Three real visual defects found by looking at the rendered app, not by any
+  automated check: Streamlit's generated `.st-emotion-cache-* h1` rule
+  outspecified the hero title (and Streamlit injects an anchor element into
+  every heading, adding a phantom line box); tiles fell out of alignment when
+  a name wrapped to two lines; and the fix for the first defect then broke the
+  narrow-viewport override, because the media query's single-class selector no
+  longer beat the two-class base rule. Screenshots at 1280px and 390px; tile
+  bottoms verified aligned to the pixel.
 
 - [x] **2. Split `streamlit_app.py` into one module per page.** *(2026-08-07)*
   The entry script went **1,570 → 134 lines** and now does only four things:

@@ -7,8 +7,8 @@ import pandas as pd
 import streamlit as st
 
 from app import fantasy_content as fc
+from app.design import section_header
 from app.formatting import card_row, col_or_na
-from app.theme import section_header
 
 
 def _overall_board_view(data: dict[str, pd.DataFrame]) -> None:

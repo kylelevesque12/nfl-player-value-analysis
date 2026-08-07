@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from app import design
 from app import fantasy_content as fc
 from app.landing_content import (
     LANDING_TITLE,
@@ -31,20 +32,18 @@ def _top_projected_strip(data: dict[str, pd.DataFrame]) -> None:
     cols = st.columns(len(top))
     for col, (rank, (_, row)) in zip(cols, enumerate(top.iterrows(), start=1)):
         team = str(row.get(team_col, "") or "")
-        color = TEAM_COLORS.get(team, DEFAULT_TEAM_COLOR)
         ppg = row.get("predicted_2026_ppr_per_game")
-        ppg_txt = f"{ppg:.1f} per game" if pd.notna(ppg) else ""
         with col:
             st.markdown(
-                f"""
-                <div class="player-tile" style="--team-color:{color}">
-                    <div class="rank">#{rank} · {row['position']}</div>
-                    <div class="name">{row['player_display_name']}</div>
-                    <div class="meta">{team} · {ppg_txt}</div>
-                    <div class="points">{row['predicted_2026_fantasy_points_ppr']:.0f}
-                    <span>proj PPR</span></div>
-                </div>
-                """,
+                design.player_tile_html(
+                    rank=rank,
+                    name=row["player_display_name"],
+                    position=row["position"],
+                    team=team,
+                    meta=f"{ppg:.1f} per game" if pd.notna(ppg) else "",
+                    value=f"{row['predicted_2026_fantasy_points_ppr']:.0f}",
+                    team_color=TEAM_COLORS.get(team, DEFAULT_TEAM_COLOR),
+                ),
                 unsafe_allow_html=True,
             )
 
@@ -161,17 +160,10 @@ def _player_content_modules(data: dict[str, pd.DataFrame]) -> None:
 
 
 def landing_page(data: dict[str, pd.DataFrame]) -> None:
-    st.markdown(
-        f"""
-        <div class="hero">
-            <h1>{LANDING_TITLE}</h1>
-            <p>{LANDING_SUBTITLE}</p>
-            <span class="pill">2026 draft prep</span>
-            <span class="pill">Honest ranges</span>
-            <span class="pill">QB · RB · WR · TE</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    design.hero(
+        LANDING_TITLE,
+        LANDING_SUBTITLE,
+        pills=["2026 draft prep", "Honest ranges", "QB · RB · WR · TE"],
     )
     _top_projected_strip(data)
 

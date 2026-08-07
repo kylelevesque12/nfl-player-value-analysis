@@ -7,7 +7,7 @@ import plotly.express as px
 import streamlit as st
 
 from app import player_search as ps
-from app.components import caveat_callout, source_footer
+from app.design import caveat_callout, source_footer
 from app.formatting import card_row, kpi_or_dash
 from app.landing_content import NAV_HOME
 from app.navigation import go_to
