@@ -73,21 +73,6 @@ unusable, and `AppTest` cannot see that. Check the real app at 1280px and at
 
 ## Queue
 
-- [ ] **2. Split `streamlit_app.py` into one module per page.** It is 1,937
-  lines, which is the reason UI work on it is risky — you cannot safely
-  redesign a page you cannot find. Move each section into its own module
-  under `app/` (home, draft board, draft room, player detail) with the
-  shared chrome — CSS, layout, formatting helpers, data loading — factored
-  out. **No behaviour change whatsoever**: this goal is pure restructuring,
-  and the app-surface gate plus the existing `AppTest` tests are what pin
-  that. Two known traps to fix while in here: `NAV_PLAYER` is currently
-  defined twice, at `app/streamlit_app.py:187` and
-  `app/landing_content.py:23`, and the `sys.modules` purge of `app.*` at the
-  top of the entry script must be preserved exactly — it is what keeps
-  Streamlit Cloud's hot-reload from serving new code against stale cached
-  modules, it has taken the deploy down twice, and `tests/test_stale_module_reload.py`
-  guards it.
-
 - [ ] **3. Build the visual foundation.** One coherent design language
   applied everywhere instead of per-page styling: a type scale, a spacing
   scale, the color roles (including what a positive/negative/uncertain value
@@ -112,7 +97,17 @@ unusable, and `AppTest` cannot see that. Check the real app at 1280px and at
   *engine* is not in scope here — only its layout and readability, since the
   planner is getting functional work separately. Screenshots required.
 
-- [ ] **7. Make it work on a phone.** People draft from their phones and
+- [ ] **7. Drop the data loads that goal 1 orphaned.** `load_all_data` in
+  `app/data_access.py` still reads four `external_benchmark_*` tables and
+  `causal_s3_att` that nothing renders any more, and `methodology` is still
+  in the missing-tables warning list in `main()` — so a fresh clone would
+  warn the user about a table the app never uses. Found during goal 2 and
+  deliberately left alone there, because that goal's contract was "no
+  behaviour change whatsoever" and quietly folding a cleanup into a
+  1,500-line move is how a pure refactor hides a regression. Small, isolated,
+  and easy to verify on its own.
+
+- [ ] **8. Make it work on a phone.** People draft from their phones and
   from a laptop on a couch, and Streamlit's default layout does not survive
   a 390px viewport. Every page has to be usable narrow: no horizontal
   scrolling on the board, tap targets big enough to hit, and the Draft
@@ -149,6 +144,37 @@ Deliberately parked so the redesign stays the focus, but scoped and ready:
 ## Done
 
 <!-- Completed goals move here with the date they landed. -->
+
+- [x] **2. Split `streamlit_app.py` into one module per page.** *(2026-08-07)*
+  The entry script went **1,570 → 134 lines** and now does only four things:
+  fix the import path, purge stale modules, configure the page, and route the
+  sidebar selection. Pages live in `app/sections/` — `home.py` (192),
+  `draft_board.py` (324), `draft_room.py` (229), `player_detail.py` (179) —
+  over shared chrome in `theme.py` (the CSS cascade + section header),
+  `data_access.py` (paths and cached table loads), `formatting.py` (number
+  formatting, KPI tiles) and `navigation.py` (the deferred section jump and
+  the sidebar player search).
+  **The directory is `sections/`, not `pages/`, on purpose**: Streamlit treats
+  a `pages/` directory beside the entry script as a multipage app and builds
+  its own navigation from it, which would have collided with the sidebar
+  radio.
+  Both named traps fixed: `NAV_PLAYER` is now defined once, in
+  `landing_content.py`, and the `sys.modules` purge is unchanged and still
+  above every `app.*` import.
+  **No behaviour change, proved rather than asserted**: a render-dump of every
+  element on all four sections was captured from a git worktree at the
+  pre-split commit and from the split build, and the two are **byte-identical
+  (82,358 bytes)**. Also removed `_available_columns`, which was defined but
+  never called even before goal 1.
+  Three checks had to be updated because they pinned a specific file or name,
+  and each was made *stronger* rather than looser: `test_stale_module_reload`
+  now finds the first `app.*` import by regex instead of hard-coding
+  `app.components` (which the entry script no longer imports, so the old
+  assertion would have passed vacuously); two nav tests now scan all of `app/`
+  instead of `streamlit_app.py` alone; and the app-surface gate's `_go_to`
+  pattern follows the helper's rename to the public `go_to`. That last one was
+  caught by the gate's own "found no targets at all" guard, which exists so a
+  renamed helper cannot turn the check into a silent no-op.
 
 - [x] **1. Take the research out of the app.** *(2026-08-07)* Navigation went
   from five sections to four — Home, Draft Board, Draft Room, Player Detail.

@@ -232,8 +232,13 @@ def check_nav_targets_resolve() -> list[str]:
         ):
             constants[name] = value
 
+    # Matches both the public `go_to` and the older private `_go_to` spelling.
+    # The helper became cross-module public API when the pages were split into
+    # app/sections/, and this pattern was updated deliberately to follow it —
+    # the "found no targets at all" failure below is what forced the update
+    # rather than letting the check quietly match nothing.
     blob = "\n".join(_app_sources().values())
-    raw = set(re.findall(r"_go_to\(\s*([^)]+?)\s*\)", blob))
+    raw = set(re.findall(r"\b_?go_to\(\s*([^)]+?)\s*\)", blob))
 
     results: list[str] = []
     targets: set[str] = set()
@@ -244,7 +249,7 @@ def check_nav_targets_resolve() -> list[str]:
         elif token in constants:
             targets.add(constants[token])
         elif token.startswith("NAV_"):
-            results.append(_fail(f"_go_to({token}) references an undefined nav constant"))
+            results.append(_fail(f"go_to({token}) references an undefined nav constant"))
         # anything else is a runtime-computed target this static check cannot
         # follow; the render check above still exercises the real pages.
 
@@ -257,7 +262,7 @@ def check_nav_targets_resolve() -> list[str]:
             )
         )
     if not targets and not results:
-        return [_fail("found no _go_to targets at all — has the helper been renamed?")]
+        return [_fail("found no go_to targets at all — has the helper been renamed?")]
     return results or [_ok(f"all {len(targets)} in-app navigation targets resolve")]
 
 

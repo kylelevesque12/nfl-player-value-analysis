@@ -12,6 +12,7 @@ anyway.
 
 from __future__ import annotations
 
+import re
 import sys
 import types
 from pathlib import Path
@@ -22,9 +23,16 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_app_source_contains_module_purge():
     src = (ROOT / "app" / "streamlit_app.py").read_text()
     assert 'm == "app" or m.startswith("app.")' in src
-    # The purge must run before the first app.* import statement (newline-
-    # anchored so a mention inside a comment does not satisfy the check).
-    assert src.index('m.startswith("app.")') < src.index("\nfrom app.components import")
+
+    # The purge must run before the FIRST app.* import, whichever module that
+    # happens to be. Checked by regex rather than against one hard-coded module
+    # name so that moving code between app modules cannot silently retire this
+    # guard: the entry script's imports changed when the pages were split out,
+    # and pinning a specific module would have made this assertion pass
+    # vacuously instead of failing loudly.
+    first_app_import = re.search(r"^(?:from|import) app[. ]", src, re.MULTILINE)
+    assert first_app_import, "entry script imports no app.* module at all"
+    assert src.index('m.startswith("app.")') < first_app_import.start()
 
 
 def test_app_boots_with_stale_landing_content_planted():

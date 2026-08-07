@@ -42,9 +42,11 @@ def test_nav_is_product_only():
 
 def test_nav_targets_match_app_radio_options():
     """The app builds its sidebar from SECTIONS and routes through nav_section,
-    so navigation targets cannot silently no-op. Checked against the source to
-    avoid importing Streamlit."""
-    src = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text()
+    so navigation targets cannot silently no-op. Checked against the source of
+    all of app/ (the pages live in app/sections/ now) to avoid importing
+    Streamlit."""
+    app_dir = Path(__file__).resolve().parents[1] / "app"
+    src = "\n".join(p.read_text() for p in sorted(app_dir.rglob("*.py")))
     assert "SECTIONS," in src  # imported from landing_content
     assert 'key="nav_section"' in src
     # The section labels that also appear verbatim in app copy/titles.

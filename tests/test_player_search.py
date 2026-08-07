@@ -114,8 +114,16 @@ def test_causal_section_keyed_on_qb_id(frames):
 
 
 def test_nav_labels_still_match_app_source():
-    src = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text()
-    assert 'NAV_PLAYER = "Player Detail"' in src
+    """The search box and the detail page have to stay wired to each other.
+
+    Checked across all of app/ rather than against streamlit_app.py alone:
+    the pages were split into app/sections/, so pinning one file would make
+    this pass vacuously the next time something moves.
+    """
+    app_dir = Path(__file__).resolve().parents[1] / "app"
+    src = "\n".join(p.read_text() for p in sorted(app_dir.rglob("*.py")))
+    # NAV_PLAYER is defined exactly once, in the shared nav config.
+    assert src.count('NAV_PLAYER = "Player Detail"') == 1
     assert "render_player_search(player_index)" in src
     assert "player_detail_page(data, player_index)" in src
     # Single-section navigation routes through nav_section.
