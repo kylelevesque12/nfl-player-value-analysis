@@ -1,0 +1,19 @@
+# Runtime-only dependencies for the deployed Streamlit app.
+#
+# The root requirements.txt is the DEVELOPMENT environment: it also pulls in
+# jupyter, mlflow, optuna, shap, polars, scikit-learn and nflreadpy, which the
+# training pipeline needs and the app never imports. On a 1-vCPU droplet that
+# is several hundred MB of wheels and a much slower rebuild for no benefit.
+#
+# This list is derived from the actual imports under app/ (pandas, streamlit,
+# plotly, numpy — app/ imports nothing from src/). If the app ever grows a
+# runtime import outside this set it will fail at startup with ImportError,
+# which is loud and obvious; the fallback is to install the root
+# requirements.txt instead.
+#
+# Versions match the root file so the droplet behaves like local and like the
+# Streamlit Cloud deploy.
+pandas~=2.3
+numpy~=2.3
+plotly~=6.5
+streamlit~=1.58

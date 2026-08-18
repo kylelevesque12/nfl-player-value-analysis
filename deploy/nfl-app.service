@@ -1,0 +1,34 @@
+# systemd unit for the NFL player value Streamlit app.
+# Install to /etc/systemd/system/ then:
+#   systemctl daemon-reload && systemctl enable --now nfl-app
+#
+# Binds to 127.0.0.1 ONLY — Caddy terminates TLS and proxies to it, so the
+# Streamlit port is never exposed to the internet directly. Mirrors the
+# fieldnote.service pattern already running on this droplet.
+[Unit]
+Description=NFL Player Value Streamlit App
+After=network.target
+
+[Service]
+Type=simple
+User=nflapp
+WorkingDirectory=/opt/nfl-app
+ExecStart=/opt/nfl-app/.venv/bin/streamlit run app/streamlit_app.py \
+    --server.address 127.0.0.1 \
+    --server.port 8501 \
+    --server.headless true \
+    --browser.gatherUsageStats false
+# Streamlit reads ~39MB of CSVs into cached DataFrames on first request, so the
+# first page load is slower than the process start; give it room.
+TimeoutStartSec=120
+Restart=always
+RestartSec=5
+# Light hardening, same as fieldnote.service.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/nfl-app
+
+[Install]
+WantedBy=multi-user.target
